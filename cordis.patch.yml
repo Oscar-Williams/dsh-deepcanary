@@ -17,3 +17,4 @@
           end: '08:00'
         privacySafeSummary: true
         healthPollSeconds: 15
+        maxInboxItems: 500

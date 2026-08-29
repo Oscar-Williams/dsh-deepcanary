@@ -1,7 +1,8 @@
 {
   "schemaVersion": 1,
+  "fixtureVersion": 2,
   "name": "AttentionGold",
-  "description": "Deterministic regression cases for DeepCanary attention classification.",
+  "description": "Deterministic regression cases for DeepCanary attention classification and compression.",
   "scenarios": [
     {
       "id": "normal-completion",
@@ -14,17 +15,27 @@
       "expected": { "level": "C2", "action": "INTERRUPT", "reasonCode": "HUMAN_APPROVAL_REQUIRED" }
     },
     {
-      "id": "host-failure",
+      "id": "user-question",
+      "signal": { "kind": "HUMAN_QUESTION_PENDING", "severityHint": 2, "authority": "runtime" },
+      "expected": { "level": "C2", "action": "INTERRUPT", "reasonCode": "HUMAN_QUESTION_PENDING" }
+    },
+    {
+      "id": "host-unreachable",
       "signal": { "kind": "HOST_UNREACHABLE", "severityHint": 3, "authority": "host" },
       "expected": { "level": "C3", "action": "ESCALATE", "reasonCode": "HOST_UNREACHABLE" }
     },
     {
-      "id": "host-suspected-stall",
+      "id": "host-stalled",
       "signal": { "kind": "HOST_SUSPECTED_STALL", "severityHint": 2, "authority": "runtime" },
       "expected": { "level": "C2", "action": "INTERRUPT", "reasonCode": "HOST_SUSPECTED_STALL" }
     },
     {
-      "id": "tool-loop",
+      "id": "no-meaningful-progress",
+      "signal": { "kind": "NO_MEANINGFUL_PROGRESS", "severityHint": 2, "authority": "derived" },
+      "expected": { "level": "C2", "action": "INTERRUPT", "reasonCode": "NO_MEANINGFUL_PROGRESS" }
+    },
+    {
+      "id": "tool-failure-loop",
       "signal": { "kind": "TOOL_FAILURE_LOOP", "severityHint": 2, "authority": "derived" },
       "expected": { "level": "C2", "action": "INTERRUPT", "reasonCode": "TOOL_FAILURE_LOOP" }
     },
@@ -39,9 +50,52 @@
       "expected": { "level": "C1", "action": "INBOX", "reasonCode": "COMPACTION_OCCURRED" }
     },
     {
+      "id": "context-overflow",
+      "signal": { "kind": "CONTEXT_PRESSURE", "severityHint": 2, "authority": "runtime" },
+      "expected": { "level": "C2", "action": "INTERRUPT", "reasonCode": "CONTEXT_PRESSURE" }
+    },
+    {
+      "id": "long-tool-call-healthy",
+      "signal": { "kind": "HOST_SUSPECTED_STALL", "severityHint": 2, "authority": "runtime", "data": { "healthy": true } },
+      "expected": { "level": "C0", "action": "IGNORE", "reasonCode": "HOST_SUSPECTED_STALL" }
+    },
+    {
+      "id": "background-completion",
+      "signal": { "kind": "TASK_COMPLETED", "severityHint": 1, "authority": "runtime", "data": { "background": true } },
+      "expected": { "level": "C1", "action": "INBOX", "reasonCode": "TASK_COMPLETED" }
+    },
+    {
+      "id": "user-already-viewing-dsh",
+      "signal": { "kind": "HUMAN_APPROVAL_REQUIRED", "severityHint": 2, "authority": "runtime", "data": { "userViewing": true } },
+      "expected": { "level": "C1", "action": "INBOX", "reasonCode": "HUMAN_APPROVAL_REQUIRED" }
+    },
+    {
       "id": "suspicious-completion",
       "signal": { "kind": "COMPLETION_SUSPICIOUS", "severityHint": 2, "authority": "heuristic" },
       "expected": { "level": "C2", "action": "INTERRUPT", "reasonCode": "COMPLETION_SUSPICIOUS" }
+    },
+    {
+      "id": "recovered-stall",
+      "signal": { "kind": "HOST_STALL_RECOVERED", "severityHint": 1, "authority": "runtime" },
+      "expected": { "level": "C1", "action": "INBOX", "reasonCode": "HOST_STALL_RECOVERED" }
+    }
+  ],
+  "serviceScenarios": [
+    {
+      "id": "duplicate-events",
+      "signals": [
+        { "id": "duplicate-1", "kind": "HUMAN_APPROVAL_REQUIRED", "severityHint": 2, "authority": "runtime", "dedupeKey": "approval:duplicate" },
+        { "id": "duplicate-2", "kind": "HUMAN_APPROVAL_REQUIRED", "severityHint": 2, "authority": "runtime", "dedupeKey": "approval:duplicate" }
+      ],
+      "expected": { "items": 1, "bundleCount": 1 }
+    },
+    {
+      "id": "shared-root-decision-bundle",
+      "signals": [
+        { "id": "bundle-1", "kind": "TOOL_FAILURE_LOOP", "severityHint": 2, "authority": "derived", "dedupeKey": "failure:1", "bundleKey": "session:root-cause" },
+        { "id": "bundle-2", "kind": "NO_MEANINGFUL_PROGRESS", "severityHint": 2, "authority": "derived", "dedupeKey": "progress:1", "bundleKey": "session:root-cause" }
+      ],
+      "expected": { "items": 1, "bundleCount": 2 }
     }
   ]
 }

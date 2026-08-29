@@ -1,26 +1,47 @@
 # Security and privacy boundary
 
+## Data flow
+
+DeepCanary is a local observer. It receives structured DSH runtime facts, normalizes them into `CanarySignal`, classifies them with deterministic policy, and writes bounded Inbox metadata to the configured local state directory. It has no remote telemetry path and no child-process dependency.
+
 ## Stored data
 
-The default state file contains:
+The default state file is `~/.dsh/dsh-deepcanary/inbox.json`. It contains:
 
-- plugin schema version;
-- item id, timestamp, level, action, status, reason code, and bounded feedback;
-- hash-based Session and Workspace references;
-- evidence type, authority, metadata code, and short provider-written summary.
+- schema version, item ID, timestamp, level, action, status, reason code, and bounded feedback;
+- hashed Session and Workspace references;
+- hashed evidence references plus provider-written type, authority, and bounded summary;
+- Decision Bundle hash, count, and reason-code set.
 
-It does not contain prompts, assistant output, tool arguments, raw tool results, environment variables, API keys, credentials, arbitrary file contents, or full session logs. privacySafeSummary remains enabled by default.
+It does not contain prompts, assistant output, tool arguments, raw tool results, environment variables, API keys, credentials, arbitrary file contents, or a session transcript. The provider contract rejects the use of raw conversation content as an input to the local state path; new providers must use structured facts and short summaries.
 
-## Actions
+Persistence uses an atomic temporary file and rename within the configured state directory. The plugin does not create files elsewhere.
 
-The model-visible and Web actions are limited to acknowledge, snooze, mute, feedback, status, explanation, and a navigation hint. They do not terminate or restart agents, approve or reject requests, run commands, change files, or make network calls on behalf of the user.
+## Public surfaces and actions
 
-## Web boundary
+The Web routes are registered on DSH's local same-origin WebServer and send `cache-control: no-store`. The action endpoint accepts only `acknowledge`, `snooze`, `mute`, `feedback`, and `jump`. Model-visible tools expose the same bounded operations. `jump` returns a URL hint; it does not navigate, open, mutate, or stop a session by itself.
 
-Routes are registered with the DSH local WebServer and are same-origin by design. Responses use no-store; the client renders dynamic values with textContent rather than HTML interpolation. The action endpoint accepts a small JSON payload and rejects unsupported actions.
+The plugin has no shell, file-write, process-control, approval, rejection, arbitrary network, or destructive tool. It does not terminate or restart DSH or any Agent.
 
-The plugin assumes the DSH WebServer is a trusted local host. It is not an authentication layer and should not be exposed through an unauthenticated public reverse proxy.
+## Client safety
+
+The injected browser client uses DOM node construction and `textContent` for runtime values. It does not interpolate runtime values into `innerHTML`. Browser notifications are created only after the user grants permission. If permission is denied or the browser API is unavailable, the Web Inbox and model tools remain the fallback surfaces.
 
 ## Evidence authority
 
-Heuristic evidence may explain a C1/C2 recommendation but cannot independently create C3. A provider must identify the authority of every evidence item. The deterministic judge is the final policy boundary, even when a model-assisted provider is added later.
+Every provider assigns an authority to each evidence reference:
+
+- `host` — a local Host or WebServer observation;
+- `runtime` — a DSH Session, Agent, or Subagent fact;
+- `derived` — deterministic inference over structured facts;
+- `heuristic` — a bounded heuristic that must not independently promote an event to C3.
+
+C3 requires Host or Runtime authority. The deterministic judge remains the final policy boundary even if a model-assisted provider is added in a later release.
+
+## Settings safety
+
+The Settings provider receives the same schema as the bundle configuration. Web updates pass through an allowlist and bounded range checks; `stateDir` and unknown keys cannot be changed through the live Web surface. State-directory changes remain restart-scoped. Privacy-safe summaries are enabled by default.
+
+## Deployment boundary
+
+The DSH WebServer is assumed to be a trusted local host. This plugin is not an authentication layer. Do not expose DSH Web or the DeepCanary routes through an unauthenticated public reverse proxy. If a deployment adds a reverse proxy, it must provide authentication, origin controls, and transport protection independently of this plugin.

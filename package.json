@@ -21,6 +21,7 @@
     "CHANGELOG.md",
     "docs",
     "benchmark/attention-gold.json",
+    "benchmark/release-receipt.json",
     "LICENSE"
   ],
   "keywords": [
@@ -43,8 +44,10 @@
     "typecheck:tests": "tsc -p tsconfig.test.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "prepack": "npm run build && npm run verify:distribution",
     "pack:check": "npm pack --dry-run",
     "verify:distribution": "node ./scripts/verify-distribution.mjs",
+    "verify:release-receipt": "node ./scripts/verify-release-receipt.mjs",
     "clean": "node ./scripts/clean.mjs"
   },
   "peerDependencies": {

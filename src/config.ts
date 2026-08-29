@@ -48,3 +48,54 @@ export function normalizeConfig(input: DeepCanaryConfigInput | undefined): DeepC
     },
   }
 }
+
+function integerPatch(value: unknown, name: string, min: number, max: number): number {
+  if (typeof value !== 'number' || !Number.isSafeInteger(value)) throw new TypeError(`${name} must be an integer`)
+  if (value < min || value > max) throw new RangeError(`${name} must be between ${min} and ${max}`)
+  return value
+}
+
+function clockPatch(value: unknown, name: string): string {
+  if (typeof value !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) throw new TypeError(`${name} must use HH:MM format`)
+  return value
+}
+
+/** Validate the browser settings surface without exposing stateDir or unknown keys. */
+export function sanitizeConfigPatch(input: Record<string, unknown>): DeepCanaryConfigInput {
+  const patch: DeepCanaryConfigInput = {}
+  for (const key of Object.keys(input)) {
+    if (!['notificationLevel', 'maxInterruptsPerHour', 'dedupeWindowMinutes', 'bundleWindowSeconds', 'longRunThresholdMinutes', 'subagentPressure', 'quietHours', 'privacySafeSummary', 'healthPollSeconds', 'maxInboxItems'].includes(key)) {
+      throw new TypeError(`unsupported setting: ${key}`)
+    }
+  }
+  if (input.notificationLevel !== undefined) {
+    if (input.notificationLevel !== 'C1' && input.notificationLevel !== 'C2' && input.notificationLevel !== 'C3') throw new TypeError('notificationLevel must be C1, C2, or C3')
+    patch.notificationLevel = input.notificationLevel
+  }
+  if (input.maxInterruptsPerHour !== undefined) patch.maxInterruptsPerHour = integerPatch(input.maxInterruptsPerHour, 'maxInterruptsPerHour', 0, 10)
+  if (input.dedupeWindowMinutes !== undefined) patch.dedupeWindowMinutes = integerPatch(input.dedupeWindowMinutes, 'dedupeWindowMinutes', 0, 120)
+  if (input.bundleWindowSeconds !== undefined) patch.bundleWindowSeconds = integerPatch(input.bundleWindowSeconds, 'bundleWindowSeconds', 0, 900)
+  if (input.longRunThresholdMinutes !== undefined) patch.longRunThresholdMinutes = integerPatch(input.longRunThresholdMinutes, 'longRunThresholdMinutes', 1, 120)
+  if (input.subagentPressure !== undefined) {
+    if (input.subagentPressure !== 'relaxed' && input.subagentPressure !== 'standard' && input.subagentPressure !== 'strict') throw new TypeError('subagentPressure must be relaxed, standard, or strict')
+    patch.subagentPressure = input.subagentPressure
+  }
+  if (input.quietHours !== undefined) {
+    if (input.quietHours === null || typeof input.quietHours !== 'object') throw new TypeError('quietHours must be an object')
+    const quietHours = input.quietHours as Record<string, unknown>
+    for (const key of Object.keys(quietHours)) if (!['enabled', 'start', 'end'].includes(key)) throw new TypeError(`unsupported quiet-hours setting: ${key}`)
+    if (quietHours.enabled !== undefined && typeof quietHours.enabled !== 'boolean') throw new TypeError('quietHours.enabled must be boolean')
+    patch.quietHours = {
+      ...(quietHours.enabled === undefined ? {} : { enabled: quietHours.enabled }),
+      ...(quietHours.start === undefined ? {} : { start: clockPatch(quietHours.start, 'quietHours.start') }),
+      ...(quietHours.end === undefined ? {} : { end: clockPatch(quietHours.end, 'quietHours.end') }),
+    }
+  }
+  if (input.privacySafeSummary !== undefined) {
+    if (typeof input.privacySafeSummary !== 'boolean') throw new TypeError('privacySafeSummary must be boolean')
+    patch.privacySafeSummary = input.privacySafeSummary
+  }
+  if (input.healthPollSeconds !== undefined) patch.healthPollSeconds = integerPatch(input.healthPollSeconds, 'healthPollSeconds', 5, 300)
+  if (input.maxInboxItems !== undefined) patch.maxInboxItems = integerPatch(input.maxInboxItems, 'maxInboxItems', 50, 5000)
+  return patch
+}

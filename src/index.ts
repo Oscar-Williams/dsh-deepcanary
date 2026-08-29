@@ -14,7 +14,9 @@ export * from './types.js'
 export * from './providers.js'
 export { DedupeLedger, InterruptBudget } from './core/dedupe.js'
 export { judgeSignal } from './core/judge.js'
-export { getWorkspaceIdentity, windowsPathToWsl, wslPathToWindows } from './adapters/windows.js'
+export { getWorkspaceIdentity, probeWindowsInterop, windowsPathToWsl, wslPathToWindows } from './adapters/windows.js'
+export { ContextDshAdapter } from './adapters/dsh.js'
+export type { DeepCanaryEvent, DshAdapter, RuntimeHealth, SessionSnapshot } from './adapters/dsh.js'
 export { DeepCanaryService } from './service.js'
 
 export function apply(ctx: Context, config?: DeepCanaryConfigInput): void {

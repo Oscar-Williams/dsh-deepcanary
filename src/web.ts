@@ -39,6 +39,10 @@ async function actionHandler(req: IncomingMessage, res: ServerResponse, service:
     else if (action === 'mute') updated = service.mute(id)
     else if (action === 'snooze') updated = service.snooze(id, typeof payload.minutes === 'number' ? payload.minutes : 30)
     else if (action === 'feedback') updated = service.feedback(id, payload.useful === true, typeof payload.note === 'string' ? payload.note : undefined)
+    else if (action === 'jump') {
+      sendJson(res, 200, service.jump(id))
+      return
+    }
     else {
       sendJson(res, 400, { error: 'unsupported action' })
       return
@@ -63,11 +67,31 @@ export function installWebRoutes(ctx: unknown, service: DeepCanaryService): void
         if (req.method !== 'GET') sendJson(res, 405, { error: 'GET required' })
         else sendJson(res, 200, service.snapshot())
       } }),
+      server.register({ kind: 'exact', path: `${basePath}/settings`, handler: async (req, res) => {
+        if (req.method === 'GET') {
+          sendJson(res, 200, service.settings())
+          return
+        }
+        if (req.method !== 'POST') {
+          sendJson(res, 405, { error: 'GET or POST required' })
+          return
+        }
+        try {
+          const payload = JSON.parse(await readBody(req)) as Record<string, unknown>
+          sendJson(res, 200, await service.updateSettings(payload))
+        } catch (error: unknown) {
+          sendJson(res, 400, { error: error instanceof Error ? error.message : 'invalid settings payload' })
+        }
+      } }),
       server.register({ kind: 'exact', path: `${basePath}/health`, handler: (req, res) => {
         if (req.method !== 'GET') sendJson(res, 405, { error: 'GET required' })
         else sendJson(res, 200, { ok: true, plugin: service.status().plugin, sessions: service.status().sessions, tools: service.status().tools })
       } }),
-      server.register({ kind: 'exact', path: `${basePath}/client.js`, handler: async (_req, res) => {
+      server.register({ kind: 'exact', path: `${basePath}/client.js`, handler: async (req, res) => {
+        if (req.method !== 'GET') {
+          sendJson(res, 405, { error: 'GET required' })
+          return
+        }
         try {
           const body = await readFile(new URL('./client.js', import.meta.url), 'utf8')
           res.statusCode = 200

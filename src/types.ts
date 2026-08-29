@@ -13,6 +13,7 @@ export type ReasonCode =
   | 'TASK_FAILED'
   | 'TASK_ABORTED'
   | 'COMPLETION_SUSPICIOUS'
+  | 'HOST_STALL_RECOVERED'
 
 export type AttentionLevel = 'C0' | 'C1' | 'C2' | 'C3'
 export type AttentionAction = 'IGNORE' | 'INBOX' | 'DIGEST' | 'INTERRUPT' | 'ESCALATE'
@@ -46,6 +47,8 @@ export interface CanarySignal {
   severityHint?: 0 | 1 | 2 | 3
   evidence: EvidenceRef[]
   dedupeKey?: string
+  /** Optional root-cause key used to combine adjacent attention items. */
+  bundleKey?: string
   data: Record<string, string | number | boolean | undefined>
 }
 
@@ -74,6 +77,10 @@ export interface InboxItem extends AttentionVerdict {
     note?: string
     at: string
   }
+  /** Internal privacy-safe hash used to join adjacent events. */
+  bundleKey?: string
+  bundleCount: number
+  reasonCodes: ReasonCode[]
 }
 
 export interface QuietHours {
@@ -101,7 +108,21 @@ export interface WorkspaceIdentity {
   hostPath?: string
   wslPath?: string
   platform: 'windows' | 'wsl' | 'other'
+  windowsInterop: 'available' | 'unavailable' | 'unknown'
   nativeToast: 'available' | 'unavailable'
+}
+
+export interface PublicSettings {
+  notificationLevel: 'C1' | 'C2' | 'C3'
+  maxInterruptsPerHour: number
+  dedupeWindowMinutes: number
+  bundleWindowSeconds: number
+  longRunThresholdMinutes: number
+  subagentPressure: 'relaxed' | 'standard' | 'strict'
+  quietHours: QuietHours
+  privacySafeSummary: boolean
+  healthPollSeconds: number
+  maxInboxItems: number
 }
 
 export interface RuntimeStatus {
@@ -122,6 +143,7 @@ export interface RuntimeStatus {
   capabilities: {
     browserNotification: boolean
     nativeToast: boolean
+    windowsInterop: 'available' | 'unavailable' | 'unknown'
     destructiveActions: false
   }
 }
@@ -138,9 +160,12 @@ export interface PublicInboxItem {
   evidence: Array<Pick<EvidenceRef, 'type' | 'authority' | 'summary'>>
   status: InboxStatus
   snoozedUntil?: string
+  bundleCount: number
+  reasonCodes: ReasonCode[]
 }
 
 export interface PublicSnapshot {
   status: RuntimeStatus
+  settings: PublicSettings
   inbox: PublicInboxItem[]
 }

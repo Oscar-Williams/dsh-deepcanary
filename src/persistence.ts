@@ -26,6 +26,9 @@ interface PersistedItem {
   status: InboxStatus
   snoozedUntil?: string
   feedback?: { useful: boolean; note?: string; at: string }
+  bundleKey?: string
+  bundleCount?: number
+  reasonCodes?: ReasonCode[]
 }
 
 interface PersistedState {
@@ -64,6 +67,9 @@ function toPersisted(item: InboxItem): PersistedItem {
     status: item.status,
     ...(item.snoozedUntil ? { snoozedUntil: item.snoozedUntil } : {}),
     ...(item.feedback ? { feedback: { ...item.feedback, ...(item.feedback.note ? { note: item.feedback.note.slice(0, 200) } : {}) } } : {}),
+    ...(item.bundleKey ? { bundleKey: item.bundleKey } : {}),
+    bundleCount: item.bundleCount,
+    reasonCodes: [...item.reasonCodes],
   }
 }
 
@@ -87,6 +93,9 @@ function fromPersisted(item: PersistedItem): InboxItem {
     status: item.status,
     ...(item.snoozedUntil ? { snoozedUntil: item.snoozedUntil } : {}),
     ...(item.feedback ? { feedback: item.feedback } : {}),
+    ...(item.bundleKey ? { bundleKey: item.bundleKey } : {}),
+    bundleCount: typeof item.bundleCount === 'number' && Number.isSafeInteger(item.bundleCount) && item.bundleCount > 0 ? item.bundleCount : 1,
+    reasonCodes: Array.isArray(item.reasonCodes) && item.reasonCodes.length > 0 ? item.reasonCodes : [item.reasonCode],
   }
 }
 

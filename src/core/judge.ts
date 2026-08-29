@@ -14,6 +14,8 @@ const c2Reasons = new Set<ReasonCode>([
 ])
 
 function levelFor(signal: CanarySignal): AttentionLevel {
+  if (signal.data.healthy === true) return 'C0'
+  if (signal.data.userViewing === true && signal.severityHint !== 0) return 'C1'
   if (signal.kind === 'HOST_UNREACHABLE') return signal.evidence.some(item => item.authority === 'host' || item.authority === 'runtime') ? 'C3' : 'C2'
   if (signal.kind === 'SUBAGENT_PRESSURE') {
     if (signal.severityHint === 3) return 'C3'
@@ -55,6 +57,7 @@ function suggestionFor(reason: ReasonCode): string | undefined {
     case 'COMPLETION_SUSPICIOUS': return 'Check the final evidence before accepting the task as complete.'
     case 'TASK_FAILED': return 'Inspect the failure evidence and decide whether to retry.'
     case 'TASK_ABORTED': return 'Confirm whether the aborted task should be resumed.'
+    case 'HOST_STALL_RECOVERED': return 'The session is producing events again; review the recovered item if the interruption was unexpected.'
     default: return undefined
   }
 }

@@ -1,24 +1,30 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { DedupeLedger, InterruptBudget } from './core/dedupe.js'
 import { judgeSignal } from './core/judge.js'
-import { Config, normalizeConfig } from './config.js'
+import { Config, normalizeConfig, sanitizeConfigPatch } from './config.js'
 import type { DeepCanaryConfigInput } from './config.js'
+import { ContextDshAdapter } from './adapters/dsh.js'
+import type { Disposable } from './adapters/dsh.js'
 import { getWorkspaceIdentity } from './adapters/windows.js'
-import { MetadataStore } from './persistence.js'
+import { hashMetadata, MetadataStore } from './persistence.js'
 import {
   signalFromAgentError,
+  signalFromHostRecovery,
   signalFromHostProbe,
   signalFromStall,
+  signalFromStallRecovery,
   signalFromSubagentPressure,
   signalsFromSessionEvent,
 } from './providers.js'
 import type {
   AttentionAction,
+  AttentionVerdict,
   AttentionLevel,
   CanarySignal,
   DeepCanaryConfig,
   InboxItem,
   PublicInboxItem,
+  PublicSettings,
   PublicSnapshot,
   RuntimeStatus,
 } from './types.js'
@@ -34,6 +40,10 @@ interface LiveSession {
   active: boolean
   toolFailures: number
   activeSubagents: number
+  stalled: boolean
+  contextCompactions: number
+  lastToolName?: string
+  sameToolFailures: number
 }
 
 interface LoggerLike {
@@ -48,7 +58,14 @@ interface ContextLike {
   logger?: LoggerLike
 }
 
+interface SettingsScopeLike {
+  get: () => unknown
+  watch?: (callback: (next: unknown) => void) => unknown
+  update?: (patch: object) => Promise<void>
+}
+
 const levelValue: Record<AttentionLevel, number> = { C0: 0, C1: 1, C2: 2, C3: 3 }
+const sensitiveSummaryPattern = /prompt|transcript|assistant\/(?:message|output)|user\/(?:message|prompt)|tool\s*(?:argument|input|payload)|api[-_ ]?key|access[-_ ]?token|bearer|password|secret|credential|authorization|private\s+key|```/i
 
 function idOf(value: unknown): string | undefined {
   if (typeof value === 'string' && value.length > 0) return value
@@ -65,6 +82,7 @@ export class DeepCanaryService {
   config: DeepCanaryConfig
   readonly store: MetadataStore
   readonly workspace = getWorkspaceIdentity()
+  readonly adapter: ContextDshAdapter
   readonly ready: Promise<void>
 
   private readonly ctx: ContextLike
@@ -74,15 +92,24 @@ export class DeepCanaryService {
   private readonly budget: InterruptBudget
   private readonly pressureSeen = new Set<number>()
   private readonly logger: LoggerLike
+  private adapterSubscription: Disposable | undefined
   private activeSubagents = 0
   private registeredTools: string[] = []
   private interval: ReturnType<typeof setInterval> | undefined
+  private hostProbeInterval: ReturnType<typeof setInterval> | undefined
+  private hostProbePort: number | undefined
+  private hostProbeFailures = 0
+  private hostProbeHealthy = true
+  private settingsScope: SettingsScopeLike | undefined
+  private settingsSubscription: (() => void) | undefined
   private saveChain = Promise.resolve()
   private hydrated = false
   private disposed = false
+  private started = false
 
   constructor(ctx: Context, input?: DeepCanaryConfigInput) {
     this.ctx = ctx as unknown as ContextLike
+    this.adapter = new ContextDshAdapter(ctx)
     this.config = normalizeConfig(input)
     this.store = new MetadataStore(this.config.stateDir)
     this.dedupe = new DedupeLedger(this.config.dedupeWindowMinutes * 60 * 1000)
@@ -92,13 +119,15 @@ export class DeepCanaryService {
   }
 
   start(): void {
-    const on = this.ctx.on
-    if (typeof on === 'function') {
-      on.call(this.ctx, 'session/created', (session: unknown) => this.onSessionCreated(session))
-      on.call(this.ctx, 'session/event', (session: unknown, event: unknown) => this.onSessionEvent(session, event))
-      on.call(this.ctx, 'session/disposed', (session: unknown) => this.onSessionDisposed(session))
-      on.call(this.ctx, 'dispose', () => { void this.dispose() })
-    }
+    if (this.started || this.disposed) return
+    this.started = true
+    this.adapterSubscription = this.adapter.subscribe(event => {
+      if (event.type === 'session/created') this.onSessionCreated(event.session)
+      else if (event.type === 'session/event') this.onSessionEvent(event.session, event.event)
+      else this.onSessionDisposed(event.session)
+    })
+    void this.adapter.start()
+    this.ctx.on?.call(this.ctx, 'dispose', () => { void this.dispose() })
 
     this.ctx.inject?.(['agents'], (agentCtx: any) => {
       agentCtx.on?.('agent/error', (payload: unknown) => {
@@ -111,23 +140,29 @@ export class DeepCanaryService {
     })
     this.ctx.inject?.(['settings'], (settingsCtx: any) => {
       const settings = settingsCtx.settings as {
-        register?: (namespace: string, schema: unknown, options: { base: DeepCanaryConfig; applies: 'live' }) => {
-          get: () => unknown
-          watch?: (callback: (next: unknown) => void) => unknown
-        }
+        register?: (namespace: string, schema: unknown, options: { base: DeepCanaryConfig; applies: 'live' }) => SettingsScopeLike
       } | undefined
       if (!settings?.register) return
       try {
         const scope = settings.register('dsh-deepcanary', Config, { base: this.config, applies: 'live' })
+        this.settingsScope = scope
         this.applySettings(scope.get())
-        scope.watch?.(next => this.applySettings(next))
+        const disposeWatch = scope.watch?.(next => this.applySettings(next))
+        if (typeof disposeWatch === 'function') this.settingsSubscription = () => { disposeWatch() }
       } catch (error: unknown) {
         this.logger.warn?.(`${PLUGIN_NAME}: live settings are unavailable; using composed config`, error)
       }
     })
 
-    this.interval = setInterval(() => this.checkStalls(), this.config.healthPollSeconds * 1000)
-    this.interval.unref?.()
+    this.ctx.inject?.(['webServer'], (webCtx: any) => {
+      const port = webCtx.webServer?.port
+      if (typeof port !== 'number' || port <= 0) return
+      this.hostProbePort = port
+      this.resetHostProbeTimer()
+      void this.probeHost()
+    })
+
+    this.resetLivenessTimer()
     this.logger.info?.(`${PLUGIN_NAME} mounted; evidence-first local attention supervision enabled`)
   }
 
@@ -138,15 +173,23 @@ export class DeepCanaryService {
   async ingest(signal: CanarySignal): Promise<InboxItem | undefined> {
     await this.ready
     if (this.disposed || signal.schemaVersion !== 1) return undefined
-    const verdict = judgeSignal(signal)
+    const verdict = this.safeVerdict(judgeSignal(signal))
     if (verdict.level === 'C0') return undefined
     const dedupeKey = signal.dedupeKey ?? `${signal.kind}:${signal.sessionId ?? 'host'}`
     const eventTime = Date.parse(signal.occurredAt)
     const now = Number.isFinite(eventTime) ? eventTime : Date.now()
     if (!this.dedupe.accept(dedupeKey, now)) return undefined
 
+    const bundleKey = signal.bundleKey ? hashMetadata(signal.bundleKey) : undefined
+    const existing = bundleKey ? this.findBundle(bundleKey, now) : undefined
+    if (existing) {
+      this.mergeBundle(existing, verdict, signal, now)
+      this.queueSave()
+      return existing
+    }
+
     let action = verdict.action
-    if (this.isQuietHours(now) && (action === 'INTERRUPT' || action === 'ESCALATE')) action = 'DIGEST'
+    if (this.isQuietHours(now) && action === 'INTERRUPT') action = 'DIGEST'
     if (levelValue[verdict.level] > levelValue[this.config.notificationLevel] && action !== 'INBOX') action = 'INBOX'
     if (action === 'INTERRUPT' && !this.budget.consume(now)) action = 'DIGEST'
 
@@ -158,6 +201,9 @@ export class DeepCanaryService {
       occurredAt: signal.occurredAt,
       action,
       status: 'open',
+      ...(bundleKey ? { bundleKey } : {}),
+      bundleCount: 1,
+      reasonCodes: [signal.kind],
     }
     this.items.unshift(item)
     if (this.items.length > this.config.maxInboxItems) this.items.length = this.config.maxInboxItems
@@ -170,14 +216,16 @@ export class DeepCanaryService {
     const now = Date.now()
     return {
       status,
+      settings: this.publicSettings(),
       inbox: this.items
-        .filter(item => item.status === 'open' || (item.status === 'snoozed' && item.snoozedUntil !== undefined && Date.parse(item.snoozedUntil) <= now))
+        .filter(item => this.isPending(item, now))
         .map(item => this.toPublic(item)),
     }
   }
 
   status(): RuntimeStatus {
-    const open = this.items.filter(item => item.status === 'open' || item.status === 'snoozed').map(item => item.level)
+    const now = Date.now()
+    const open = this.items.filter(item => this.isPending(item, now)).map(item => item.level)
     const highest = open.reduce<AttentionLevel>((current, level) => levelValue[level] > levelValue[current] ? level : current, 'C0')
     return {
       plugin: { name: PLUGIN_NAME, version: PLUGIN_VERSION, state: this.hydrated ? 'ready' : 'loading' },
@@ -190,13 +238,29 @@ export class DeepCanaryService {
       capabilities: {
         browserNotification: true,
         nativeToast: this.workspace.nativeToast === 'available',
+        windowsInterop: this.workspace.windowsInterop,
         destructiveActions: false,
       },
     }
   }
 
+  settings(): PublicSettings {
+    return this.publicSettings()
+  }
+
+  async updateSettings(input: Record<string, unknown>): Promise<PublicSettings> {
+    const patch = sanitizeConfigPatch(input)
+    if (this.settingsScope?.update) {
+      await this.settingsScope.update(patch)
+      this.applySettings({ ...this.config, ...patch })
+    } else {
+      this.applySettings({ ...this.config, ...patch })
+    }
+    return this.publicSettings()
+  }
+
   inbox(limit = 20): PublicInboxItem[] {
-    const safeLimit = Math.max(1, Math.min(100, Math.trunc(limit)))
+    const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(100, Math.trunc(limit))) : 20
     return this.items.slice(0, safeLimit).map(item => this.toPublic(item))
   }
 
@@ -211,7 +275,7 @@ export class DeepCanaryService {
   snooze(id: string, minutes = 30): boolean {
     const item = this.find(id)
     if (!item) return false
-    const bounded = Math.max(1, Math.min(24 * 60, Math.trunc(minutes)))
+    const bounded = Number.isFinite(minutes) ? Math.max(1, Math.min(24 * 60, Math.trunc(minutes))) : 30
     item.status = 'snoozed'
     item.snoozedUntil = new Date(Date.now() + bounded * 60 * 1000).toISOString()
     this.queueSave()
@@ -259,10 +323,35 @@ export class DeepCanaryService {
     if (signal) void this.ingest(signal)
   }
 
+  private async probeHost(): Promise<void> {
+    const port = this.hostProbePort
+    if (port === undefined || this.disposed) return
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 2_500)
+    try {
+      await fetch(`http://127.0.0.1:${port}/`, { signal: controller.signal })
+      const recovered = !this.hostProbeHealthy
+      this.hostProbeFailures = 0
+      this.hostProbeHealthy = true
+      if (recovered) void this.ingest(signalFromHostRecovery())
+    } catch {
+      this.hostProbeFailures += 1
+      if (this.hostProbeFailures >= 2 && this.hostProbeHealthy) {
+        this.hostProbeHealthy = false
+        this.recordHostProbe(false, `The local DSH WebServer did not answer on port ${port}.`)
+      }
+    } finally {
+      clearTimeout(timeout)
+    }
+  }
+
   async dispose(): Promise<void> {
     if (this.disposed) return
     this.disposed = true
+    this.adapterSubscription?.dispose()
+    this.settingsSubscription?.()
     if (this.interval !== undefined) clearInterval(this.interval)
+    if (this.hostProbeInterval !== undefined) clearInterval(this.hostProbeInterval)
     await this.ready.catch(() => undefined)
     await this.saveChain
   }
@@ -293,6 +382,9 @@ export class DeepCanaryService {
       active: true,
       toolFailures: 0,
       activeSubagents: 0,
+      stalled: false,
+      contextCompactions: 0,
+      sameToolFailures: 0,
     })
   }
 
@@ -314,19 +406,48 @@ export class DeepCanaryService {
       session = this.sessions.get(id)
     }
     if (!session) return
-    session.lastEventAt = Date.now()
-    if (event.type === 'tool/result' && asRecord(event.data).error !== undefined) session.toolFailures += 1
+    const previousEventAt = session.lastEventAt
+    const now = Date.now()
+    const wasStalled = session.stalled
+    if (wasStalled) session.stalled = false
+    session.lastEventAt = now
+    const eventData = asRecord(event.data)
+    const observedToolName = typeof eventData.name === 'string'
+      ? eventData.name
+      : typeof eventData.toolName === 'string'
+        ? eventData.toolName
+        : session.lastToolName
+    if (event.type === 'tool/call' && observedToolName !== undefined) session.lastToolName = observedToolName
+    if (event.type === 'tool/result') {
+      if (eventData.error !== undefined) {
+        session.toolFailures += 1
+        if (observedToolName !== undefined && observedToolName === session.lastToolName) session.sameToolFailures += 1
+        else session.sameToolFailures = 1
+        if (observedToolName !== undefined) session.lastToolName = observedToolName
+      } else {
+        session.toolFailures = 0
+        session.sameToolFailures = 0
+      }
+    }
+    if (event.type === 'compaction/start') session.contextCompactions += 1
     const facts = {
       toolFailures: session.toolFailures,
       activeSubagents: session.activeSubagents,
       lastEventAt: session.lastEventAt,
       startedAt: session.startedAt,
+      contextCompactions: session.contextCompactions,
+      ...(session.lastToolName ? { lastToolName: session.lastToolName } : {}),
+      sameToolFailures: session.sameToolFailures,
     }
-    const signals = signalsFromSessionEvent(
+    const signals = wasStalled
+      ? [signalFromStallRecovery({ id, ...(session.cwd ? { header: { cwd: session.cwd } } : {}) }, now)]
+      : []
+    if (now - previousEventAt < this.config.longRunThresholdMinutes * 60 * 1000) signals.length = 0
+    signals.push(...signalsFromSessionEvent(
       { id, ...(session.cwd ? { header: { cwd: session.cwd } } : {}) },
       { type: event.type, ...(typeof event.seq === 'number' ? { seq: event.seq } : {}), ...(typeof event.time === 'number' ? { time: event.time } : {}), data: asRecord(event.data) },
       facts,
-    )
+    ))
     for (const signal of signals) void this.ingest(signal)
   }
 
@@ -355,8 +476,43 @@ export class DeepCanaryService {
         lastEventAt: session.lastEventAt,
         startedAt: session.startedAt,
       }, thresholdMs)
-      if (signal) void this.ingest(signal)
+      if (signal) {
+        session.stalled = true
+        void this.ingest(signal)
+      }
     }
+  }
+
+  private findBundle(bundleKey: string, now: number): InboxItem | undefined {
+    const windowMs = this.config.bundleWindowSeconds * 1000
+    if (windowMs <= 0) return undefined
+    return this.items.find(item => {
+      if (item.bundleKey !== bundleKey || (item.status !== 'open' && item.status !== 'snoozed')) return false
+      const occurredAt = Date.parse(item.occurredAt)
+      return Number.isFinite(occurredAt) && Math.abs(now - occurredAt) <= windowMs
+    })
+  }
+
+  private mergeBundle(item: InboxItem, verdict: AttentionVerdict, signal: CanarySignal, now: number): void {
+    const previousLevel = item.level
+    item.bundleCount += 1
+    item.reasonCodes = [...new Set([...item.reasonCodes, verdict.reasonCode])]
+    item.evidence = [...item.evidence, ...verdict.evidence]
+      .filter((candidate, index, all) => all.findIndex(value => value.type === candidate.type && value.authority === candidate.authority && value.ref === candidate.ref) === index)
+      .slice(-8)
+    if (verdict.why !== item.why) item.why = `${item.why} Related signal: ${verdict.why}`.slice(0, 500)
+    if (verdict.suggestedAction !== undefined) item.suggestedAction = verdict.suggestedAction
+    if (levelValue[verdict.level] > levelValue[item.level]) {
+      item.level = verdict.level
+      item.reasonCode = verdict.reasonCode
+      if (verdict.level === 'C3') item.action = 'ESCALATE'
+      else if (verdict.level === 'C2' && item.action !== 'DIGEST') item.action = this.budget.consume(now) ? 'INTERRUPT' : 'DIGEST'
+    } else if (previousLevel === 'C1' && verdict.level === 'C1' && item.action === 'INBOX') {
+      item.action = 'INBOX'
+    }
+    if (this.isQuietHours(now) && item.action === 'INTERRUPT') item.action = 'DIGEST'
+    item.confidence = Math.max(item.confidence, verdict.confidence)
+    item.occurredAt = signal.occurredAt
   }
 
   private pressureThresholds(): number[] {
@@ -378,6 +534,54 @@ export class DeepCanaryService {
     this.dedupe.setWindowMs(next.dedupeWindowMinutes * 60 * 1000)
     this.budget.setMaxPerHour(next.maxInterruptsPerHour)
     if (this.items.length > next.maxInboxItems) this.items.length = next.maxInboxItems
+    if (this.started) {
+      this.resetLivenessTimer()
+      this.resetHostProbeTimer()
+    }
+  }
+
+  private resetLivenessTimer(): void {
+    if (this.interval !== undefined) clearInterval(this.interval)
+    this.interval = setInterval(() => this.checkStalls(), this.config.healthPollSeconds * 1000)
+    this.interval.unref?.()
+  }
+
+  private resetHostProbeTimer(): void {
+    if (this.hostProbeInterval !== undefined) clearInterval(this.hostProbeInterval)
+    if (this.hostProbePort === undefined) return
+    this.hostProbeInterval = setInterval(() => { void this.probeHost() }, this.config.healthPollSeconds * 1000)
+    this.hostProbeInterval.unref?.()
+  }
+
+  private publicSettings(): PublicSettings {
+    return {
+      notificationLevel: this.config.notificationLevel,
+      maxInterruptsPerHour: this.config.maxInterruptsPerHour,
+      dedupeWindowMinutes: this.config.dedupeWindowMinutes,
+      bundleWindowSeconds: this.config.bundleWindowSeconds,
+      longRunThresholdMinutes: this.config.longRunThresholdMinutes,
+      subagentPressure: this.config.subagentPressure,
+      quietHours: { ...this.config.quietHours },
+      privacySafeSummary: this.config.privacySafeSummary,
+      healthPollSeconds: this.config.healthPollSeconds,
+      maxInboxItems: this.config.maxInboxItems,
+    }
+  }
+
+  private safeVerdict(verdict: AttentionVerdict): AttentionVerdict {
+    if (!this.config.privacySafeSummary) return verdict
+    const fallback = `${verdict.reasonCode} was observed from structured runtime evidence.`
+    const safe = (value: string, limit: number): string => {
+      const normalized = value.replace(/\s+/g, ' ').trim()
+      if (!normalized || sensitiveSummaryPattern.test(normalized)) return fallback
+      return normalized.slice(0, limit)
+    }
+    return {
+      ...verdict,
+      why: safe(verdict.why, 500),
+      ...(verdict.suggestedAction ? { suggestedAction: safe(verdict.suggestedAction, 500) } : {}),
+      evidence: verdict.evidence.map(item => ({ ...item, summary: safe(item.summary, 240) })),
+    }
   }
 
   private isQuietHours(timestamp: number): boolean {
@@ -402,7 +606,16 @@ export class DeepCanaryService {
       evidence: item.evidence.map(evidence => ({ type: evidence.type, authority: evidence.authority, summary: evidence.summary })),
       status: item.status,
       ...(item.snoozedUntil ? { snoozedUntil: item.snoozedUntil } : {}),
+      bundleCount: item.bundleCount,
+      reasonCodes: [...item.reasonCodes],
     }
+  }
+
+  private isPending(item: InboxItem, now: number): boolean {
+    if (item.status === 'open') return true
+    if (item.status !== 'snoozed' || item.snoozedUntil === undefined) return false
+    const until = Date.parse(item.snoozedUntil)
+    return Number.isFinite(until) && until <= now
   }
 
   private find(id: string): InboxItem | undefined {

@@ -1,7 +1,10 @@
 {
   "schemaVersion": 1,
+  "status": "PENDING_FINAL_GATES",
   "plugin": "dsh-deepcanary",
   "pluginVersion": "0.1.0-rc.1",
+  "attentionFixtureVersion": 2,
+  "attentionGate": "PENDING",
   "runtime": {
     "tag": "dsh-v0.1.2-alpha.1",
     "version": "0.1.2-alpha.1",
@@ -10,17 +13,27 @@
   },
   "environment": {
     "node": ">=22.19.0",
+    "nodeVersion": "v24.19.0",
     "packageManager": "pnpm@11.7.0",
-    "platform": "windows-x64"
+    "platforms": ["windows-x64", "wsl2-ubuntu"]
   },
   "gates": {
-    "runtimeInstall": true,
-    "runtimeBuild": true,
-    "cliVersion": true,
-    "webDumpConfig": true,
-    "pluginBuild": true,
-    "pluginTests": true,
-    "pluginWebE2E": true
+    "runtimeInstall": false,
+    "runtimeBuild": false,
+    "cliVersion": false,
+    "webDumpConfig": false,
+    "pluginBuild": false,
+    "pluginTests": false,
+    "pluginWebE2E": false,
+    "settingsE2E": false,
+    "unloadRestart": false,
+    "privacyGate": false,
+    "distributionIntegrity": false,
+    "publicTagInstall": false,
+    "windowsE2E": false,
+    "wslE2E": false
   },
-  "note": "Update gate booleans only after the corresponding command has actually run against this exact runtime."
+  "artifactSha256": "",
+  "verifiedAt": null,
+  "note": "This receipt stays pending until every gate has been run against this exact runtime, source revision, and release artifact. Do not read pending values as PASS."
 }

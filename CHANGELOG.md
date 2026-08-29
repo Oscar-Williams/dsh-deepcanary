@@ -1,19 +1,28 @@
 # Changelog
 
-All notable changes to dsh-deepcanary are recorded here.
+All notable changes to `dsh-deepcanary` are recorded here.
 
 ## 0.1.0-rc.1 — 2026-08-30
 
-Initial release candidate:
+First public release candidate for the local attention-supervision surface.
 
-- evidence-first CanarySignal and deterministic C0–C3 attention judge;
-- Session, Agent error, Subagent pressure, stall, context, completion, and host-probe providers;
-- deduplication and rolling C2 interrupt budget with a C3 escalation path;
-- metadata-only local persistence with hashed session/workspace references;
-- DSH model-visible status, inbox, explanation, feedback, and reversible inbox-action tools;
-- same-origin Web state, action, health, and client routes;
-- optional live settings namespace for notification, quiet-hours, threshold, and budget policy;
-- Windows/WSL workspace identity normalization and AttentionGold regression fixtures;
-- official DSH dsh-v0.1.2-alpha.1 source runtime as the current verification baseline.
+### Included
 
-Known limitations are tracked in docs/compatibility.md.
+- evidence-first `CanarySignal`, `EvidenceRef`, `AttentionVerdict`, and deterministic C0–C3 policy;
+- six provider families: Human Needed, Host Health, Stuck/Progress, Subagent Pressure, Context Pressure, and Completion;
+- official alpha.1 adapter boundary for Session lifecycle events, structured turn reasons, tool results, and compaction markers;
+- deduplication, adjacent root-cause Decision Bundles, quiet hours, and rolling C2 interrupt budget;
+- metadata-only local persistence with hashed Session/Workspace/evidence references;
+- DSH model-visible status, Inbox, explanation, feedback, reversible actions, and navigation-hint tools;
+- same-origin Web state, settings, health, action, client, and index-injection routes;
+- settings-card support for notification level, budget, quiet hours, liveness threshold, Subagent pressure, bundling, and privacy-safe summaries;
+- Windows/WSL path identity normalization, interop capability detection, browser-notification fallback, and CJK path fixtures;
+- AttentionGold v2 with 15 classification scenarios plus duplicate and shared-root Bundle scenarios;
+- tracked `lib/` distribution output so a public DSH Git tag is directly installable;
+- release receipt structure for exact DSH runtime, platform, package, public-tag, Web, settings, privacy, and unload/restart gates.
+
+### Deliberately deferred
+
+Model-assisted judgment, Done Verification, Watcher Swarm, tray persistence, and organization policy are planned for later release lines. The RC's declared behavior remains deterministic and complete without those optional layers.
+
+The exact verification evidence is recorded in [`benchmark/release-receipt.json`](benchmark/release-receipt.json).

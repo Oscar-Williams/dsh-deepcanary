@@ -7,9 +7,22 @@ export interface WorkspaceEnvironment {
   env?: NodeJS.ProcessEnv
 }
 
+export type WindowsInteropState = 'available' | 'unavailable' | 'unknown'
+
 function isWsl(environment: WorkspaceEnvironment): boolean {
   const env = environment.env ?? process.env
   return environment.platform === 'linux' && Boolean(env.WSL_DISTRO_NAME || env.WSL_INTEROP || env.WSLENV)
+}
+
+export function probeWindowsInterop(environment: WorkspaceEnvironment = {}): WindowsInteropState {
+  const platform = environment.platform ?? process.platform
+  const env = environment.env ?? process.env
+  if (env.DSH_DEEPCANARY_WINDOWS_INTEROP === '0') return 'unavailable'
+  if (platform === 'win32') return 'available'
+  if (platform !== 'linux') return 'unavailable'
+  if (env.WSL_INTEROP) return 'available'
+  if (env.WSL_DISTRO_NAME || env.WSLENV) return 'unknown'
+  return 'unavailable'
 }
 
 export function windowsPathToWsl(value: string): string | undefined {
@@ -51,6 +64,7 @@ export function getWorkspaceIdentity(cwd = process.cwd(), environment: Workspace
     ...(hostPath ? { hostPath } : {}),
     ...(wslPath ? { wslPath } : {}),
     platform: platform === 'win32' ? 'windows' : wsl ? 'wsl' : 'other',
+    windowsInterop: probeWindowsInterop({ ...environment, platform }),
     nativeToast: environment.env?.DSH_DEEPCANARY_NATIVE_TOAST === '1' ? 'available' : 'unavailable',
   }
 }

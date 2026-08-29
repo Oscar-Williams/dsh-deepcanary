@@ -24,7 +24,7 @@ The implementation must preserve these boundaries:
 
 For an end-to-end check, use the official DSH checkout documented in README.md, verify dsh --version is 0.1.2-alpha.1, install this package into the isolated web profile, run dsh web, and check HTTP 200 on the DeepCanary health route.
 
-Generated lib/ output is ignored locally. The package gate must still verify that the built entry points and tarball contents are correct.
+The release branch tracks the built `lib/` output because DSH installs a public Git tag without running this repository's TypeScript toolchain. Every source change must therefore be followed by `npm run build`, and CI must fail if the committed `lib/` output is stale.
 
 ## Documentation
 

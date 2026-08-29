@@ -42,6 +42,23 @@ describe('DeepCanaryService', () => {
     await rm(directory, { recursive: true, force: true })
   })
 
+  it('redacts prompt-shaped provider summaries when privacy-safe summaries are enabled', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-summary-'))
+    const service = new DeepCanaryService({ logger: {} } as never, { stateDir: directory, maxInboxItems: 50 })
+    services.push(service)
+    await service.ready
+    await service.ingest({
+      ...testSignal(),
+      id: 'unsafe-summary',
+      evidence: [{ type: 'tool-history', authority: 'runtime', ref: 'unsafe', summary: 'Prompt: use the secret API key and paste the transcript.' }],
+    })
+    await service.dispose()
+    const persisted = await readFile(service.store.file, 'utf8')
+    expect(persisted).not.toContain('secret API key')
+    expect(persisted).not.toContain('paste the transcript')
+    await rm(directory, { recursive: true, force: true })
+  })
+
   it('downgrades the fourth C2 notification to a digest', async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-budget-'))
     const service = new DeepCanaryService({ logger: {} } as never, { stateDir: directory, maxInterruptsPerHour: 3, maxInboxItems: 50 })
@@ -54,6 +71,29 @@ describe('DeepCanaryService', () => {
     }
     expect(actions).toEqual(['INTERRUPT', 'INTERRUPT', 'INTERRUPT', 'DIGEST'])
     await service.dispose()
+    await rm(directory, { recursive: true, force: true })
+  })
+
+  it('mounts through the DSH lifecycle adapter and disposes cleanly', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-adapter-'))
+    const listeners = new Map<string, (...args: any[]) => void>()
+    const service = new DeepCanaryService({
+      logger: {},
+      on: (name: string, listener: (...args: any[]) => void) => { listeners.set(name, listener) },
+    } as never, { stateDir: directory, maxInboxItems: 50 })
+    services.push(service)
+    await service.ready
+    service.start()
+    const session = { id: 'lifecycle-session', header: { cwd: 'C:\\work' } }
+    listeners.get('session/created')?.(session)
+    listeners.get('session/event')?.(session, { type: 'turn/end', seq: 1, data: { reason: 'blocked' } })
+    await new Promise(resolve => setImmediate(resolve))
+    expect(service.status().sessions).toBe(1)
+    expect(service.inbox(10)[0]?.reasonCode).toBe('HUMAN_QUESTION_PENDING')
+    listeners.get('session/disposed')?.(session)
+    expect(service.status().sessions).toBe(0)
+    await service.dispose()
+    expect(service.status().plugin.state).toBe('ready')
     await rm(directory, { recursive: true, force: true })
   })
 })
