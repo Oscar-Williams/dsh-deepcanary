@@ -19,6 +19,7 @@ First public release candidate for the local attention-supervision surface.
 - Windows/WSL path identity normalization, interop capability detection, browser-notification fallback, and CJK path fixtures;
 - AttentionGold v2 with 15 classification scenarios plus duplicate and shared-root Bundle scenarios;
 - tracked `lib/` distribution output so a public DSH Git tag is directly installable;
+- classic-script client output for DSH `index-inject`, with a distribution guard that rejects accidental module exports;
 - release receipt structure for exact DSH runtime, platform, package, public-tag, Web, settings, privacy, and unload/restart gates.
 
 ### Deliberately deferred

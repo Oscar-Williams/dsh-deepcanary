@@ -27,6 +27,8 @@ const required = [
 for (const file of required) await access(path.join(root, file))
 const entry = await readFile(path.join(root, 'lib/index.js'), 'utf8')
 if (!entry.includes("dsh-deepcanary")) throw new Error('lib/index.js does not contain the plugin entry')
+const client = await readFile(path.join(root, 'lib/client.js'), 'utf8')
+if (/\bexport\s*\{/.test(client)) throw new Error('lib/client.js must remain a classic script for DSH index injection')
 if (packageJson.main !== './lib/index.js' || packageJson.types !== './lib/index.d.ts') throw new Error('package entry points are inconsistent')
 
 const npmArgs = ['pack', '--dry-run', '--json', '--ignore-scripts']

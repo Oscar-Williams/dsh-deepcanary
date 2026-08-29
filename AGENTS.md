@@ -20,11 +20,14 @@ The implementation must preserve these boundaries:
     npm test
     npm run build
     npm run verify:distribution
+    npm run verify:release-receipt
     npm pack --dry-run
 
 For an end-to-end check, use the official DSH checkout documented in README.md, verify dsh --version is 0.1.2-alpha.1, install this package into the isolated web profile, run dsh web, and check HTTP 200 on the DeepCanary health route.
 
 The release branch tracks the built `lib/` output because DSH installs a public Git tag without running this repository's TypeScript toolchain. Every source change must therefore be followed by `npm run build`, and CI must fail if the committed `lib/` output is stale.
+
+The WSL2 verification lane uses the isolated Conda environment at `/home/Oscar/miniconda3/envs/dsh-deepcanary`. Keep its DSH profile home separate from the environment directory when running end-to-end checks.
 
 ## Documentation
 
