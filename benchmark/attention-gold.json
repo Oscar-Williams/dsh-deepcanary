@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "name": "AttentionGold",
+  "description": "Deterministic regression cases for DeepCanary attention classification.",
+  "scenarios": [
+    {
+      "id": "normal-completion",
+      "signal": { "kind": "TASK_COMPLETED", "severityHint": 1, "authority": "runtime" },
+      "expected": { "level": "C1", "action": "INBOX", "reasonCode": "TASK_COMPLETED" }
+    },
+    {
+      "id": "human-approval",
+      "signal": { "kind": "HUMAN_APPROVAL_REQUIRED", "severityHint": 2, "authority": "runtime" },
+      "expected": { "level": "C2", "action": "INTERRUPT", "reasonCode": "HUMAN_APPROVAL_REQUIRED" }
+    },
+    {
+      "id": "host-failure",
+      "signal": { "kind": "HOST_UNREACHABLE", "severityHint": 3, "authority": "host" },
+      "expected": { "level": "C3", "action": "ESCALATE", "reasonCode": "HOST_UNREACHABLE" }
+    },
+    {
+      "id": "host-suspected-stall",
+      "signal": { "kind": "HOST_SUSPECTED_STALL", "severityHint": 2, "authority": "runtime" },
+      "expected": { "level": "C2", "action": "INTERRUPT", "reasonCode": "HOST_SUSPECTED_STALL" }
+    },
+    {
+      "id": "tool-loop",
+      "signal": { "kind": "TOOL_FAILURE_LOOP", "severityHint": 2, "authority": "derived" },
+      "expected": { "level": "C2", "action": "INTERRUPT", "reasonCode": "TOOL_FAILURE_LOOP" }
+    },
+    {
+      "id": "subagent-pressure",
+      "signal": { "kind": "SUBAGENT_PRESSURE", "severityHint": 3, "authority": "runtime" },
+      "expected": { "level": "C3", "action": "ESCALATE", "reasonCode": "SUBAGENT_PRESSURE" }
+    },
+    {
+      "id": "context-compaction",
+      "signal": { "kind": "COMPACTION_OCCURRED", "severityHint": 1, "authority": "runtime" },
+      "expected": { "level": "C1", "action": "INBOX", "reasonCode": "COMPACTION_OCCURRED" }
+    },
+    {
+      "id": "suspicious-completion",
+      "signal": { "kind": "COMPLETION_SUSPICIOUS", "severityHint": 2, "authority": "heuristic" },
+      "expected": { "level": "C2", "action": "INTERRUPT", "reasonCode": "COMPLETION_SUSPICIOUS" }
+    }
+  ]
+}

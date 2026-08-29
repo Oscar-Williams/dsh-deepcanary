@@ -1,0 +1,19 @@
+# DeepCanary is intentionally mounted through the DSH bundle patch so a
+# profile can enable it without editing the host application's source.
+- insert:
+    - id: deepcanary
+      name: 'dsh-deepcanary'
+      config:
+        stateDir: '~/.dsh/dsh-deepcanary'
+        notificationLevel: 'C2'
+        maxInterruptsPerHour: 3
+        dedupeWindowMinutes: 10
+        bundleWindowSeconds: 60
+        longRunThresholdMinutes: 5
+        subagentPressure: 'standard'
+        quietHours:
+          enabled: false
+          start: '22:00'
+          end: '08:00'
+        privacySafeSummary: true
+        healthPollSeconds: 15
