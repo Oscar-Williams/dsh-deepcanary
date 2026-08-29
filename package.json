@@ -3,6 +3,14 @@
   "version": "0.1.0-rc.1",
   "description": "Local attention supervision for DeepSeek Harness: evidence-first signals, quiet notifications, and an actionable inbox.",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Oscar-Williams/dsh-deepcanary.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Oscar-Williams/dsh-deepcanary/issues"
+  },
+  "homepage": "https://github.com/Oscar-Williams/dsh-deepcanary#readme",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
   "exports": {
@@ -21,7 +29,6 @@
     "CHANGELOG.md",
     "docs",
     "benchmark/attention-gold.json",
-    "benchmark/release-receipt.json",
     "LICENSE"
   ],
   "keywords": [
@@ -82,6 +89,9 @@
   },
   "engines": {
     "node": ">=22.19.0"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "license": "MIT"
 }

@@ -97,7 +97,7 @@ The settings card exposes notification level, hourly interrupt budget, quiet hou
 | C2 | human judgment is a bottleneck | interrupt candidate + Inbox |
 | C3 | high-impact blockage or host risk | urgent reminder candidate + Inbox |
 
-Normal completion is always classified as `C1`. Adjacent signals with the same root-cause key form one Decision Bundle, preserving reason codes, event count, and bounded evidence summaries. Duplicate signals remain subject to the deduplication window. C2 consumes the rolling hourly budget; C3 does not consume the ordinary C2 budget, while deduplication and quiet-hour policy still apply.
+Normal completion is always classified as `C1`. Adjacent signals with the same root-cause key form one Decision Bundle, preserving reason codes, event count, and bounded evidence summaries. Duplicate signals remain subject to the deduplication window. C2 consumes the rolling hourly budget and is downgraded to a digest during quiet hours; C3 does not consume the ordinary C2 budget, remains deduplicated, and is not hidden by quiet hours.
 
 ## Privacy and safety
 
@@ -119,7 +119,7 @@ npm run verify:distribution
 npm pack --dry-run
 ```
 
-AttentionGold freezes 15 classification scenarios plus duplicate-event and shared-root Bundle scenarios. The final RC evidence for the upstream runtime, Windows/WSL, public-tag installation, Web, settings, unload/restart, and distribution integrity is recorded in [`benchmark/release-receipt.json`](benchmark/release-receipt.json). See [`docs/release-checklist.md`](docs/release-checklist.md) for the reproducible release procedure.
+AttentionGold freezes 15 classification scenarios plus duplicate-event and shared-root Bundle scenarios. The final RC evidence for the upstream runtime, Windows/WSL, public-tag installation, Web, settings, unload/restart, and distribution integrity is recorded in the repository's [`benchmark/release-receipt.json`](benchmark/release-receipt.json). The receipt is intentionally excluded from the npm runtime package so its SHA-256 can be verified without a circular dependency. See [`docs/release-checklist.md`](docs/release-checklist.md) for the reproducible release procedure.
 
 ## Documentation
 

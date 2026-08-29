@@ -77,7 +77,8 @@ Run the same public-tag install path on Windows x64 and WSL2 Ubuntu. Freeze evid
 ## 6. Artifact and publication
 
 - [ ] Run `npm pack` once and record the SHA-256 digest.
-- [ ] Confirm the package contains `lib/`, docs, benchmark fixtures, release receipt, license, and bundle patch, and excludes `src/`, tests, local design notes, `.dsh` state, and credentials.
+- [ ] Confirm the package contains `lib/`, user-facing docs, AttentionGold fixtures, license, and bundle patch, and excludes the repository-only release receipt, `src/`, tests, local design notes, `.dsh` state, and credentials.
+- [ ] Confirm `benchmark/release-receipt.json` remains tracked in the repository as release evidence and is not included in the npm runtime package; this keeps the artifact digest independently verifiable.
 - [ ] Update `benchmark/release-receipt.json` only with gates that actually passed on the exact runtime and artifact.
 - [ ] Commit and push `main`.
 - [ ] Create and push the immutable tag `v0.1.0-rc.1`.

@@ -38,7 +38,7 @@ const commandArgs = npmCli === undefined ? npmArgs : [npmCli, ...npmArgs]
 const { stdout } = await execFileAsync(npmCommand, commandArgs, { cwd: root, maxBuffer: 2_000_000 })
 const packReport = JSON.parse(stdout)
 const packedFiles = new Set(packReport[0]?.files?.map(file => file.path) ?? [])
-for (const file of ['lib/index.js', 'lib/client.js', 'cordis.patch.yml', 'benchmark/attention-gold.json', 'benchmark/release-receipt.json']) {
+for (const file of ['lib/index.js', 'lib/client.js', 'cordis.patch.yml', 'benchmark/attention-gold.json']) {
   if (![...packedFiles].some(candidate => candidate === file || candidate.endsWith(`/${file}`))) throw new Error(`required file is absent from npm package: ${file}`)
 }
 for (const file of packedFiles) {

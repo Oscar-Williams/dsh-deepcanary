@@ -99,13 +99,13 @@ DSH 模型可使用：
 | C2 | 人工判断已成为瓶颈 | 打断候选 + Inbox |
 | C3 | 高影响阻塞或主机风险 | 强提醒候选 + Inbox |
 
-正常完成固定为 `C1`。同一根因的相邻事件会形成一个 Decision Bundle，保留原因码、事件数量和有限证据摘要；重复信号仍受去重窗口约束。C2 使用滚动小时预算，C3 不消耗普通 C2 预算，但仍然执行去重和静默策略边界。
+正常完成固定为 `C1`。同一根因的相邻事件会形成一个 Decision Bundle，保留原因码、事件数量和有限证据摘要；重复信号仍受去重窗口约束。C2 使用滚动小时预算，并在静默时段降为 Digest；C3 不消耗普通 C2 预算，仍执行去重，但不因静默时段而被隐藏。
 
 ## 隐私与安全边界
 
 默认状态文件为 `~/.dsh/dsh-deepcanary/inbox.json`。只保存时间、等级、原因码、哈希化的 Session/Workspace 引用、证据摘要、Bundle 元数据和用户反馈。Prompt、模型输出、工具参数、凭据、原始工具结果和完整会话内容留在 DSH，不写入 DeepCanary 状态文件。
 
-Web 接口使用同源本地 WebServer和 `no-store` 响应；客户端通过 DOM `textContent` 渲染动态字段，不拼接 `innerHTML`。插件不提供 shell、文件写入、终止、重启、批准或拒绝工具。不要把 DSH WebServer 暴露到未经认证的公网反向代理后面。
+Web 接口使用同源本地 WebServer 和 `no-store` 响应；客户端通过 DOM `textContent` 渲染动态字段，不拼接 `innerHTML`。插件不提供 shell、文件写入、终止、重启、批准或拒绝工具。不要把 DSH WebServer 暴露到未经认证的公网反向代理后面。
 
 ## 验证与发布基线
 
@@ -121,7 +121,7 @@ npm run verify:distribution
 npm pack --dry-run
 ```
 
-AttentionGold 固定覆盖 15 个分类场景，以及重复事件和共享根因 Bundle 场景。最终 RC 的运行时、Windows/WSL、公开 tag、安装、Web、设置、卸载重启和分发完整性证据记录在 [`benchmark/release-receipt.json`](benchmark/release-receipt.json)；发布前步骤见 [`docs/release-checklist.md`](docs/release-checklist.md)。
+AttentionGold 固定覆盖 15 个分类场景，以及重复事件和共享根因 Bundle 场景。最终 RC 的运行时、Windows/WSL、公开 tag、安装、Web、设置、卸载重启和分发完整性证据记录在仓库内的 [`benchmark/release-receipt.json`](benchmark/release-receipt.json)；该文件不进入 npm 运行包，以避免与发布包 SHA-256 形成循环依赖。发布前步骤见 [`docs/release-checklist.md`](docs/release-checklist.md)。
 
 ## 文档
 
