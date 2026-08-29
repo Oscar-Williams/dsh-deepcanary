@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "status": "PENDING_FINAL_GATES",
+  "status": "PASS",
   "plugin": "dsh-deepcanary",
   "pluginVersion": "0.1.0-rc.1",
   "attentionFixtureVersion": 2,
-  "attentionGate": "PENDING",
+  "attentionGate": "PASS",
   "runtime": {
     "tag": "dsh-v0.1.2-alpha.1",
     "version": "0.1.2-alpha.1",
@@ -18,30 +18,30 @@
     "platforms": ["windows-x64", "wsl2-ubuntu"]
   },
   "gates": {
-    "runtimeInstall": false,
-    "runtimeBuild": false,
-    "cliVersion": false,
-    "webDumpConfig": false,
-    "pluginBuild": false,
-    "pluginTests": false,
-    "pluginWebE2E": false,
-    "settingsE2E": false,
-    "unloadRestart": false,
-    "privacyGate": false,
-    "distributionIntegrity": false,
-    "publicTagInstall": false,
-    "windowsE2E": false,
-    "wslE2E": false,
-    "modelE2E": false
+    "runtimeInstall": true,
+    "runtimeBuild": true,
+    "cliVersion": true,
+    "webDumpConfig": true,
+    "pluginBuild": true,
+    "pluginTests": true,
+    "pluginWebE2E": true,
+    "settingsE2E": true,
+    "unloadRestart": true,
+    "privacyGate": true,
+    "distributionIntegrity": true,
+    "publicTagInstall": true,
+    "windowsE2E": true,
+    "wslE2E": true,
+    "modelE2E": true
   },
   "modelSmokeTest": {
-    "status": "PENDING",
+    "status": "PASS",
     "surface": "headless",
     "workspace": "dedicated local acceptance workspace",
-    "response": null,
+    "response": "RC1_MODEL_OK",
     "fileAccess": "must remain prohibited by the smoke-test prompt"
   },
-  "artifactSha256": "",
-  "verifiedAt": null,
-  "note": "This receipt stays pending until every gate has been run against this exact runtime, source revision, and release artifact. Do not read pending values as PASS."
+  "artifactSha256": "cf631ebf01c8b121df65b9195f642c2348f6948248461f0783477a5c405b6632",
+  "verifiedAt": "2026-08-30T04:21:58+08:00",
+  "note": "All listed gates passed against official dsh-v0.1.2-alpha.1 at the pinned commit, the Windows/WSL environments, the public candidate tag, the final package artifact, and a live model smoke task. Credentials, raw prompts, transcripts, and workspace contents are excluded from this receipt."
 }
