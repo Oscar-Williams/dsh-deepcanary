@@ -16,7 +16,7 @@ if (!Array.isArray(gold.serviceScenarios) || gold.serviceScenarios.length < 2) t
 const requiredGates = [
   'runtimeInstall', 'runtimeBuild', 'cliVersion', 'webDumpConfig', 'pluginBuild',
   'pluginTests', 'pluginWebE2E', 'settingsE2E', 'unloadRestart', 'privacyGate',
-  'distributionIntegrity', 'publicTagInstall', 'windowsE2E', 'wslE2E',
+  'distributionIntegrity', 'publicTagInstall', 'windowsE2E', 'wslE2E', 'modelE2E',
 ]
 for (const gate of requiredGates) if (receipt.gates?.[gate] !== true) throw new Error(`release gate is not PASS: ${gate}`)
 if (receipt.attentionGate !== 'PASS') throw new Error('attentionGate must be PASS')

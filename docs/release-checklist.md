@@ -40,6 +40,8 @@ npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 
 The version must be `0.1.2-alpha.1`, and the checkout must resolve to commit `cd5ef8148158c3a752a658978873241fdf8e2bbc`.
 
+For the live-model smoke gate, use the same DSH home in which the API credential was configured and run one headless task from the dedicated acceptance workspace. The task must request an exact fixed response while explicitly prohibiting file inspection and file mutation. Record only the pass/fail result and the fixed response marker; never copy credentials, raw prompts, transcripts, or workspace contents into the release receipt.
+
 ## 4. Public distribution and Web E2E
 
 After the plugin build has been committed and pushed:
@@ -60,6 +62,7 @@ Verify from the running local Web host:
 - settings update and validation behave as documented;
 - a clean unload/restart leaves no duplicate routes, tools, timers, or client injection;
 - browser permission denial still leaves the Web Inbox and model tools available.
+- a live-model smoke task returns the expected fixed marker without workspace file access.
 
 ## 5. Windows and WSL gates
 

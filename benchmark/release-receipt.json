@@ -31,7 +31,15 @@
     "distributionIntegrity": false,
     "publicTagInstall": false,
     "windowsE2E": false,
-    "wslE2E": false
+    "wslE2E": false,
+    "modelE2E": false
+  },
+  "modelSmokeTest": {
+    "status": "PENDING",
+    "surface": "headless",
+    "workspace": "dedicated local acceptance workspace",
+    "response": null,
+    "fileAccess": "must remain prohibited by the smoke-test prompt"
   },
   "artifactSha256": "",
   "verifiedAt": null,
