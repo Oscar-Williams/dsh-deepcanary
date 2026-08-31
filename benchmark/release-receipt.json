@@ -1,19 +1,20 @@
 {
   "schemaVersion": 1,
-  "status": "PASS",
+  "status": "CANDIDATE",
   "plugin": "dsh-deepcanary",
-  "pluginVersion": "0.1.0-rc.1",
+  "pluginVersion": "0.1.0-rc.2",
   "attentionFixtureVersion": 2,
   "attentionGate": "PASS",
   "runtime": {
-    "tag": "dsh-v0.1.2-alpha.1",
-    "version": "0.1.2-alpha.1",
-    "commit": "cd5ef8148158c3a752a658978873241fdf8e2bbc",
+    "tag": "dsh-v0.1.2-alpha.2",
+    "version": "0.1.2-alpha.2",
+    "commit": "0a53fb55bea101816fa226bb964ae2bed71c343b",
     "source": "official-git-tag"
   },
   "environment": {
     "node": ">=22.19.0",
-    "nodeVersion": "v24.19.0",
+    "windowsNodeVersion": "v24.19.0",
+    "wslNodeVersion": "v22.23.2",
     "packageManager": "pnpm@11.7.0",
     "platforms": ["windows-x64", "wsl2-ubuntu"]
   },
@@ -29,19 +30,52 @@
     "unloadRestart": true,
     "privacyGate": true,
     "distributionIntegrity": true,
-    "publicTagInstall": true,
+    "publicTagInstall": false,
     "windowsE2E": true,
     "wslE2E": true,
     "modelE2E": true
   },
+  "pendingGates": ["publicTagInstall"],
   "modelSmokeTest": {
     "status": "PASS",
     "surface": "headless",
     "workspace": "dedicated local acceptance workspace",
-    "response": "RC1_MODEL_OK",
+    "response": "RC2_MODEL_OK",
     "fileAccess": "must remain prohibited by the smoke-test prompt"
   },
-  "artifactSha256": "cf631ebf01c8b121df65b9195f642c2348f6948248461f0783477a5c405b6632",
-  "verifiedAt": "2026-08-30T04:21:58+08:00",
-  "note": "All listed gates passed against official dsh-v0.1.2-alpha.1 at the pinned commit, the Windows/WSL environments, the public candidate tag, the final package artifact, and a live model smoke task. Credentials, raw prompts, transcripts, and workspace contents are excluded from this receipt."
+  "verification": {
+    "windowsCommands": [
+      "npm run build",
+      "npm run typecheck",
+      "npm run typecheck:tests",
+      "npm test -- --run",
+      "npm run verify:distribution",
+      "npm run pack:check",
+      "npm run verify:release-receipt",
+      "git diff --check"
+    ],
+    "wslCommands": [
+      "npm ci --no-audit --no-fund",
+      "npm test -- --run",
+      "npm run typecheck",
+      "npm run typecheck:tests",
+      "npm run build",
+      "npm run verify:distribution"
+    ],
+    "profiles": [
+      "F:\\Agent_Related\\Deepseek-Harness_test\\.dsh-home\\profiles\\web",
+      "F:\\Agent_Related\\Deepseek-Harness_test\\.dsh-home\\profiles\\headless"
+    ],
+    "screenshots": [
+      "output/playwright/alpha2-english-resized.png",
+      "output/playwright/alpha2-chinese-resized.png"
+    ],
+    "browserConsole": {
+      "errors": 0,
+      "warnings": 0
+    }
+  },
+  "artifactSha256": "8bbb88dfecae072d33e77874904c336486a534f501960a805ff15f3a5f1fbf40",
+  "verifiedAt": "2026-08-31T21:18:19+08:00",
+  "note": "All local RC.2 gates listed above passed against the official dsh-v0.1.2-alpha.2 tag at the pinned commit, including Windows and WSL isolated checks, a fresh live alpha.2 WebUI install from the current candidate tarball, the standard settings card, settings write/readback, collapsed-sidebar wake-up, Escape and outside-pointer close, keyboard and pointer resize with viewport bounds, bilingual surface checks, unload/reinstall route cleanup, the touch-safe resize surface, allowlisted one-shot critical wake-up, and a live headless model smoke task. The final candidate tarball contains only the current single client bundle; stale pre-module client artifacts are excluded. publicTagInstall remains pending until this candidate is published under a new immutable Git tag and reinstalled from that tag. Credentials, raw prompts, transcripts, and workspace contents are excluded from this receipt."
 }

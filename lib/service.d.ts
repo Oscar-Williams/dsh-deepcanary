@@ -4,7 +4,12 @@ import { ContextDshAdapter } from './adapters/dsh.js';
 import { MetadataStore } from './persistence.js';
 import type { CanarySignal, DeepCanaryConfig, InboxItem, PublicInboxItem, PublicSettings, PublicSnapshot, RuntimeStatus } from './types.js';
 declare const PLUGIN_NAME = "dsh-deepcanary";
-declare const PLUGIN_VERSION = "0.1.0-rc.1";
+declare const PLUGIN_VERSION = "0.1.0-rc.2";
+interface ActionReceipt {
+    status: number;
+    body: Record<string, unknown>;
+    fingerprint: string;
+}
 export declare class DeepCanaryService {
     config: DeepCanaryConfig;
     readonly store: MetadataStore;
@@ -27,11 +32,15 @@ export declare class DeepCanaryService {
     private hostProbeFailures;
     private hostProbeHealthy;
     private settingsScope;
+    private settingsProvider;
+    private settingsSource;
     private settingsSubscription;
     private saveChain;
     private hydrated;
     private disposed;
     private started;
+    private revision;
+    private readonly actionReceipts;
     constructor(ctx: Context, input?: DeepCanaryConfigInput);
     start(): void;
     setRegisteredTools(names: readonly string[]): void;
@@ -41,6 +50,7 @@ export declare class DeepCanaryService {
     settings(): PublicSettings;
     updateSettings(input: Record<string, unknown>): Promise<PublicSettings>;
     inbox(limit?: number): PublicInboxItem[];
+    seen(id: string): boolean;
     acknowledge(id: string): boolean;
     snooze(id: string, minutes?: number): boolean;
     mute(id: string): boolean;
@@ -52,6 +62,8 @@ export declare class DeepCanaryService {
         available: boolean;
         note: string;
     };
+    /** Apply one browser action exactly once for its request id. */
+    performAction(requestId: string, id: string, action: string, payload?: Record<string, unknown>): Promise<ActionReceipt>;
     recordHostProbe(ok: boolean, detail?: string): void;
     private probeHost;
     dispose(): Promise<void>;
@@ -63,6 +75,8 @@ export declare class DeepCanaryService {
     private checkStalls;
     private findBundle;
     private mergeBundle;
+    private recover;
+    private expireSessionItems;
     private pressureThresholds;
     private applySettings;
     private resetLivenessTimer;
@@ -72,7 +86,9 @@ export declare class DeepCanaryService {
     private isQuietHours;
     private toPublic;
     private isPending;
+    private normalizeLifecycle;
     private find;
+    private bumpRevision;
     private queueSave;
 }
 export { PLUGIN_NAME, PLUGIN_VERSION };

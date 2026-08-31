@@ -20,6 +20,8 @@ export interface SessionEventLike {
   type: string
   seq?: number
   time?: number
+  /** DSH marks routine extension events so observers do not treat them as progress facts. */
+  ignorable?: boolean
   data?: Record<string, unknown>
 }
 
@@ -77,6 +79,7 @@ function turnEndReason(event: SessionEventLike): string | undefined {
 }
 
 export function signalsFromSessionEvent(session: SessionLike, event: SessionEventLike, facts: SessionFacts): CanarySignal[] {
+  if (event.ignorable === true) return []
   const eventType = event.type
   const data = event.data ?? {}
   const ref = `session-event:${eventType}`
@@ -154,9 +157,9 @@ export function signalFromStall(session: SessionLike, facts: SessionFacts, thres
 }
 
 export function signalFromStallRecovery(session: SessionLike, now = Date.now()): CanarySignal {
-  return signal('host', 'HOST_STALL_RECOVERED', session, { type: 'host/recovered', time: now }, undefined, evidence('runtime-probe', 'runtime', 'session/heartbeat', 'A new DSH session event arrived after a suspected stall.'), {}, 1)
+  return signal('host', 'HOST_STALL_RECOVERED', session, { type: 'host/recovered', time: now }, undefined, evidence('runtime-probe', 'runtime', 'session/heartbeat', 'A new DSH session event arrived after a suspected stall.'), {}, 1, `${session.id}:stall`)
 }
 
 export function signalFromHostRecovery(now = Date.now()): CanarySignal {
-  return signal('host', 'HOST_STALL_RECOVERED', undefined, { type: 'host/recovered', time: now }, undefined, evidence('http-probe', 'host', 'webserver/probe', 'The local DSH WebServer responded after a failed probe.'), {}, 1)
+  return signal('host', 'HOST_STALL_RECOVERED', undefined, { type: 'host/recovered', time: now }, undefined, evidence('http-probe', 'host', 'webserver/probe', 'The local DSH WebServer responded after a failed probe.'), {}, 1, 'host:unreachable')
 }

@@ -1,6 +1,7 @@
 import { defineTool } from '@deepseek-ai/dsh-tools'
-import type { JsonValue } from '@deepseek-ai/dsh-session'
 import type { DeepCanaryService } from './service.js'
+
+type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue }
 
 function renderJson(_args: unknown, value: unknown) {
   return [{ type: 'text' as const, text: JSON.stringify(value) }]

@@ -21,11 +21,11 @@ The plugin observes DSH seams; it does not reimplement the agent loop. Session e
 
 - `CanarySignal` carries source, reason code, evidence, an optional severity hint, a dedupe key, a root-cause Bundle key, and privacy-safe scalar data;
 - `EvidenceRef` records the evidence type and authority: `host`, `runtime`, `derived`, or `heuristic`;
-- `AttentionVerdict` carries C0–C3, action, confidence, reason, and evidence;
-- `InboxItem` adds reversible local status, feedback, Bundle count, and the reason-code set shown to users;
-- `PublicSnapshot` is the Web and client boundary and excludes internal hashes and raw evidence references.
+- `AttentionVerdict` carries C0–C3, action, confidence, reason, evidence, a stable message key, and the protocol/policy versions;
+- `InboxItem` adds reversible local status, feedback, Bundle count, lifecycle timestamps, and the reason-code set shown to users;
+- `PublicSnapshot` is the Web and client boundary, carries a monotonic revision for conditional reads, and excludes internal hashes and raw evidence references.
 
-`src/adapters/dsh.ts` owns the DSH-facing adapter contract. `ContextDshAdapter` translates the alpha.1 Context events into a small lifecycle interface and keeps session snapshots in memory. Providers do not depend on Web UI or persistence details.
+`src/adapters/dsh.ts` owns the DSH-facing adapter contract. `ContextDshAdapter` translates the alpha.2 Context events into a small lifecycle interface and keeps session snapshots in memory. Providers do not depend on Web UI or persistence details.
 
 ## Provider coverage
 
@@ -64,11 +64,13 @@ The entry point is `src/index.ts`:
 - `inject = ['tools', 'sessions']` expresses the required DSH services;
 - `session/created`, `session/event`, and `session/disposed` feed the adapter and Session providers;
 - optional `agents` and `subagents` injections observe live lifecycle facts;
-- optional `webServer` injection registers exact same-origin routes and a structured body script injection;
-- optional `settings` injection registers the `dsh-deepcanary` namespace with the composed configuration as its base and applies live user changes;
+- optional `webServer` injection registers exact same-origin state, settings, health, and action routes;
+- optional `settings` injection registers the `dsh-deepcanary` namespace through the alpha.2 `installSection` API, with the composed configuration as its base and live user changes applied through the provider;
 - DSH Tools are registered with `defineTool`, explicit JSON output schemas, and text renderers.
 
-The standalone client is deliberately decoupled from a particular React slot so the alpha.1 Web host can load it through `webserver/index-inject`. The state route remains the source of truth.
+The browser client is a DSH alpha.2 `dsh.client` module. Its `./client` export is built as a lazy-CJS factory for the client-module loader, then contributes the sidebar entry through `sidebar.footer.action`, the floating Inbox through `shell.overlay`, and the settings card through `settings.plugin.item`. The state route remains the source of truth; no permanent body injection is needed.
+
+The Web protocol is versioned independently from the persisted file format. State and action responses expose `schemaVersion` and a monotonic `revision`; state reads use an ETag and may return `304 Not Modified`. Actions require a client-generated `requestId`, and identical replays return the original receipt without applying the mutation twice. Inbox entries move through explicit `open`, `seen`, `acknowledged`, `snoozed`, `muted`, `recovered`, and `expired` states so a transient host recovery cannot create a second alert for the same root cause.
 
 ## Configuration and lifecycle
 

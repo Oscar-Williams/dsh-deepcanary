@@ -4,7 +4,7 @@
 
 `dsh-deepcanary` 是面向 [DeepSeek Harness（DSH）](https://github.com/deepseek-ai/deepseek-harness) 的本地注意力监督插件。它读取 Session、Tool、Agent、Subagent 和 Host 的结构化运行时事实，经过确定性策略判断哪些事件应当保持安静、进入 Inbox，或提醒用户处理。
 
-当前版本：`0.1.0-rc.1`。本 RC 的运行时与测试基线固定为官方 `dsh-v0.1.2-alpha.1`，对应 commit `cd5ef8148158c3a752a658978873241fdf8e2bbc`。安装与验证命令以该不可变 tag 为准；历史 npm `0.1.1-rc.2` 仅保留为开发期类型参考，不是本版本的运行测试基线。
+当前公开 tag 仍是 `v0.1.0-rc.1`；本工作树正在准备 `v0.1.0-rc.2` 候选版本。运行时与测试基线固定为官方 `dsh-v0.1.2-alpha.2`，对应 commit `0a53fb55bea101816fa226bb964ae2bed71c343b`。公开 `v0.1.0-rc.1` 是历史版本，不能用于验收本次客户端和设置卡改造；在新 RC 发布前，请使用下文的本地构建包。若测试 profile 中仍有旧的 `0.1.1-rc.2` 或 `v0.1.0-rc.1` 依赖，应先停止 DSH 并移除后再安装当前包，避免把旧依赖误当作测试结果。
 
 ## 能解决什么问题
 
@@ -12,7 +12,8 @@ DeepCanary 只回答一个问题：当前是否值得用户看一眼？它不重
 
 - 观察 Human Needed、Host 不可达、疑似停滞、工具失败循环、无有效进展、Subagent 压力、Context 压力和任务完成信号；
 - 用 C0–C3 注意力等级、去重窗口、Decision Bundle 和小时预算压缩提醒噪声；
-- 在 DSH Web 页面提供状态指示器、Inbox、设置卡片和证据摘要；
+- 在 DSH Web 页面默认只显示侧栏入口；面板按需打开，可关闭、再次唤起、用鼠标或键盘缩放，并跟随 DSH 的中英文设置；
+- 在面板中提供 Inbox、设置卡片和证据摘要；
 - 支持确认、稍后提醒、静音、有效性反馈以及跳转提示；
 - 仅提供本地元数据操作和 DSH 导航提示，不会终止或重启任务，不会自动批准或拒绝请求，也不执行任意命令。
 
@@ -25,32 +26,33 @@ DeepCanary 只回答一个问题：当前是否值得用户看一眼？它不重
 - Windows x64 或 WSL2 Ubuntu；
 - Node.js `22.19+`（本次 RC 验证使用 Node.js `24.19.0`）；
 - pnpm `11.7.0`；
-- 已准备官方 DSH `dsh-v0.1.2-alpha.1` 源码运行时。
+- 已准备官方 DSH `dsh-v0.1.2-alpha.2` 源码运行时。
 
-### 1. 准备官方 DSH alpha.1
+### 1. 准备官方 DSH alpha.2
 
 ```powershell
-git clone --depth 1 --branch dsh-v0.1.2-alpha.1 https://github.com/deepseek-ai/deepseek-harness.git dsh-runtime-alpha1
-Set-Location .\dsh-runtime-alpha1
+git clone --depth 1 --branch dsh-v0.1.2-alpha.2 https://github.com/deepseek-ai/deepseek-harness.git dsh-runtime-alpha2
+Set-Location .\dsh-runtime-alpha2
 npx --yes pnpm@11.7.0 install
 npx --yes pnpm@11.7.0 run build
 npx --yes pnpm@11.7.0 dsh --version
+git rev-parse HEAD
 ```
 
-最后一条命令应输出 `0.1.2-alpha.1`。官方发布页：[dsh-v0.1.2-alpha.1](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.1)。
+版本命令应输出 `0.1.2-alpha.2`，commit 命令应输出 `0a53fb55bea101816fa226bb964ae2bed71c343b`。官方发布页：[dsh-v0.1.2-alpha.2](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.2)。已有本地 checkout 即使目录名仍为 `dsh-runtime-alpha1`，也必须先确认 tag、commit 和 `dsh --version` 均符合上述值。
 
-### 2. 从公开 RC tag 安装插件
+### 2. 安装插件
 
-以下命令使用 GitHub 不可变 tag，适合干净 profile 验证；不要把本地源码目录或包含个人设计资料的目录作为正式安装来源。
+公开 `v0.1.0-rc.1` 不包含本次 RC.2 改造。在 `v0.1.0-rc.2` 发布并完成独立验证前，应使用“本地开发安装”中的 tarball；发布后再把 `<rc-tag>` 替换为新的不可变 tag。不要把本地源码目录或包含个人设计资料的目录作为正式安装来源。
 
 ```powershell
-Set-Location .\dsh-runtime-alpha1
-npx --yes pnpm@11.7.0 dsh plugin --profile web add https://codeload.github.com/Oscar-Williams/dsh-deepcanary/tar.gz/refs/tags/v0.1.0-rc.1
+Set-Location .\dsh-runtime-alpha2
+npx --yes pnpm@11.7.0 dsh plugin --profile web add https://codeload.github.com/Oscar-Williams/dsh-deepcanary/tar.gz/refs/tags/<rc-tag>
 npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
 
-启动后，在同一台机器的浏览器打开 DSH Web 页面。插件会通过同源接口注入轻量 Inbox 面板；如果浏览器通知权限被拒绝，面板和模型可见工具仍然可用。
+启动后，在同一台机器的浏览器打开 DSH Web 页面。成功安装 RC.2 后，客户端通过 alpha.2 的 client-module 机制挂载，默认不会遮挡页面，点击侧栏入口后才打开浮动 Inbox。浏览器通知权限被拒绝时，面板和模型可见工具仍然可用。
 
 更新已安装的 RC 时，先清理旧 profile 或执行：
 
@@ -60,17 +62,33 @@ npx --yes pnpm@11.7.0 dsh plugin --profile web update dsh-deepcanary
 
 ### 本地开发安装
 
-如需调试未发布代码，可以在本仓库构建后从本地目录安装。开发安装不等同于公开 RC 验证：
+如需调试未发布代码，请先构建 npm 包，再把明确的本地 tarball 安装到测试 profile。这样可以确认 DSH 实际加载的是当前构建产物，而不是 profile 中残留的旧 tag：
 
 ```powershell
 Set-Location F:\Agent_Related\ZCode_Related\plugin2
 npm install
 npm run build
+$packDir = Join-Path $env:TEMP 'dsh-deepcanary-rc2-pack'
+New-Item -ItemType Directory -Force $packDir | Out-Null
+npm pack --pack-destination $packDir
+$tarball = Join-Path $packDir 'dsh-deepcanary-0.1.0-rc.2.tgz'
 
 Set-Location F:\Agent_Related\Deepseek-Harness_Related\dsh-runtime-alpha1
-npx --yes pnpm@11.7.0 dsh plugin --profile web add F:\Agent_Related\ZCode_Related\plugin2
+$env:DSH_HOME = 'F:\Agent_Related\Deepseek-Harness_test\.dsh-home'
+npx --yes pnpm@11.7.0 dsh plugin --profile web remove dsh-deepcanary
+npx --yes pnpm@11.7.0 dsh plugin --profile web add $tarball
+npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
+
+现有本地 runtime 目录名虽为 `dsh-runtime-alpha1`，但上面的版本检查仍不可省略。确认测试 profile 的 `node_modules/dsh-deepcanary/package.json` 版本为 `0.1.0-rc.2`，并含有 `exports["./client"]` 与 `dsh.client` 后，再开始 WebUI 手测。若插件仍以固定卡片直接出现在页面右侧，说明 profile 尚未替换成功，应先停止 DSH 并重新安装本地 tarball。
+
+### WebUI 交互
+
+- **隐藏**：插件启动后不渲染 Inbox 面板；关闭按钮、`Esc` 或面板外点击都会隐藏它，外部 DSH 页面仍可操作。
+- **唤起**：点击侧栏底部的 DeepCanary 入口即可重新打开；打开后焦点落到关闭按钮，关闭后返回入口。
+- **缩放**：面板右侧和底部提供可聚焦的调整手柄，支持鼠标拖动以及方向键、`Home`、`End`；尺寸会在浏览器允许时保存在本地。
+- **双语**：面板文案、原因说明、建议、证据类型、操作按钮和设置字段注册到 DSH locale，切换 DSH 的中文/English 后实时更新。
 
 ## Web 与工具接口
 
@@ -82,13 +100,14 @@ npx --yes pnpm@11.7.0 dsh web --no-open
 | `/dsh-deepcanary/settings` | 读取或校验并更新体验设置 |
 | `/dsh-deepcanary/health` | 插件健康检查 |
 | `/dsh-deepcanary/action` | 确认、静音、稍后提醒、反馈和跳转提示 |
-| `/dsh-deepcanary/client.js` | Web Inbox 面板脚本 |
 
 DSH 模型可使用：
 
 `deepcanary_status`、`deepcanary_inbox`、`deepcanary_acknowledge`、`deepcanary_snooze`、`deepcanary_mute`、`deepcanary_feedback`、`deepcanary_explain`、`deepcanary_jump`。
 
-设置卡片暴露通知级别、每小时打断预算、静默时段、长时间阈值、Subagent 压力档位、相邻事件合并窗口和隐私安全摘要选项。挂载 `@deepseek-ai/dsh-settings` 后，设置通过 DSH Settings namespace 实时生效；没有该 provider 时，插件仍按 bundle 配置工作。
+设置卡片通过 DSH 标准 `settings.plugin.item` 位置暴露通知级别、自动唤起策略、每小时打断预算、静默时段、长时间阈值、Subagent 压力档位、相邻事件合并窗口和隐私安全摘要选项。挂载 `@deepseek-ai/dsh-settings` 后，设置通过 `dsh-deepcanary` namespace 实时生效；没有该 provider 时，插件仍按 bundle 配置工作。
+
+客户端不再注册独立的 `/dsh-deepcanary/client.js` 路由，也不使用 `webserver/index-inject`。包 manifest 的 `dsh.client` 声明和 `./client` 导出由 DSH alpha.2 的 client-module loader 负责加载；面板入口贡献到 `sidebar.footer.action`，浮动面板贡献到 `shell.overlay`，设置卡贡献到标准 `settings.plugin.item`。
 
 ## 注意力策略
 
@@ -121,12 +140,12 @@ npm run verify:distribution
 npm pack --dry-run
 ```
 
-AttentionGold 固定覆盖 15 个分类场景，以及重复事件和共享根因 Bundle 场景。最终 RC 的运行时、Windows/WSL、公开 tag、安装、Web、设置、卸载重启和分发完整性证据记录在仓库内的 [`benchmark/release-receipt.json`](benchmark/release-receipt.json)；该文件不进入 npm 运行包，以避免与发布包 SHA-256 形成循环依赖。发布前步骤见 [`docs/release-checklist.md`](docs/release-checklist.md)。
+AttentionGold 固定覆盖 15 个分类场景，以及重复事件和共享根因 Bundle 场景。当前候选版本的运行时、Windows/WSL、安装、Web、设置、卸载重启和分发完整性证据记录在仓库内的 [`benchmark/release-receipt.json`](benchmark/release-receipt.json)；收据明确保留公开 tag 安装这一待完成门槛，并在发布后再转为最终 PASS。该文件不进入 npm 运行包，以避免与发布包 SHA-256 形成循环依赖。发布前步骤见 [`docs/release-checklist.md`](docs/release-checklist.md)。
 
 ## 文档
 
 - [`docs/architecture.md`](docs/architecture.md)：运行时管线、稳定契约和扩展边界；
-- [`docs/dsh-surface-audit.md`](docs/dsh-surface-audit.md)：针对官方 alpha.1 的 DSH 接口审计；
+- [`docs/dsh-surface-audit.md`](docs/dsh-surface-audit.md)：针对官方 alpha.2 的 DSH 接口审计；
 - [`docs/compatibility.md`](docs/compatibility.md)：运行时、平台和已知限制；
 - [`docs/security.md`](docs/security.md)：本地状态、动作和 Web 边界；
 - [`docs/release-checklist.md`](docs/release-checklist.md)：可复现发布检查。

@@ -25,7 +25,7 @@ The plugin has no shell, file-write, process-control, approval, rejection, arbit
 
 ## Client safety
 
-The injected browser client uses DOM node construction and `textContent` for runtime values. It does not interpolate runtime values into `innerHTML`. Browser notifications are created only after the user grants permission. If permission is denied or the browser API is unavailable, the Web Inbox and model tools remain the fallback surfaces.
+The DSH client-module browser surface uses DOM node construction and `textContent` for runtime values. It does not interpolate runtime values into `innerHTML`. The panel is mounted in the host's additive overlay slot and remains click-through outside its own bounds. Browser notifications are created only after the user grants permission. If permission is denied or the browser API is unavailable, the Web Inbox and model tools remain the fallback surfaces.
 
 ## Evidence authority
 

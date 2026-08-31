@@ -4,7 +4,7 @@ Thank you for helping improve `dsh-deepcanary`. Contributions are most useful wh
 
 ## Development baseline
 
-Use Node.js 22.19.0 or 24.19.0. The RC release baseline is the official `dsh-v0.1.2-alpha.1` tag of DeepSeek Harness, commit `cd5ef8148158c3a752a658978873241fdf8e2bbc`. Do not use the older `0.1.1-rc.2` runtime as an integration-test substitute.
+Use Node.js 22.19.0 or 24.19.0. The RC release baseline is the official `dsh-v0.1.2-alpha.2` tag of DeepSeek Harness, commit `0a53fb55bea101816fa226bb964ae2bed71c343b`. Do not use the older `0.1.1-rc.2` runtime as an integration-test substitute.
 
 Install dependencies and run the complete local gate from the repository root:
 

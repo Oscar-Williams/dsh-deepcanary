@@ -5,10 +5,12 @@ describe('DeepCanary settings boundary', () => {
   it('accepts the public settings surface and never accepts stateDir', () => {
     expect(sanitizeConfigPatch({
       notificationLevel: 'C1',
+      openOnCritical: true,
       maxInterruptsPerHour: 0,
       quietHours: { enabled: true, start: '23:00', end: '07:00' },
     })).toEqual({
       notificationLevel: 'C1',
+      openOnCritical: true,
       maxInterruptsPerHour: 0,
       quietHours: { enabled: true, start: '23:00', end: '07:00' },
     })

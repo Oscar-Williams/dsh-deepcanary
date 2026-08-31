@@ -8,6 +8,7 @@ export interface DeepCanaryConfigInput extends Partial<Omit<DeepCanaryConfig, 'q
 export const Config = Schema.object({
   stateDir: Schema.string().default('~/.dsh/dsh-deepcanary').description('Metadata-only local state directory'),
   notificationLevel: Schema.union(['C1', 'C2', 'C3'] as const).default('C2').description('Highest level allowed to notify the user'),
+  openOnCritical: Schema.boolean().default(false).description('Open the DeepCanary panel for allowlisted C3 events'),
   maxInterruptsPerHour: Schema.natural().min(0).max(10).default(3).description('C2 interrupt budget per rolling hour'),
   dedupeWindowMinutes: Schema.natural().min(0).max(120).default(10).description('Dedupe window for equivalent signals'),
   bundleWindowSeconds: Schema.natural().min(0).max(900).default(60).description('Window for bundling adjacent attention items'),
@@ -26,6 +27,7 @@ export const Config = Schema.object({
 const defaults: DeepCanaryConfig = {
   stateDir: '~/.dsh/dsh-deepcanary',
   notificationLevel: 'C2',
+  openOnCritical: false,
   maxInterruptsPerHour: 3,
   dedupeWindowMinutes: 10,
   bundleWindowSeconds: 60,
@@ -64,13 +66,17 @@ function clockPatch(value: unknown, name: string): string {
 export function sanitizeConfigPatch(input: Record<string, unknown>): DeepCanaryConfigInput {
   const patch: DeepCanaryConfigInput = {}
   for (const key of Object.keys(input)) {
-    if (!['notificationLevel', 'maxInterruptsPerHour', 'dedupeWindowMinutes', 'bundleWindowSeconds', 'longRunThresholdMinutes', 'subagentPressure', 'quietHours', 'privacySafeSummary', 'healthPollSeconds', 'maxInboxItems'].includes(key)) {
+    if (!['notificationLevel', 'openOnCritical', 'maxInterruptsPerHour', 'dedupeWindowMinutes', 'bundleWindowSeconds', 'longRunThresholdMinutes', 'subagentPressure', 'quietHours', 'privacySafeSummary', 'healthPollSeconds', 'maxInboxItems'].includes(key)) {
       throw new TypeError(`unsupported setting: ${key}`)
     }
   }
   if (input.notificationLevel !== undefined) {
     if (input.notificationLevel !== 'C1' && input.notificationLevel !== 'C2' && input.notificationLevel !== 'C3') throw new TypeError('notificationLevel must be C1, C2, or C3')
     patch.notificationLevel = input.notificationLevel
+  }
+  if (input.openOnCritical !== undefined) {
+    if (typeof input.openOnCritical !== 'boolean') throw new TypeError('openOnCritical must be boolean')
+    patch.openOnCritical = input.openOnCritical
   }
   if (input.maxInterruptsPerHour !== undefined) patch.maxInterruptsPerHour = integerPatch(input.maxInterruptsPerHour, 'maxInterruptsPerHour', 0, 10)
   if (input.dedupeWindowMinutes !== undefined) patch.dedupeWindowMinutes = integerPatch(input.dedupeWindowMinutes, 'dedupeWindowMinutes', 0, 120)

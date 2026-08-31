@@ -18,6 +18,8 @@ export interface SessionEventLike {
     type: string;
     seq?: number;
     time?: number;
+    /** DSH marks routine extension events so observers do not treat them as progress facts. */
+    ignorable?: boolean;
     data?: Record<string, unknown>;
 }
 export declare function signalsFromSessionEvent(session: SessionLike, event: SessionEventLike, facts: SessionFacts): CanarySignal[];

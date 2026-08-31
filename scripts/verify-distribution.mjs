@@ -28,7 +28,11 @@ for (const file of required) await access(path.join(root, file))
 const entry = await readFile(path.join(root, 'lib/index.js'), 'utf8')
 if (!entry.includes("dsh-deepcanary")) throw new Error('lib/index.js does not contain the plugin entry')
 const client = await readFile(path.join(root, 'lib/client.js'), 'utf8')
-if (/\bexport\s*\{/.test(client)) throw new Error('lib/client.js must remain a classic script for DSH index injection')
+if (!client.includes('window.__ModuleLoader__.load') || !client.includes('factory:')) {
+  throw new Error('lib/client.js must register the DSH client-module factory')
+}
+if (/\bexport\s*\{/.test(client)) throw new Error('lib/client.js must remain a lazy-CJS factory bundle for DSH client modules')
+if (packageJson.exports?.['./client'] !== './lib/client.js') throw new Error('package client export must resolve to lib/client.js')
 if (packageJson.main !== './lib/index.js' || packageJson.types !== './lib/index.d.ts') throw new Error('package entry points are inconsistent')
 
 const npmArgs = ['pack', '--dry-run', '--json', '--ignore-scripts']
@@ -42,6 +46,11 @@ const packReport = JSON.parse(stdout)
 const packedFiles = new Set(packReport[0]?.files?.map(file => file.path) ?? [])
 for (const file of ['lib/index.js', 'lib/client.js', 'cordis.patch.yml', 'benchmark/attention-gold.json']) {
   if (![...packedFiles].some(candidate => candidate === file || candidate.endsWith(`/${file}`))) throw new Error(`required file is absent from npm package: ${file}`)
+}
+for (const file of ['lib/client.d.ts', 'lib/client.d.ts.map', 'lib/client.js.map', 'lib/client/index.js']) {
+  if ([...packedFiles].some(candidate => candidate === file || candidate.endsWith(`/${file}`))) {
+    throw new Error(`stale legacy client artifact entered the npm package: ${file}`)
+  }
 }
 for (const file of packedFiles) {
   if (/^(src|test|tests|node_modules|设计思路\(不提交\)|\.dsh-deepcanary-test)(\/|\\)/i.test(file) || /设计指南|设计方案|制作建议/.test(file)) {

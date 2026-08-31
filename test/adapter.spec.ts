@@ -6,7 +6,7 @@ describe('DSH adapter boundary', () => {
     const listeners = new Map<string, (...args: any[]) => void>()
     const adapter = new ContextDshAdapter({
       on: (name: string, listener: (...args: any[]) => void) => { listeners.set(name, listener) },
-    } as never, { hostVersion: '0.1.2-alpha.1' })
+    } as never, { hostVersion: '0.1.2-alpha.2' })
     const received: string[] = []
     adapter.subscribe(event => received.push(event.type))
     await adapter.start()
@@ -14,7 +14,7 @@ describe('DSH adapter boundary', () => {
     listeners.get('session/created')?.(session)
     listeners.get('session/event')?.(session, { type: 'tool/result' })
     listeners.get('session/disposed')?.(session)
-    expect(adapter.hostVersion).toBe('0.1.2-alpha.1')
+    expect(adapter.hostVersion).toBe('0.1.2-alpha.2')
     expect(received).toEqual(['session/created', 'session/event', 'session/disposed'])
     expect(await adapter.getSessionSnapshot('adapter-session')).toMatchObject({ sessionId: 'adapter-session', active: false, cwd: 'C:\\work' })
     expect((await adapter.getRuntimeHealth()).status).toBe('unknown')

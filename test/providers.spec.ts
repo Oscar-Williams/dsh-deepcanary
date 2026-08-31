@@ -30,7 +30,11 @@ describe('runtime providers', () => {
     const event = { type: 'context/compaction', time: 4_000, data: { kind: 'compaction' } }
     expect(signalsFromSessionEvent(session, event, { ...facts, contextCompactions: 1 })[0]).toMatchObject({ kind: 'COMPACTION_OCCURRED' })
     expect(signalsFromSessionEvent(session, event, { ...facts, contextCompactions: 2 })[0]).toMatchObject({ kind: 'CONTEXT_PRESSURE' })
-    expect(signalFromStallRecovery(session).bundleKey).toBeUndefined()
+    expect(signalFromStallRecovery(session).bundleKey).toBe('session-1:stall')
+  })
+
+  it('does not turn DSH ignorable events into attention signals', () => {
+    expect(signalsFromSessionEvent(session, { type: 'turn/end', seq: 9, ignorable: true, data: { reason: 'blocked' } }, facts)).toEqual([])
   })
 
   it('uses the same-tool failure count when it is available', () => {

@@ -1,15 +1,27 @@
-import { readFile } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { DeepCanaryService } from './service.js'
+import { ATTENTION_PROTOCOL_VERSION } from './types.js'
 
 const basePath = '/dsh-deepcanary'
 
-function sendJson(res: ServerResponse, status: number, value: unknown): void {
+function sendJson(res: ServerResponse, status: number, value: unknown, headers: Record<string, string> = {}): void {
   const body = JSON.stringify(value)
   res.statusCode = status
   res.setHeader('content-type', 'application/json; charset=utf-8')
   res.setHeader('cache-control', 'no-store')
+  for (const [name, value] of Object.entries(headers)) res.setHeader(name, value)
   res.end(body)
+}
+
+function sendNotModified(res: ServerResponse, etag: string): void {
+  res.statusCode = 304
+  res.setHeader('cache-control', 'no-store')
+  res.setHeader('etag', etag)
+  res.end()
+}
+
+function etagFor(revision: number): string {
+  return `W/"dc-${revision}"`
 }
 
 function readBody(req: IncomingMessage): Promise<string> {
@@ -34,22 +46,11 @@ async function actionHandler(req: IncomingMessage, res: ServerResponse, service:
     const payload = JSON.parse(await readBody(req)) as Record<string, unknown>
     const id = typeof payload.id === 'string' ? payload.id : ''
     const action = typeof payload.action === 'string' ? payload.action : ''
-    let updated = false
-    if (action === 'acknowledge') updated = service.acknowledge(id)
-    else if (action === 'mute') updated = service.mute(id)
-    else if (action === 'snooze') updated = service.snooze(id, typeof payload.minutes === 'number' ? payload.minutes : 30)
-    else if (action === 'feedback') updated = service.feedback(id, payload.useful === true, typeof payload.note === 'string' ? payload.note : undefined)
-    else if (action === 'jump') {
-      sendJson(res, 200, service.jump(id))
-      return
-    }
-    else {
-      sendJson(res, 400, { error: 'unsupported action' })
-      return
-    }
-    sendJson(res, updated ? 200 : 404, { updated })
+    const requestId = typeof payload.requestId === 'string' ? payload.requestId : ''
+    const receipt = await service.performAction(requestId, id, action, payload)
+    sendJson(res, receipt.status, receipt.body)
   } catch {
-    sendJson(res, 400, { error: 'invalid action payload' })
+    sendJson(res, 400, { error: 'invalid action payload', schemaVersion: ATTENTION_PROTOCOL_VERSION })
   }
 }
 
@@ -65,11 +66,16 @@ export function installWebRoutes(ctx: unknown, service: DeepCanaryService): void
     const disposers = [
       server.register({ kind: 'exact', path: `${basePath}/state`, handler: (req, res) => {
         if (req.method !== 'GET') sendJson(res, 405, { error: 'GET required' })
-        else sendJson(res, 200, service.snapshot())
+        else {
+          const snapshot = service.snapshot()
+          const etag = etagFor(snapshot.revision)
+          if (req.headers['if-none-match'] === etag) sendNotModified(res, etag)
+          else sendJson(res, 200, snapshot, { etag })
+        }
       } }),
       server.register({ kind: 'exact', path: `${basePath}/settings`, handler: async (req, res) => {
         if (req.method === 'GET') {
-          sendJson(res, 200, service.settings())
+          sendJson(res, 200, service.settings(), { etag: etagFor(service.status().revision) })
           return
         }
         if (req.method !== 'POST') {
@@ -78,36 +84,22 @@ export function installWebRoutes(ctx: unknown, service: DeepCanaryService): void
         }
         try {
           const payload = JSON.parse(await readBody(req)) as Record<string, unknown>
-          sendJson(res, 200, await service.updateSettings(payload))
+          const settings = await service.updateSettings(payload)
+          sendJson(res, 200, settings, { etag: etagFor(service.status().revision) })
         } catch (error: unknown) {
           sendJson(res, 400, { error: error instanceof Error ? error.message : 'invalid settings payload' })
         }
       } }),
       server.register({ kind: 'exact', path: `${basePath}/health`, handler: (req, res) => {
         if (req.method !== 'GET') sendJson(res, 405, { error: 'GET required' })
-        else sendJson(res, 200, { ok: true, plugin: service.status().plugin, sessions: service.status().sessions, tools: service.status().tools })
-      } }),
-      server.register({ kind: 'exact', path: `${basePath}/client.js`, handler: async (req, res) => {
-        if (req.method !== 'GET') {
-          sendJson(res, 405, { error: 'GET required' })
-          return
-        }
-        try {
-          const body = await readFile(new URL('./client.js', import.meta.url), 'utf8')
-          res.statusCode = 200
-          res.setHeader('content-type', 'application/javascript; charset=utf-8')
-          res.setHeader('cache-control', 'no-store')
-          res.end(body)
-        } catch {
-          sendJson(res, 503, { error: 'client bundle is not built' })
+        else {
+          const status = service.status()
+          sendJson(res, 200, { ok: true, schemaVersion: ATTENTION_PROTOCOL_VERSION, revision: status.revision, plugin: status.plugin, sessions: status.sessions, tools: status.tools })
         }
       } }),
       server.register({ kind: 'exact', path: `${basePath}/action`, handler: (req, res) => actionHandler(req, res, service) }),
     ]
 
-    webCtx.on?.('webserver/index-inject', (rows: any[]) => {
-      rows.push({ kind: 'script-src', placement: 'body', src: `${basePath}/client.js` })
-    })
     webCtx.on?.('dispose', () => { for (const dispose of disposers) dispose() })
   })
 }

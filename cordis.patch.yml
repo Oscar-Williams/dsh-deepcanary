@@ -6,6 +6,7 @@
       config:
         stateDir: '~/.dsh/dsh-deepcanary'
         notificationLevel: 'C2'
+        openOnCritical: false
         maxInterruptsPerHour: 3
         dedupeWindowMinutes: 10
         bundleWindowSeconds: 60

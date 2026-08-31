@@ -2,6 +2,8 @@ node_modules/
 lib-test/
 coverage/
 *.tgz
+.playwright-cli/
+output/playwright/
 .DS_Store
 .dsh-deepcanary-test/
 设计思路(不提交)/

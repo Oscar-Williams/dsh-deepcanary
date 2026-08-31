@@ -4,7 +4,7 @@
 
 `dsh-deepcanary` is a local attention-supervision plugin for [DeepSeek Harness (DSH)](https://github.com/deepseek-ai/deepseek-harness). It reads structured facts from Sessions, Tools, Agents, Subagents, and the Host, then applies deterministic policy to decide what can stay quiet, what belongs in the Inbox, and what deserves a user-facing reminder.
 
-Current version: `0.1.0-rc.1`. This release candidate is tested against the official `dsh-v0.1.2-alpha.1` runtime at commit `cd5ef8148158c3a752a658978873241fdf8e2bbc`. Installation and verification use that immutable upstream tag. The historical npm `0.1.1-rc.2` runtime is retained only as a development type reference and is not the integration-test baseline.
+The current public tag remains `v0.1.0-rc.1`; this working tree is preparing the `v0.1.0-rc.2` candidate. The runtime and integration baseline is the official `dsh-v0.1.2-alpha.2` source tag at commit `0a53fb55bea101816fa226bb964ae2bed71c343b`. Public `v0.1.0-rc.1` is historical and cannot verify this client and settings-card revision; use the local package path below until the new RC has been published. If a test profile still contains the old npm `0.1.1-rc.2` or `v0.1.0-rc.1` dependency, stop DSH and replace it before testing so the result cannot be confused with an older install.
 
 ## What it does
 
@@ -12,7 +12,8 @@ DeepCanary answers one question: is this worth a human looking at now? It does n
 
 - observes Human Needed, host unreachability, suspected stalls, tool-failure loops, no-progress signals, subagent pressure, context pressure, and completion events;
 - uses C0–C3 attention levels, deduplication, Decision Bundles, and an hourly budget to reduce notification noise;
-- adds a same-origin Web Inbox with a status indicator, settings card, and evidence summaries;
+- keeps only a sidebar entry visible at startup; the panel opens on demand, can be closed and reopened, supports mouse or keyboard resizing, and follows DSH's Chinese/English setting;
+- provides the Inbox, settings card, and evidence summaries inside that panel;
 - supports acknowledge, snooze, mute, usefulness feedback, and navigation hints;
 - never terminates or restarts a task, approves or rejects a request, or executes arbitrary commands.
 
@@ -25,32 +26,33 @@ The governing rule is evidence before escalation. C3 requires Host or Runtime au
 - Windows x64 or WSL2 Ubuntu;
 - Node.js `22.19+` (the release verification used Node.js `24.19.0`);
 - pnpm `11.7.0`;
-- the official DSH `dsh-v0.1.2-alpha.1` source runtime.
+- the official DSH `dsh-v0.1.2-alpha.2` source runtime.
 
-### 1. Prepare the official DSH alpha.1 runtime
+### 1. Prepare the official DSH alpha.2 runtime
 
 ```powershell
-git clone --depth 1 --branch dsh-v0.1.2-alpha.1 https://github.com/deepseek-ai/deepseek-harness.git dsh-runtime-alpha1
-Set-Location .\dsh-runtime-alpha1
+git clone --depth 1 --branch dsh-v0.1.2-alpha.2 https://github.com/deepseek-ai/deepseek-harness.git dsh-runtime-alpha2
+Set-Location .\dsh-runtime-alpha2
 npx --yes pnpm@11.7.0 install
 npx --yes pnpm@11.7.0 run build
 npx --yes pnpm@11.7.0 dsh --version
+git rev-parse HEAD
 ```
 
-The last command should print `0.1.2-alpha.1`. See the official release page: [dsh-v0.1.2-alpha.1](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.1).
+The version command should print `0.1.2-alpha.2`, and the commit command should print `0a53fb55bea101816fa226bb964ae2bed71c343b`. See the official release page: [dsh-v0.1.2-alpha.2](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.2). An existing checkout may still be named `dsh-runtime-alpha1`; its tag, commit, and `dsh --version` must still match the values above.
 
-### 2. Install the plugin from the public RC tag
+### 2. Install the plugin
 
-The following command uses an immutable GitHub tag and is the clean-profile verification path. Do not use a local source directory or a directory containing personal design notes as the production installation source.
+Public `v0.1.0-rc.1` does not contain the current RC.2 revision. Until `v0.1.0-rc.2` has been published and independently verified, use the local tarball path below; after publication, replace `<rc-tag>` with the new immutable tag. Do not use a local source directory or a directory containing personal design notes as the production installation source.
 
 ```powershell
-Set-Location .\dsh-runtime-alpha1
-npx --yes pnpm@11.7.0 dsh plugin --profile web add https://codeload.github.com/Oscar-Williams/dsh-deepcanary/tar.gz/refs/tags/v0.1.0-rc.1
+Set-Location .\dsh-runtime-alpha2
+npx --yes pnpm@11.7.0 dsh plugin --profile web add https://codeload.github.com/Oscar-Williams/dsh-deepcanary/tar.gz/refs/tags/<rc-tag>
 npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
 
-Open the DSH Web page in a browser on the same machine. The plugin injects a small same-origin Inbox panel. If browser notification permission is denied, the panel and model-visible tools remain available.
+Open the DSH Web page in a browser on the same machine. Once RC.2 is installed, its client is loaded through the alpha.2 client-module surface; the panel does not cover the page at startup and opens only after the sidebar entry is clicked. If browser notification permission is denied, the panel and model-visible tools remain available.
 
 To update an existing RC installation, rebuild only when using a local development checkout; for an installed profile use:
 
@@ -60,17 +62,33 @@ npx --yes pnpm@11.7.0 dsh plugin --profile web update dsh-deepcanary
 
 ### Local development installation
 
-For an unpublished change, build this repository and install the local directory. This is useful for development but is not a substitute for public-tag verification:
+For an unpublished change, build the npm package and install the explicit local tarball into the test profile. This makes it clear that DSH is loading the current build rather than a stale tag:
 
 ```powershell
 Set-Location F:\Agent_Related\ZCode_Related\plugin2
 npm install
 npm run build
+$packDir = Join-Path $env:TEMP 'dsh-deepcanary-rc2-pack'
+New-Item -ItemType Directory -Force $packDir | Out-Null
+npm pack --pack-destination $packDir
+$tarball = Join-Path $packDir 'dsh-deepcanary-0.1.0-rc.2.tgz'
 
 Set-Location F:\Agent_Related\Deepseek-Harness_Related\dsh-runtime-alpha1
-npx --yes pnpm@11.7.0 dsh plugin --profile web add F:\Agent_Related\ZCode_Related\plugin2
+$env:DSH_HOME = 'F:\Agent_Related\Deepseek-Harness_test\.dsh-home'
+npx --yes pnpm@11.7.0 dsh plugin --profile web remove dsh-deepcanary
+npx --yes pnpm@11.7.0 dsh plugin --profile web add $tarball
+npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
+
+The existing local runtime directory is named `dsh-runtime-alpha1`, but the version checks remain mandatory. Before testing the Web UI, confirm that the profile's `node_modules/dsh-deepcanary/package.json` is version `0.1.0-rc.2` and contains `exports["./client"]` and `dsh.client`. If a fixed card still appears on the right side, stop DSH and replace the profile package before testing again.
+
+### Web UI interactions
+
+- **Hide:** the Inbox panel is not rendered at startup; the close button, `Esc`, and an outside click hide it without blocking the DSH page.
+- **Wake:** click the DeepCanary entry at the bottom of the sidebar to reopen it; focus moves to the close button and returns to the entry after closing.
+- **Resize:** the right and bottom handles support pointer dragging and keyboard arrows, `Home`, and `End`; the size is persisted when browser storage is available.
+- **Bilingual display:** panel copy, reasons, suggestions, evidence labels, actions, and settings fields are registered with DSH locale and update when DSH switches between Chinese and English.
 
 ## Web and model-visible interfaces
 
@@ -82,11 +100,12 @@ The plugin registers these same-origin local WebServer routes:
 | `/dsh-deepcanary/settings` | read or validate and update user-facing settings |
 | `/dsh-deepcanary/health` | plugin health check |
 | `/dsh-deepcanary/action` | acknowledge, mute, snooze, feedback, and navigation hint |
-| `/dsh-deepcanary/client.js` | Web Inbox client |
 
 The DSH model can use `deepcanary_status`, `deepcanary_inbox`, `deepcanary_acknowledge`, `deepcanary_snooze`, `deepcanary_mute`, `deepcanary_feedback`, `deepcanary_explain`, and `deepcanary_jump`.
 
-The settings card exposes notification level, hourly interrupt budget, quiet hours, long-run threshold, subagent-pressure mode, adjacent-event bundling, and privacy-safe summaries. When `@deepseek-ai/dsh-settings` is mounted, updates use the DSH Settings namespace and take effect live; without that provider, the plugin continues to use its composed bundle configuration.
+The settings card uses DSH's standard `settings.plugin.item` location and exposes notification level, automatic critical-panel wake-up, hourly interrupt budget, quiet hours, long-run threshold, subagent-pressure mode, adjacent-event bundling, and privacy-safe summaries. When `@deepseek-ai/dsh-settings` is mounted, updates use the `dsh-deepcanary` namespace and take effect live; without that provider, the plugin continues to use its composed bundle configuration.
+
+The client no longer registers a separate `/dsh-deepcanary/client.js` route or uses `webserver/index-inject`. The `dsh.client` manifest declaration and `./client` export are loaded by DSH alpha.2's client-module loader; the entry contributes to `sidebar.footer.action`, the floating panel to `shell.overlay`, and the settings card to `settings.plugin.item`.
 
 ## Attention policy
 
@@ -119,12 +138,12 @@ npm run verify:distribution
 npm pack --dry-run
 ```
 
-AttentionGold freezes 15 classification scenarios plus duplicate-event and shared-root Bundle scenarios. The final RC evidence for the upstream runtime, Windows/WSL, public-tag installation, Web, settings, unload/restart, and distribution integrity is recorded in the repository's [`benchmark/release-receipt.json`](benchmark/release-receipt.json). The receipt is intentionally excluded from the npm runtime package so its SHA-256 can be verified without a circular dependency. See [`docs/release-checklist.md`](docs/release-checklist.md) for the reproducible release procedure.
+AttentionGold freezes 15 classification scenarios plus duplicate-event and shared-root Bundle scenarios. The current candidate's evidence for the upstream runtime, Windows/WSL, local installation, Web, settings, unload/restart, and distribution integrity is recorded in the repository's [`benchmark/release-receipt.json`](benchmark/release-receipt.json); the receipt explicitly keeps public-tag installation pending and is promoted to final PASS only after that gate is repeated. The receipt is intentionally excluded from the npm runtime package so its SHA-256 can be verified without a circular dependency. See [`docs/release-checklist.md`](docs/release-checklist.md) for the reproducible release procedure.
 
 ## Documentation
 
 - [`docs/architecture.md`](docs/architecture.md) — runtime pipeline, stable contracts, and extension boundaries;
-- [`docs/dsh-surface-audit.md`](docs/dsh-surface-audit.md) — DSH surface audit against alpha.1;
+- [`docs/dsh-surface-audit.md`](docs/dsh-surface-audit.md) — DSH surface audit against alpha.2;
 - [`docs/compatibility.md`](docs/compatibility.md) — runtime, platform, and known limitations;
 - [`docs/security.md`](docs/security.md) — local state, action, and Web boundaries;
 - [`docs/release-checklist.md`](docs/release-checklist.md) — reproducible release checks.

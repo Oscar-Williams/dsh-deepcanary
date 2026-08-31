@@ -2,7 +2,8 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import os from 'node:os'
 import path from 'node:path'
-import type { AttentionAction, AttentionLevel, EvidenceAuthority, EvidenceType, InboxItem, InboxStatus, ReasonCode } from './types.js'
+import { ATTENTION_POLICY_VERSION } from './types.js'
+import type { AttentionAction, AttentionLevel, EvidenceAuthority, EvidenceType, InboxItem, InboxStatus, MessageParams, ReasonCode } from './types.js'
 
 interface PersistedEvidence {
   type: EvidenceType
@@ -20,11 +21,19 @@ interface PersistedItem {
   action: AttentionAction
   confidence: number
   reasonCode: ReasonCode
+  messageKey?: string
+  messageParams?: MessageParams
+  suggestionKey?: string
+  policyVersion?: string
   why: string
   suggestedAction?: string
   evidence: PersistedEvidence[]
   status: InboxStatus
   snoozedUntil?: string
+  seenAt?: string
+  acknowledgedAt?: string
+  recoveredAt?: string
+  expiredAt?: string
   feedback?: { useful: boolean; note?: string; at: string }
   bundleKey?: string
   bundleCount?: number
@@ -49,13 +58,17 @@ export function resolveStateDir(value: string): string {
 function toPersisted(item: InboxItem): PersistedItem {
   return {
     id: item.id,
-    ...(item.sessionId ? { sessionRef: hashMetadata(item.sessionId) } : {}),
-    ...(item.workspaceId ? { workspaceRef: hashMetadata(item.workspaceId) } : {}),
+    ...(item.sessionRef || item.sessionId ? { sessionRef: item.sessionRef ?? hashMetadata(item.sessionId as string) } : {}),
+    ...(item.workspaceRef || item.workspaceId ? { workspaceRef: item.workspaceRef ?? hashMetadata(item.workspaceId as string) } : {}),
     occurredAt: item.occurredAt,
     level: item.level,
     action: item.action,
     confidence: item.confidence,
     reasonCode: item.reasonCode,
+    ...(item.messageKey === undefined ? {} : { messageKey: item.messageKey }),
+    ...(item.messageParams === undefined ? {} : { messageParams: { ...item.messageParams } }),
+    ...(item.suggestionKey === undefined ? {} : { suggestionKey: item.suggestionKey }),
+    ...(item.policyVersion === undefined ? {} : { policyVersion: item.policyVersion }),
     why: item.why.slice(0, 500),
     ...(item.suggestedAction ? { suggestedAction: item.suggestedAction.slice(0, 500) } : {}),
     evidence: item.evidence.map(item => ({
@@ -66,6 +79,10 @@ function toPersisted(item: InboxItem): PersistedItem {
     })),
     status: item.status,
     ...(item.snoozedUntil ? { snoozedUntil: item.snoozedUntil } : {}),
+    ...(item.seenAt ? { seenAt: item.seenAt } : {}),
+    ...(item.acknowledgedAt ? { acknowledgedAt: item.acknowledgedAt } : {}),
+    ...(item.recoveredAt ? { recoveredAt: item.recoveredAt } : {}),
+    ...(item.expiredAt ? { expiredAt: item.expiredAt } : {}),
     ...(item.feedback ? { feedback: { ...item.feedback, ...(item.feedback.note ? { note: item.feedback.note.slice(0, 200) } : {}) } } : {}),
     ...(item.bundleKey ? { bundleKey: item.bundleKey } : {}),
     bundleCount: item.bundleCount,
@@ -77,11 +94,20 @@ function fromPersisted(item: PersistedItem): InboxItem {
   return {
     eventId: item.id,
     id: item.id,
+    ...(item.sessionRef ? { sessionRef: item.sessionRef } : {}),
+    ...(item.workspaceRef ? { workspaceRef: item.workspaceRef } : {}),
     occurredAt: item.occurredAt,
     level: item.level,
     action: item.action,
     confidence: item.confidence,
     reasonCode: item.reasonCode,
+    schemaVersion: 2,
+    messageKey: item.messageKey ?? `item.reason.${item.reasonCode}`,
+    ...(item.messageParams === undefined ? {} : { messageParams: { ...item.messageParams } }),
+    ...(item.suggestionKey === undefined && item.suggestedAction === undefined
+      ? {}
+      : { suggestionKey: item.suggestionKey ?? `item.suggestion.${item.reasonCode}` }),
+    policyVersion: item.policyVersion ?? ATTENTION_POLICY_VERSION,
     why: item.why,
     ...(item.suggestedAction ? { suggestedAction: item.suggestedAction } : {}),
     evidence: item.evidence.map(evidence => ({
@@ -92,6 +118,10 @@ function fromPersisted(item: PersistedItem): InboxItem {
     })),
     status: item.status,
     ...(item.snoozedUntil ? { snoozedUntil: item.snoozedUntil } : {}),
+    ...(item.seenAt ? { seenAt: item.seenAt } : {}),
+    ...(item.acknowledgedAt ? { acknowledgedAt: item.acknowledgedAt } : {}),
+    ...(item.recoveredAt ? { recoveredAt: item.recoveredAt } : {}),
+    ...(item.expiredAt ? { expiredAt: item.expiredAt } : {}),
     ...(item.feedback ? { feedback: item.feedback } : {}),
     ...(item.bundleKey ? { bundleKey: item.bundleKey } : {}),
     bundleCount: typeof item.bundleCount === 'number' && Number.isSafeInteger(item.bundleCount) && item.bundleCount > 0 ? item.bundleCount : 1,
@@ -144,4 +174,15 @@ function isPersistedItem(value: unknown): value is PersistedItem {
     && typeof item.why === 'string'
     && Array.isArray(item.evidence)
     && typeof item.status === 'string'
+    && isInboxStatus(item.status)
+}
+
+function isInboxStatus(value: string): value is InboxStatus {
+  return value === 'open'
+    || value === 'seen'
+    || value === 'acknowledged'
+    || value === 'snoozed'
+    || value === 'muted'
+    || value === 'recovered'
+    || value === 'expired'
 }

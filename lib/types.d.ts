@@ -1,5 +1,11 @@
 /** Stable reason codes emitted by DeepCanary providers. */
 export type ReasonCode = 'HUMAN_APPROVAL_REQUIRED' | 'HUMAN_QUESTION_PENDING' | 'HOST_UNREACHABLE' | 'HOST_SUSPECTED_STALL' | 'TOOL_FAILURE_LOOP' | 'NO_MEANINGFUL_PROGRESS' | 'SUBAGENT_PRESSURE' | 'CONTEXT_PRESSURE' | 'COMPACTION_OCCURRED' | 'TASK_COMPLETED' | 'TASK_FAILED' | 'TASK_ABORTED' | 'COMPLETION_SUSPICIOUS' | 'HOST_STALL_RECOVERED';
+/** Version of the browser-facing state/action contract. */
+export declare const ATTENTION_PROTOCOL_VERSION = 2;
+/** Version of the deterministic attention policy used to create verdicts. */
+export declare const ATTENTION_POLICY_VERSION = "attention-policy.v1";
+/** Values safe to expose as interpolation parameters in localized copy. */
+export type MessageParams = Record<string, string | number | boolean>;
 export type AttentionLevel = 'C0' | 'C1' | 'C2' | 'C3';
 export type AttentionAction = 'IGNORE' | 'INBOX' | 'DIGEST' | 'INTERRUPT' | 'ESCALATE';
 export type EvidenceType = 'session-event' | 'runtime-probe' | 'tool-history' | 'subagent-state' | 'http-probe' | 'process-probe' | 'user-policy' | 'model-judgment';
@@ -27,23 +33,35 @@ export interface CanarySignal {
     data: Record<string, string | number | boolean | undefined>;
 }
 export interface AttentionVerdict {
+    schemaVersion: typeof ATTENTION_PROTOCOL_VERSION;
     eventId: string;
     level: AttentionLevel;
     action: AttentionAction;
     confidence: number;
     reasonCode: ReasonCode;
+    messageKey: string;
+    messageParams?: MessageParams;
+    suggestionKey?: string;
+    policyVersion: string;
     why: string;
     suggestedAction?: string;
     evidence: EvidenceRef[];
 }
-export type InboxStatus = 'open' | 'acknowledged' | 'snoozed' | 'muted';
+export type InboxStatus = 'open' | 'seen' | 'acknowledged' | 'snoozed' | 'muted' | 'recovered' | 'expired';
 export interface InboxItem extends AttentionVerdict {
     id: string;
     sessionId?: string;
     workspaceId?: string;
+    /** Hashes retained across restart so live sessions can be re-associated without persisting raw IDs. */
+    sessionRef?: string;
+    workspaceRef?: string;
     occurredAt: string;
     status: InboxStatus;
     snoozedUntil?: string;
+    seenAt?: string;
+    acknowledgedAt?: string;
+    recoveredAt?: string;
+    expiredAt?: string;
     feedback?: {
         useful: boolean;
         note?: string;
@@ -62,6 +80,7 @@ export interface QuietHours {
 export interface DeepCanaryConfig {
     stateDir: string;
     notificationLevel: 'C1' | 'C2' | 'C3';
+    openOnCritical: boolean;
     maxInterruptsPerHour: number;
     dedupeWindowMinutes: number;
     bundleWindowSeconds: number;
@@ -82,6 +101,7 @@ export interface WorkspaceIdentity {
 }
 export interface PublicSettings {
     notificationLevel: 'C1' | 'C2' | 'C3';
+    openOnCritical: boolean;
     maxInterruptsPerHour: number;
     dedupeWindowMinutes: number;
     bundleWindowSeconds: number;
@@ -106,6 +126,7 @@ export interface RuntimeStatus {
     sessions: number;
     tools: string[];
     openInbox: number;
+    revision: number;
     indicator: 'gray' | 'yellow' | 'orange' | 'red';
     capabilities: {
         browserNotification: boolean;
@@ -121,15 +142,26 @@ export interface PublicInboxItem {
     level: AttentionLevel;
     action: AttentionAction;
     reasonCode: ReasonCode;
+    messageKey: string;
+    messageParams?: MessageParams;
+    suggestionKey?: string;
+    policyVersion: string;
     why: string;
     suggestedAction?: string;
     evidence: Array<Pick<EvidenceRef, 'type' | 'authority' | 'summary'>>;
     status: InboxStatus;
     snoozedUntil?: string;
+    seenAt?: string;
+    acknowledgedAt?: string;
+    recoveredAt?: string;
+    expiredAt?: string;
     bundleCount: number;
     reasonCodes: ReasonCode[];
 }
 export interface PublicSnapshot {
+    schemaVersion: typeof ATTENTION_PROTOCOL_VERSION;
+    revision: number;
+    generatedAt: string;
     status: RuntimeStatus;
     settings: PublicSettings;
     inbox: PublicInboxItem[];

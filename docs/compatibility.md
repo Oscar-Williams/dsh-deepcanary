@@ -4,18 +4,18 @@
 
 DeepCanary maintains two explicit lanes:
 
-1. **Upstream canary lane** — the exact official `dsh-v0.1.2-alpha.1` source tag. This is the required integration-test runtime for this RC.
+1. **Upstream canary lane** — the exact official `dsh-v0.1.2-alpha.2` source tag. This is the required integration-test runtime for this RC.
 2. **Public distribution lane** — the package layout, built `lib/`, bundle patch, immutable Git tag, and peer ranges consumed by DSH. It verifies installation shape and must not be mistaken for a different DSH runtime.
 
 | Component | RC baseline | Role | Notes |
 | --- | --- | --- | --- |
-| DSH | `dsh-v0.1.2-alpha.1` | required runtime | Official source checkout; verify `dsh --version` prints `0.1.2-alpha.1` |
-| DSH commit | `cd5ef8148158c3a752a658978873241fdf8e2bbc` | reproducibility | Exact commit used for the release receipt |
-| Node.js | `22.19+` | runtime requirement | Local Windows verification uses `v24.19.0`; DSH alpha.1 declares `^22.19.0 || >=24.0.0` |
+| DSH | `dsh-v0.1.2-alpha.2` | required runtime | Official source checkout; verify `dsh --version` prints `0.1.2-alpha.2` |
+| DSH commit | `0a53fb55bea101816fa226bb964ae2bed71c343b` | reproducibility | Exact commit used for the release receipt |
+| Node.js | `22.19+` | runtime requirement | Local Windows verification uses `v24.19.0`; DSH alpha.2 declares `^22.19.0 || >=24.0.0` |
 | pnpm | `11.7.0` | DSH source installation | Invoke as `npx --yes pnpm@11.7.0` |
 | Windows x64 | supported | primary host | Browser Notification and Web Inbox are the baseline sinks |
 | WSL2 Ubuntu | supported | alternate host | `/mnt/<drive>` paths normalize to the Windows workspace identity; interop is capability-detected |
-| npm `0.1.1-rc.2` | historical | development type reference only | Not used as the current DSH integration runtime |
+| npm `0.1.1-rc.2` / plugin `v0.1.0-rc.1` | historical | not supported for this RC | Remove or replace from the test profile before testing |
 
 ## DSH surfaces used
 
@@ -36,14 +36,16 @@ The supported notification order is:
 
 1. Browser Notification API after user permission;
 2. Windows-native notification when a future host adapter advertises it;
-3. the injected Web Inbox;
+3. the DSH client-module Web Inbox;
 4. model-visible status and Inbox tools.
 
 This RC deliberately keeps the Web path independent of a native toast dependency. `nativeToast` and `windowsInterop` are capability fields, not hidden claims that a native companion is installed.
 
+The Web UI requires the DSH alpha.2 client-module surface: the plugin manifest must expose `dsh.client` and `./client`, and the host must provide the `sidebar.footer.action`, `shell.overlay`, and `settings.plugin.item` slots. A profile that only installs the historical `v0.1.0-rc.1` package cannot verify the current four interaction gates or the standard settings card.
+
 ## Known limitations
 
-- The alpha.1 source tag is the tested runtime because this baseline is pinned to the official repository tag. Do not substitute an unverified npm package or a stale local DSH installation.
+- The alpha.2 source tag is the tested runtime because this baseline is pinned to the official repository tag. Do not substitute an unverified npm package or a stale local DSH installation.
 - The jump action returns a local DSH navigation hint; the host decides whether the target session URL is available.
 - Liveness is conservative: session heartbeat silence produces a suspected-stall C2; a C3 host failure requires a failed local HTTP probe.
 - Native Windows Toast is not a hard dependency in this RC. Browser and Web fallback behavior is the supported cross-platform path.

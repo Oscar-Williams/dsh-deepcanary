@@ -6,6 +6,7 @@ export interface DeepCanaryConfigInput extends Partial<Omit<DeepCanaryConfig, 'q
 export declare const Config: Schema<Schemastery.ObjectS<{
     stateDir: Schema<string, string>;
     notificationLevel: Schema<"C1" | "C2" | "C3", "C1" | "C2" | "C3">;
+    openOnCritical: Schema<boolean, boolean>;
     maxInterruptsPerHour: Schema<number, number>;
     dedupeWindowMinutes: Schema<number, number>;
     bundleWindowSeconds: Schema<number, number>;
@@ -26,6 +27,7 @@ export declare const Config: Schema<Schemastery.ObjectS<{
 }>, Schemastery.ObjectT<{
     stateDir: Schema<string, string>;
     notificationLevel: Schema<"C1" | "C2" | "C3", "C1" | "C2" | "C3">;
+    openOnCritical: Schema<boolean, boolean>;
     maxInterruptsPerHour: Schema<number, number>;
     dedupeWindowMinutes: Schema<number, number>;
     bundleWindowSeconds: Schema<number, number>;

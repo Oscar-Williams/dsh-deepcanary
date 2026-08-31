@@ -96,4 +96,66 @@ describe('DeepCanaryService', () => {
     expect(service.status().plugin.state).toBe('ready')
     await rm(directory, { recursive: true, force: true })
   })
+
+  it('keeps lifecycle transitions explicit and closes a recovered root cause without a new alert', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-lifecycle-'))
+    const service = new DeepCanaryService({ logger: {} } as never, { stateDir: directory, maxInboxItems: 50 })
+    services.push(service)
+    await service.ready
+    const item = await service.ingest({
+      ...testSignal(),
+      id: 'stall-1',
+      kind: 'HOST_SUSPECTED_STALL',
+      sessionId: 'runtime-session',
+      dedupeKey: 'stall-1',
+      bundleKey: 'runtime-session:stall',
+      severityHint: 2,
+    })
+    expect(item?.status).toBe('open')
+    expect(service.seen('stall-1')).toBe(true)
+    expect(service.inbox(10)[0]?.status).toBe('seen')
+    const recovered = await service.ingest({
+      ...testSignal(),
+      id: 'recovered-1',
+      kind: 'HOST_STALL_RECOVERED',
+      sessionId: 'runtime-session',
+      dedupeKey: 'recovered-1',
+      bundleKey: 'runtime-session:stall',
+      severityHint: 1,
+    })
+    expect(recovered?.status).toBe('recovered')
+    expect(service.snapshot().inbox).toHaveLength(0)
+    expect(service.inbox(10)[0]).toMatchObject({ id: 'stall-1', status: 'recovered', recoveredAt: expect.any(String) })
+
+    const receipt = await service.performAction('same-request', 'stall-1', 'feedback', { useful: true })
+    const replay = await service.performAction('same-request', 'stall-1', 'feedback', { useful: true })
+    expect(replay).toEqual(receipt)
+    await service.dispose()
+    await rm(directory, { recursive: true, force: true })
+  })
+
+  it('re-associates hashed session references after restart without persisting raw identifiers', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-restart-'))
+    const first = new DeepCanaryService({ logger: {} } as never, { stateDir: directory, maxInboxItems: 50 })
+    services.push(first)
+    await first.ready
+    const item = await first.ingest(testSignal())
+    expect(item).toBeDefined()
+    await first.dispose()
+
+    const listeners = new Map<string, (...args: any[]) => void>()
+    const second = new DeepCanaryService({
+      logger: {},
+      on: (name: string, listener: (...args: any[]) => void) => { listeners.set(name, listener) },
+    } as never, { stateDir: directory, maxInboxItems: 50 })
+    services.push(second)
+    await second.ready
+    second.start()
+    listeners.get('session/created')?.({ id: 'session-private-id', header: { cwd: 'C:\\work' } })
+    expect(second.jump(item?.id ?? '')).toMatchObject({ available: true, sessionId: 'session-private-id' })
+    listeners.get('session/disposed')?.({ id: 'session-private-id' })
+    expect(second.inbox(10)[0]).toMatchObject({ status: 'expired' })
+    await second.dispose()
+    await rm(directory, { recursive: true, force: true })
+  })
 })
