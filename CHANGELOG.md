@@ -2,7 +2,7 @@
 
 All notable changes to `dsh-deepcanary` are recorded here.
 
-## Unreleased — `0.1.0-rc.2` candidate
+## 0.1.0-rc.2 — 2026-08-31
 
 ### Changed
 

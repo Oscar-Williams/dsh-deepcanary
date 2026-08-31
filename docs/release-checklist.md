@@ -1,6 +1,6 @@
 # RC release checklist
 
-This checklist is for the `dsh-deepcanary` `v0.1.0-rc.2` candidate. The upstream runtime must be the exact official `dsh-v0.1.2-alpha.2` tag; an older npm runtime must not silently become the test baseline. The public `v0.1.0-rc.1` remains a historical artifact until this client-module and settings-card revision is released under a new tag.
+This checklist records the `dsh-deepcanary` `v0.1.0-rc.2` release. The upstream runtime is pinned to the exact official `dsh-v0.1.2-alpha.2` tag; an older npm runtime must not silently become the test baseline. The public `v0.1.0-rc.1` remains a historical artifact.
 
 ## 1. Source and documentation
 
@@ -44,16 +44,16 @@ For the live-model smoke gate, use the same DSH home in which the API credential
 
 ## 4. Public distribution and Web E2E
 
-After the client-module revision has been reviewed, the design guide has been completed, and a new immutable public RC tag has been published. Do not use the historical `v0.1.0-rc.1` tag for the current Web UI gates. Before publication, use the local tarball installation path in `README.md` and record the result as a local candidate check:
+The client-module revision was reviewed, the design guide was completed locally, and the immutable public RC tag `v0.1.0-rc.2` was published. Do not use the historical `v0.1.0-rc.1` tag for the current Web UI gates:
 
 ```powershell
 npx --yes pnpm@11.7.0 dsh plugin --profile web remove dsh-deepcanary
-npx --yes pnpm@11.7.0 dsh plugin --profile web add https://codeload.github.com/Oscar-Williams/dsh-deepcanary/tar.gz/refs/tags/<new-rc-tag>
+npx --yes pnpm@11.7.0 dsh plugin --profile web add https://codeload.github.com/Oscar-Williams/dsh-deepcanary/tar.gz/refs/tags/v0.1.0-rc.2
 npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
 
-Before the new tag exists, `benchmark/release-receipt.json` must use `status: "CANDIDATE"` and keep only `publicTagInstall` as a false pending gate. The receipt verifier accepts that explicit pre-publication state but rejects any other missing gate. After the immutable tag has been published, repeat the installation from that tag, change the gate to `true`, and promote the receipt to `PASS` only when the public-tag run succeeds.
+The completed `benchmark/release-receipt.json` uses `status: "PASS"`; `publicTagInstall` is true only because both isolated profiles were reinstalled from `v0.1.0-rc.2` and the public-tag Web/model checks were repeated.
 
 Verify from the running local Web host:
 
@@ -86,12 +86,12 @@ Run the same public-tag install path on Windows x64 and WSL2 Ubuntu. Freeze evid
 
 ## 6. Artifact and publication
 
-- [ ] Run `npm pack` once and record the SHA-256 digest.
-- [ ] Confirm the package contains `lib/`, user-facing docs, AttentionGold fixtures, license, and bundle patch, and excludes the repository-only release receipt, `src/`, tests, local design notes, `.dsh` state, and credentials.
-- [ ] Confirm `benchmark/release-receipt.json` remains tracked in the repository as release evidence and is not included in the npm runtime package; this keeps the artifact digest independently verifiable.
-- [ ] Update `benchmark/release-receipt.json` only with gates that actually passed on the exact runtime and artifact.
-- [ ] Commit and push `main` after the design guide is complete and the user authorizes synchronization.
-- [ ] Create and push the new immutable RC tag selected for this revision.
-- [ ] Install from the public tag in a fresh isolated DSH Web profile and repeat the Web checks.
-- [ ] Create the GitHub release with the release notes and artifact digest.
-- [ ] Verify the GitHub repository retains the `dsh` topic and that the README installation URL resolves to the published tag.
+- [x] Run `npm pack --dry-run` and record the SHA-256 digest.
+- [x] Confirm the package contains `lib/`, user-facing docs, AttentionGold fixtures, license, and bundle patch, and excludes the repository-only release receipt, `src/`, tests, local design notes, `.dsh` state, and credentials.
+- [x] Confirm `benchmark/release-receipt.json` remains tracked in the repository as release evidence and is not included in the npm runtime package; this keeps the artifact digest independently verifiable.
+- [x] Update `benchmark/release-receipt.json` only with gates that actually passed on the exact runtime and artifact.
+- [x] Commit and push `main` after the design guide was complete and synchronization was authorized.
+- [x] Create and push the immutable `v0.1.0-rc.2` tag for this revision.
+- [x] Install from the public tag in fresh isolated `web` and `headless` profiles and repeat the Web/model checks.
+- [ ] Create a separate GitHub Release entry with release notes and the artifact digest.
+- [x] Verify the GitHub repository retains the `dsh` topic and that the README installation URL resolves to the published tag.

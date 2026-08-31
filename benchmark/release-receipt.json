@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "status": "CANDIDATE",
+  "status": "PASS",
   "plugin": "dsh-deepcanary",
   "pluginVersion": "0.1.0-rc.2",
   "attentionFixtureVersion": 2,
@@ -30,12 +30,12 @@
     "unloadRestart": true,
     "privacyGate": true,
     "distributionIntegrity": true,
-    "publicTagInstall": false,
+    "publicTagInstall": true,
     "windowsE2E": true,
     "wslE2E": true,
     "modelE2E": true
   },
-  "pendingGates": ["publicTagInstall"],
+  "pendingGates": [],
   "modelSmokeTest": {
     "status": "PASS",
     "surface": "headless",
@@ -66,6 +66,13 @@
       "F:\\Agent_Related\\Deepseek-Harness_test\\.dsh-home\\profiles\\web",
       "F:\\Agent_Related\\Deepseek-Harness_test\\.dsh-home\\profiles\\headless"
     ],
+    "publicTag": {
+      "tag": "v0.1.0-rc.2",
+      "commit": "4ae7c2bb577d7a2b855f425a8e3fde7800a9feb2",
+      "source": "https://codeload.github.com/Oscar-Williams/dsh-deepcanary/tar.gz/refs/tags/v0.1.0-rc.2",
+      "profiles": ["web", "headless"],
+      "package": "dsh-deepcanary@0.1.0-rc.2"
+    },
     "screenshots": [
       "output/playwright/alpha2-english-resized.png",
       "output/playwright/alpha2-chinese-resized.png"
@@ -76,6 +83,6 @@
     }
   },
   "artifactSha256": "8bbb88dfecae072d33e77874904c336486a534f501960a805ff15f3a5f1fbf40",
-  "verifiedAt": "2026-08-31T21:18:19+08:00",
-  "note": "All local RC.2 gates listed above passed against the official dsh-v0.1.2-alpha.2 tag at the pinned commit, including Windows and WSL isolated checks, a fresh live alpha.2 WebUI install from the current candidate tarball, the standard settings card, settings write/readback, collapsed-sidebar wake-up, Escape and outside-pointer close, keyboard and pointer resize with viewport bounds, bilingual surface checks, unload/reinstall route cleanup, the touch-safe resize surface, allowlisted one-shot critical wake-up, and a live headless model smoke task. The final candidate tarball contains only the current single client bundle; stale pre-module client artifacts are excluded. publicTagInstall remains pending until this candidate is published under a new immutable Git tag and reinstalled from that tag. Credentials, raw prompts, transcripts, and workspace contents are excluded from this receipt."
+  "verifiedAt": "2026-08-31T22:54:01+08:00",
+  "note": "All RC.2 gates listed above passed against the official dsh-v0.1.2-alpha.2 tag at the pinned commit, including Windows and WSL isolated checks, fresh alpha.2 WebUI installations from the immutable public v0.1.0-rc.2 tag in both web and headless profiles, the standard settings card, settings write/readback, default-hidden panel, sidebar wake-up, Escape close, keyboard resize, bilingual surface checks, unload/reinstall route cleanup, the touch-safe resize surface, allowlisted one-shot critical wake-up, and live headless model smoke tasks. The final package contains only the current single client bundle; stale pre-module client artifacts are excluded. Physical touch hardware, notification-permission-allowed behavior, screen-reader/high-contrast checks, and wider viewport matrices remain supplemental follow-up coverage rather than release blockers. Credentials, raw prompts, transcripts, and workspace contents are excluded from this receipt."
 }

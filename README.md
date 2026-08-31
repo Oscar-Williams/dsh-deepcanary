@@ -4,7 +4,7 @@
 
 `dsh-deepcanary` 是面向 [DeepSeek Harness（DSH）](https://github.com/deepseek-ai/deepseek-harness) 的本地注意力监督插件。它读取 Session、Tool、Agent、Subagent 和 Host 的结构化运行时事实，经过确定性策略判断哪些事件应当保持安静、进入 Inbox，或提醒用户处理。
 
-当前公开 tag 仍是 `v0.1.0-rc.1`；本工作树正在准备 `v0.1.0-rc.2` 候选版本。运行时与测试基线固定为官方 `dsh-v0.1.2-alpha.2`，对应 commit `0a53fb55bea101816fa226bb964ae2bed71c343b`。公开 `v0.1.0-rc.1` 是历史版本，不能用于验收本次客户端和设置卡改造；在新 RC 发布前，请使用下文的本地构建包。若测试 profile 中仍有旧的 `0.1.1-rc.2` 或 `v0.1.0-rc.1` 依赖，应先停止 DSH 并移除后再安装当前包，避免把旧依赖误当作测试结果。
+当前公开 RC tag 为 `v0.1.0-rc.2`，对应提交 `4ae7c2bb577d7a2b855f425a8e3fde7800a9feb2`；发布收据已在官方 `dsh-v0.1.2-alpha.2` 运行时上通过。`v0.1.0-rc.1` 和 npm `0.1.1-rc.2` 均为历史依赖，不应作为本版本的运行测试基线。若测试 profile 中仍有旧版本，应先停止 DSH 并移除后再安装当前 tag，避免把旧依赖误当作测试结果。
 
 ## 能解决什么问题
 
@@ -43,11 +43,11 @@ git rev-parse HEAD
 
 ### 2. 安装插件
 
-公开 `v0.1.0-rc.1` 不包含本次 RC.2 改造。在 `v0.1.0-rc.2` 发布并完成独立验证前，应使用“本地开发安装”中的 tarball；发布后再把 `<rc-tag>` 替换为新的不可变 tag。不要把本地源码目录或包含个人设计资料的目录作为正式安装来源。
+正式安装请使用已独立验证的不可变 tag `v0.1.0-rc.2`。不要把本地源码目录或包含个人设计资料的目录作为正式安装来源。
 
 ```powershell
 Set-Location .\dsh-runtime-alpha2
-npx --yes pnpm@11.7.0 dsh plugin --profile web add https://codeload.github.com/Oscar-Williams/dsh-deepcanary/tar.gz/refs/tags/<rc-tag>
+npx --yes pnpm@11.7.0 dsh plugin --profile web add https://codeload.github.com/Oscar-Williams/dsh-deepcanary/tar.gz/refs/tags/v0.1.0-rc.2
 npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
@@ -140,7 +140,7 @@ npm run verify:distribution
 npm pack --dry-run
 ```
 
-AttentionGold 固定覆盖 15 个分类场景，以及重复事件和共享根因 Bundle 场景。当前候选版本的运行时、Windows/WSL、安装、Web、设置、卸载重启和分发完整性证据记录在仓库内的 [`benchmark/release-receipt.json`](benchmark/release-receipt.json)；收据明确保留公开 tag 安装这一待完成门槛，并在发布后再转为最终 PASS。该文件不进入 npm 运行包，以避免与发布包 SHA-256 形成循环依赖。发布前步骤见 [`docs/release-checklist.md`](docs/release-checklist.md)。
+AttentionGold 固定覆盖 15 个分类场景，以及重复事件和共享根因 Bundle 场景。RC.2 的官方运行时、Windows/WSL、公开 tag 安装、Web、设置、卸载重启和分发完整性证据记录在仓库内的 [`benchmark/release-receipt.json`](benchmark/release-receipt.json)，收据状态为 `PASS`。该文件不进入 npm 运行包，以避免与发布包 SHA-256 形成循环依赖。可复现检查步骤见 [`docs/release-checklist.md`](docs/release-checklist.md)。
 
 ## 文档
 

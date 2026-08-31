@@ -4,7 +4,7 @@
 
 `dsh-deepcanary` is a local attention-supervision plugin for [DeepSeek Harness (DSH)](https://github.com/deepseek-ai/deepseek-harness). It reads structured facts from Sessions, Tools, Agents, Subagents, and the Host, then applies deterministic policy to decide what can stay quiet, what belongs in the Inbox, and what deserves a user-facing reminder.
 
-The current public tag remains `v0.1.0-rc.1`; this working tree is preparing the `v0.1.0-rc.2` candidate. The runtime and integration baseline is the official `dsh-v0.1.2-alpha.2` source tag at commit `0a53fb55bea101816fa226bb964ae2bed71c343b`. Public `v0.1.0-rc.1` is historical and cannot verify this client and settings-card revision; use the local package path below until the new RC has been published. If a test profile still contains the old npm `0.1.1-rc.2` or `v0.1.0-rc.1` dependency, stop DSH and replace it before testing so the result cannot be confused with an older install.
+The current public RC tag is `v0.1.0-rc.2`, pointing to `4ae7c2bb577d7a2b855f425a8e3fde7800a9feb2`; its release receipt passes on the official `dsh-v0.1.2-alpha.2` runtime. `v0.1.0-rc.1` and npm `0.1.1-rc.2` are historical dependencies and must not be used as this revision's integration baseline. If a test profile still contains an older version, stop DSH and replace it before testing so the result cannot be confused with a stale install.
 
 ## What it does
 
@@ -43,11 +43,11 @@ The version command should print `0.1.2-alpha.2`, and the commit command should 
 
 ### 2. Install the plugin
 
-Public `v0.1.0-rc.1` does not contain the current RC.2 revision. Until `v0.1.0-rc.2` has been published and independently verified, use the local tarball path below; after publication, replace `<rc-tag>` with the new immutable tag. Do not use a local source directory or a directory containing personal design notes as the production installation source.
+For the supported installation path, use the independently verified immutable tag `v0.1.0-rc.2`. Do not use a local source directory or a directory containing personal design notes as the production installation source.
 
 ```powershell
 Set-Location .\dsh-runtime-alpha2
-npx --yes pnpm@11.7.0 dsh plugin --profile web add https://codeload.github.com/Oscar-Williams/dsh-deepcanary/tar.gz/refs/tags/<rc-tag>
+npx --yes pnpm@11.7.0 dsh plugin --profile web add https://codeload.github.com/Oscar-Williams/dsh-deepcanary/tar.gz/refs/tags/v0.1.0-rc.2
 npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
@@ -138,7 +138,7 @@ npm run verify:distribution
 npm pack --dry-run
 ```
 
-AttentionGold freezes 15 classification scenarios plus duplicate-event and shared-root Bundle scenarios. The current candidate's evidence for the upstream runtime, Windows/WSL, local installation, Web, settings, unload/restart, and distribution integrity is recorded in the repository's [`benchmark/release-receipt.json`](benchmark/release-receipt.json); the receipt explicitly keeps public-tag installation pending and is promoted to final PASS only after that gate is repeated. The receipt is intentionally excluded from the npm runtime package so its SHA-256 can be verified without a circular dependency. See [`docs/release-checklist.md`](docs/release-checklist.md) for the reproducible release procedure.
+AttentionGold freezes 15 classification scenarios plus duplicate-event and shared-root Bundle scenarios. RC.2 evidence for the upstream runtime, Windows/WSL, public-tag installation, Web, settings, unload/restart, and distribution integrity is recorded in [`benchmark/release-receipt.json`](benchmark/release-receipt.json), whose status is `PASS`. The receipt is intentionally excluded from the npm runtime package so its SHA-256 can be verified without a circular dependency. See [`docs/release-checklist.md`](docs/release-checklist.md) for the reproducible release procedure.
 
 ## Documentation
 
