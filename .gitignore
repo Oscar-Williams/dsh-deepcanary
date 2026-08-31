@@ -4,6 +4,9 @@ coverage/
 *.tgz
 .playwright-cli/
 output/playwright/
+output/attention-quality-report.json
+output/attention-benchmark.json
+output/dogfood/
 .DS_Store
 .dsh-deepcanary-test/
 设计思路(不提交)/

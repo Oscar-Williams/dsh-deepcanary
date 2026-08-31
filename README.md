@@ -4,6 +4,12 @@
 
 `dsh-deepcanary` 是面向 [DeepSeek Harness（DSH）](https://github.com/deepseek-ai/deepseek-harness) 的本地注意力监督插件。它读取 Session、Tool、Agent、Subagent 和 Host 的结构化运行时事实，经过确定性策略判断哪些事件应当保持安静、进入 Inbox，或提醒用户处理。
 
+## 当前开发线（未发布）
+
+当前 `main` 包含下一版候选能力：可追溯的 Policy Explain、只读 Dry-run、AttentionGold v3、脱敏 dogfood protocol，以及覆盖多 Session、恢复样例和资源采样的高吞吐有界状态基准。该开发线已切换到官方 DSH `dsh-v0.1.2-alpha.3` exact tag（commit `dd6322d604e00eec1ba5e0c8541159906a21094a`）进行本地兼容性验证；它尚未替代公开 `v0.1.0-rc.2` 的安装说明与 alpha.2 历史收据。
+
+需要复现已发布版本时，请严格使用下方 RC.2 安装路径。需要验证当前代码时，请参照 [`docs/compatibility.md`](docs/compatibility.md) 的 alpha.3 当前兼容性路径，并使用隔离测试 profile。
+
 当前公开 RC tag 为 `v0.1.0-rc.2`，对应提交 `4ae7c2bb577d7a2b855f425a8e3fde7800a9feb2`；发布收据已在官方 `dsh-v0.1.2-alpha.2` 运行时上通过。`v0.1.0-rc.1` 和 npm `0.1.1-rc.2` 均为历史依赖，不应作为本版本的运行测试基线。若测试 profile 中仍有旧版本，应先停止 DSH 并移除后再安装当前 tag，避免把旧依赖误当作测试结果。
 
 ## 能解决什么问题
@@ -99,15 +105,17 @@ npx --yes pnpm@11.7.0 dsh web --no-open
 | `/dsh-deepcanary/state` | 状态、设置和待处理 Inbox 快照 |
 | `/dsh-deepcanary/settings` | 读取或校验并更新体验设置 |
 | `/dsh-deepcanary/health` | 插件健康检查 |
+| `/dsh-deepcanary/explain?id=...` | 读取单条 Inbox 的隐私安全决策解释 |
+| `/dsh-deepcanary/dry-run` | 只读比较当前与候选提醒策略 |
 | `/dsh-deepcanary/action` | 确认、静音、稍后提醒、反馈和跳转提示 |
 
-DSH 模型可使用：
+DSH 模型可使用九个工具：
 
-`deepcanary_status`、`deepcanary_inbox`、`deepcanary_acknowledge`、`deepcanary_snooze`、`deepcanary_mute`、`deepcanary_feedback`、`deepcanary_explain`、`deepcanary_jump`。
+`deepcanary_status`、`deepcanary_inbox`、`deepcanary_acknowledge`、`deepcanary_snooze`、`deepcanary_mute`、`deepcanary_feedback`、`deepcanary_explain`、`deepcanary_dry_run`、`deepcanary_jump`。
 
 设置卡片通过 DSH 标准 `settings.plugin.item` 位置暴露通知级别、自动唤起策略、每小时打断预算、静默时段、长时间阈值、Subagent 压力档位、相邻事件合并窗口和隐私安全摘要选项。挂载 `@deepseek-ai/dsh-settings` 后，设置通过 `dsh-deepcanary` namespace 实时生效；没有该 provider 时，插件仍按 bundle 配置工作。
 
-客户端不再注册独立的 `/dsh-deepcanary/client.js` 路由，也不使用 `webserver/index-inject`。包 manifest 的 `dsh.client` 声明和 `./client` 导出由 DSH alpha.2 的 client-module loader 负责加载；面板入口贡献到 `sidebar.footer.action`，浮动面板贡献到 `shell.overlay`，设置卡贡献到标准 `settings.plugin.item`。
+客户端不再注册独立的 `/dsh-deepcanary/client.js` 路由，也不使用 `webserver/index-inject`。包 manifest 的 `dsh.client` 声明和 `./client` 导出由 DSH alpha.2/alpha.3 的 client-module loader 负责加载；面板入口贡献到 `sidebar.footer.action`，浮动面板贡献到 `shell.overlay`，设置卡贡献到标准 `settings.plugin.item`。
 
 ## 注意力策略
 
@@ -140,7 +148,16 @@ npm run verify:distribution
 npm pack --dry-run
 ```
 
-AttentionGold 固定覆盖 15 个分类场景，以及重复事件和共享根因 Bundle 场景。RC.2 的官方运行时、Windows/WSL、公开 tag 安装、Web、设置、卸载重启和分发完整性证据记录在仓库内的 [`benchmark/release-receipt.json`](benchmark/release-receipt.json)，收据状态为 `PASS`。该文件不进入 npm 运行包，以避免与发布包 SHA-256 形成循环依赖。可复现检查步骤见 [`docs/release-checklist.md`](docs/release-checklist.md)。
+当前开发线的本地价值与可靠性检查还包括：
+
+```powershell
+npm run quality:report
+npm run benchmark:attention
+```
+
+质量报告只保存聚合结果；原始 dogfood 数据应留在隔离测试目录，具体字段和隐私边界见 [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md)。当前 alpha.3 本地兼容性证据见 [`benchmark/alpha3-compatibility-receipt.json`](benchmark/alpha3-compatibility-receipt.json)，该收据描述当前工作树与隔离 profile，不替代公开 RC.2 收据。
+
+当前开发线的 AttentionGold v3 固定覆盖 20 个分类场景，以及重复、共享根因 Bundle、恢复复发和多 Session 场景；公开 RC.2 收据仍记录历史 v2 的 15 个分类场景。RC.2 的官方运行时、Windows/WSL、公开 tag 安装、Web、设置、卸载重启和分发完整性证据记录在仓库内的 [`benchmark/release-receipt.json`](benchmark/release-receipt.json)，收据状态为 `PASS`。该文件不进入 npm 运行包，以避免与发布包 SHA-256 形成循环依赖。可复现检查步骤见 [`docs/release-checklist.md`](docs/release-checklist.md)。
 
 ## 文档
 
@@ -148,6 +165,7 @@ AttentionGold 固定覆盖 15 个分类场景，以及重复事件和共享根�
 - [`docs/dsh-surface-audit.md`](docs/dsh-surface-audit.md)：针对官方 alpha.2 的 DSH 接口审计；
 - [`docs/compatibility.md`](docs/compatibility.md)：运行时、平台和已知限制；
 - [`docs/security.md`](docs/security.md)：本地状态、动作和 Web 边界；
+- [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md)：脱敏试用、质量报告和本地基准流程；
 - [`docs/release-checklist.md`](docs/release-checklist.md)：可复现发布检查。
 
 ## 许可证

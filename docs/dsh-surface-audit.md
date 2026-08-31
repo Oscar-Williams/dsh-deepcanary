@@ -1,6 +1,6 @@
 # DSH surface audit
 
-This document records the DSH surfaces consumed by `dsh-deepcanary`. The audit target is the official `dsh-v0.1.2-alpha.2` source tag at commit `0a53fb55bea101816fa226bb964ae2bed71c343b`.
+This document records the DSH surfaces consumed by `dsh-deepcanary`. The historical RC.2 audit targets the official `dsh-v0.1.2-alpha.2` source tag at commit `0a53fb55bea101816fa226bb964ae2bed71c343b`; the current compatibility audit targets immutable `dsh-v0.1.2-alpha.3` at commit `dd6322d604e00eec1ba5e0c8541159906a21094a`.
 
 ## Service and lifecycle seams
 
@@ -24,7 +24,7 @@ The adapter deliberately exposes only lifecycle events, a session snapshot looku
 
 ## Event vocabulary consumed
 
-The alpha.2 Session package exposes these relevant core events:
+The alpha.2 and alpha.3 Session packages expose these relevant core events:
 
 - `turn/end` with `{ reason: { kind: 'completed' | 'blocked' | 'aborted' | 'interrupted' | 'error' | 'max-tokens' } }`;
 - `tool/call` and `tool/result`, including structured result errors;
@@ -46,9 +46,9 @@ Providers read event type, sequence, time, reason kind, small boolean/number mar
 
 ## Tool contract
 
-Every registered tool uses the alpha.2 `defineTool` contract with parameters, an explicit JSON output schema, and a text renderer:
+Every registered tool uses the DSH `defineTool` contract with parameters, an explicit JSON output schema, and a text renderer. The current surface contains nine tools:
 
-`deepcanary_status`, `deepcanary_inbox`, `deepcanary_acknowledge`, `deepcanary_snooze`, `deepcanary_mute`, `deepcanary_feedback`, `deepcanary_explain`, and `deepcanary_jump`.
+`deepcanary_status`, `deepcanary_inbox`, `deepcanary_acknowledge`, `deepcanary_snooze`, `deepcanary_mute`, `deepcanary_feedback`, `deepcanary_explain`, `deepcanary_dry_run`, and `deepcanary_jump`.
 
 The actions mutate only local Inbox metadata or return a navigation hint. No tool calls the shell, writes user files, changes a DSH session, or performs an approval/rejection.
 
@@ -63,13 +63,15 @@ When `webServer` is available, the plugin registers exact routes under `/dsh-dee
 - `GET /state`;
 - `GET|POST /settings`;
 - `GET /health`;
+- `GET /explain?id=...`;
+- `POST /dry-run`;
 - `POST /action`;
 
 Route disposers belong to the WebServer injection context, so unload does not leave duplicate routes. Responses are same-origin local responses with `cache-control: no-store`.
 
 ## Client-module contract
 
-The package manifest declares `dsh.client.platform = "web"`, requests the alpha.2 UI dependencies through `dsh.client.inject`, and exposes `./client` as `lib/client.js`. The browser artifact is a lazy-CJS factory that registers with `window.__ModuleLoader__.load`; DSH's client-module loader owns the `/plugins/.../client.js` transport and module-table lifecycle.
+The package manifest declares `dsh.client.platform = "web"`, requests the alpha.3-compatible UI dependencies through `dsh.client.inject`, and exposes `./client` as `lib/client.js`. The browser artifact is a lazy-CJS factory that registers with `window.__ModuleLoader__.load`; DSH's client-module loader owns the `/plugins/.../client.js` transport and module-table lifecycle.
 
 The client contributes the sidebar entry through the additive `sidebar.footer.action` slot, the floating Inbox through the additive `shell.overlay` slot, and the standard keyed settings card through `settings.plugin.item`. The overlay is click-through outside the panel. The panel starts hidden, supports close/reopen, pointer and keyboard resizing, and uses the DSH locale seat for Chinese/English updates. It is intentionally not implemented with `webserver/index-inject`, so the plugin cannot reserve a permanent right-side card or duplicate the host shell.
 

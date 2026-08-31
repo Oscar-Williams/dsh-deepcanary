@@ -16,6 +16,26 @@ export interface EvidenceRef {
     ref: string;
     summary: string;
 }
+/** A privacy-safe explanation of how one deterministic policy decision was reached. */
+export interface PolicyDecisionTrace {
+    schemaVersion: 1;
+    policyVersion: string;
+    verdictId: string;
+    matchedRules: string[];
+    appliedScopes: string[];
+    suppressedBy: string[];
+    bundledWith?: {
+        eventCount: number;
+        reasonCodes: ReasonCode[];
+    };
+    authoritySummary: {
+        strongest: EvidenceAuthority;
+        counts: Record<EvidenceAuthority, number>;
+    };
+    finalLevel: AttentionLevel;
+    finalAction: AttentionAction;
+    recoveryRule?: string;
+}
 /** The normalized, lossless-free signal exchanged inside the plugin. */
 export interface CanarySignal {
     schemaVersion: 1;
@@ -46,6 +66,7 @@ export interface AttentionVerdict {
     why: string;
     suggestedAction?: string;
     evidence: EvidenceRef[];
+    decisionTrace?: PolicyDecisionTrace;
 }
 export type InboxStatus = 'open' | 'seen' | 'acknowledged' | 'snoozed' | 'muted' | 'recovered' | 'expired';
 export interface InboxItem extends AttentionVerdict {
@@ -149,6 +170,7 @@ export interface PublicInboxItem {
     why: string;
     suggestedAction?: string;
     evidence: Array<Pick<EvidenceRef, 'type' | 'authority' | 'summary'>>;
+    decisionTrace?: PolicyDecisionTrace;
     status: InboxStatus;
     snoozedUntil?: string;
     seenAt?: string;
@@ -157,6 +179,43 @@ export interface PublicInboxItem {
     expiredAt?: string;
     bundleCount: number;
     reasonCodes: ReasonCode[];
+}
+/** Structured input accepted by the read-only Policy Dry-run surface. */
+export interface DryRunSignalInput {
+    id?: string;
+    kind: ReasonCode;
+    authority: EvidenceAuthority;
+    severityHint?: 0 | 1 | 2 | 3;
+    healthy?: boolean;
+    userViewing?: boolean;
+    threshold?: number;
+    failureCount?: number;
+    activeSubagents?: number;
+    idleMs?: number;
+}
+export interface DryRunPolicyInput {
+    notificationLevel?: 'C1' | 'C2' | 'C3';
+    quietHours?: Partial<QuietHours>;
+}
+export interface DryRunRequest {
+    signal: DryRunSignalInput;
+    candidate?: DryRunPolicyInput;
+}
+export interface DryRunDifference {
+    field: 'level' | 'action' | 'reasonCode';
+    current: string;
+    candidate: string;
+}
+export interface DryRunResult {
+    schemaVersion: 1;
+    mode: 'dry-run';
+    readOnly: true;
+    generatedAt: string;
+    input: DryRunSignalInput;
+    current: AttentionVerdict;
+    candidate: AttentionVerdict;
+    differences: DryRunDifference[];
+    changed: boolean;
 }
 export interface PublicSnapshot {
     schemaVersion: typeof ATTENTION_PROTOCOL_VERSION;

@@ -1,6 +1,23 @@
 # RC release checklist
 
-This checklist records the `dsh-deepcanary` `v0.1.0-rc.2` release. The upstream runtime is pinned to the exact official `dsh-v0.1.2-alpha.2` tag; an older npm runtime must not silently become the test baseline. The public `v0.1.0-rc.1` remains a historical artifact.
+This checklist records the historical `dsh-deepcanary` `v0.1.0-rc.2` release and the current candidate procedure. The RC.2 receipt is pinned to the exact official `dsh-v0.1.2-alpha.2` tag; the current candidate lane uses immutable DSH `dsh-v0.1.2-alpha.3` at commit `dd6322d604e00eec1ba5e0c8541159906a21094a`. An older npm runtime must not silently become either test baseline. The public `v0.1.0-rc.1` remains a historical artifact.
+
+## Current candidate lane: official DSH alpha.3
+
+Run the following from a clean or verified checkout before evaluating a new plugin tag:
+
+```powershell
+git fetch --tags https://github.com/deepseek-ai/deepseek-harness.git
+git switch --detach dsh-v0.1.2-alpha.3
+npx --yes pnpm@11.7.0 install --frozen-lockfile
+npx --yes pnpm@11.7.0 run build
+npx --yes pnpm@11.7.0 dsh --version
+npx --yes pnpm@11.7.0 dsh --profile web --dump-config
+```
+
+The version must be `0.1.2-alpha.3` and the checkout must resolve to `dd6322d604e00eec1ba5e0c8541159906a21094a`. Install the current plugin build into isolated `web` and `headless` profiles, then record the plugin package version, health route, nine model-visible tools, settings namespace, client-module boot graph, unload/reload result, and model smoke result. Keep the alpha.3 result in a separate receipt; do not append it to the historical RC.2 receipt.
+
+The current candidate also runs `npm run quality:report` and `npm run benchmark:attention`. These commands provide the frozen replay and local resource baseline; real-user outcome fields remain pending until a sanitized dogfood run supplies them. The completed alpha.3 local compatibility result is recorded separately in [`benchmark/alpha3-compatibility-receipt.json`](../benchmark/alpha3-compatibility-receipt.json); it is excluded from the npm package and does not replace the historical RC.2 receipt.
 
 ## 1. Source and documentation
 

@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
 
 describe('DeepCanary DSH client surface', () => {
-  it('declares the alpha.2 client module and all four interaction gates', async () => {
+  it('declares the DSH client module and all four interaction gates', async () => {
     const manifest = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')) as {
       exports?: Record<string, unknown>
       dsh?: { client?: { platform?: string; inject?: string[] } }

@@ -158,4 +158,72 @@ describe('DeepCanaryService', () => {
     await second.dispose()
     await rm(directory, { recursive: true, force: true })
   })
+
+  it('exposes policy explanation and performs a read-only candidate dry-run', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-policy-'))
+    const service = new DeepCanaryService({ logger: {} } as never, { stateDir: directory, maxInboxItems: 50 })
+    services.push(service)
+    await service.ready
+    const item = await service.ingest(testSignal())
+    expect(item?.decisionTrace).toMatchObject({ finalLevel: 'C2', finalAction: 'INTERRUPT' })
+    const explanation = service.explain(item?.id ?? '')
+    expect(explanation?.decisionTrace).toMatchObject({
+      matchedRules: ['reason.default-c2'],
+      authoritySummary: { strongest: 'runtime' },
+      finalAction: 'INTERRUPT',
+    })
+    const revision = service.status().revision
+    const result = await service.dryRun({
+      signal: { kind: 'HUMAN_APPROVAL_REQUIRED', authority: 'runtime', severityHint: 2 },
+      candidate: { notificationLevel: 'C1' },
+    })
+    expect(result).toMatchObject({ mode: 'dry-run', readOnly: true, changed: true })
+    expect(result.current.action).toBe('INTERRUPT')
+    expect(result.candidate.action).toBe('INBOX')
+    expect(result.differences).toContainEqual({ field: 'action', current: 'INTERRUPT', candidate: 'INBOX' })
+    expect(service.status().revision).toBe(revision)
+    expect(service.inbox(10)).toHaveLength(1)
+    await service.dispose()
+    await rm(directory, { recursive: true, force: true })
+  })
+
+  it('rejects untyped dry-run fields before policy evaluation', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-policy-input-'))
+    const service = new DeepCanaryService({ logger: {} } as never, { stateDir: directory, maxInboxItems: 50 })
+    services.push(service)
+    await service.ready
+    await expect(service.dryRun({
+      signal: { kind: 'TASK_COMPLETED', authority: 'runtime', healthy: 'true' as never },
+    })).rejects.toThrow('dry-run.signal.healthy must be boolean')
+    expect(service.status().revision).toBe(0)
+    expect(service.inbox(10)).toHaveLength(0)
+    await service.dispose()
+    await rm(directory, { recursive: true, force: true })
+  })
+
+  it('keeps a high-throughput burst within the configured Inbox bound', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-throughput-'))
+    const service = new DeepCanaryService({ logger: {} } as never, {
+      stateDir: directory,
+      notificationLevel: 'C1',
+      dedupeWindowMinutes: 0,
+      bundleWindowSeconds: 0,
+      maxInboxItems: 50,
+    })
+    services.push(service)
+    await service.ready
+    const jobs = Array.from({ length: 250 }, (_, index) => service.ingest({
+      ...testSignal(),
+      id: `throughput-${index}`,
+      dedupeKey: `throughput:${index}`,
+      occurredAt: new Date(1_000 + index).toISOString(),
+      kind: 'TASK_COMPLETED',
+    }))
+    const results = await Promise.all(jobs)
+    expect(results.filter(Boolean)).toHaveLength(250)
+    expect(service.snapshot().inbox).toHaveLength(50)
+    expect(service.snapshot().status.openInbox).toBe(50)
+    await service.dispose()
+    await rm(directory, { recursive: true, force: true })
+  })
 })

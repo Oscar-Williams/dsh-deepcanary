@@ -1,6 +1,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { DedupeLedger, InterruptBudget } from './core/dedupe.js'
 import { judgeSignal } from './core/judge.js'
+import { applyDeliveryPolicy, mergeBundleTrace, withRecoveryTrace } from './core/policy.js'
 import { Config, normalizeConfig, sanitizeConfigPatch } from './config.js'
 import type { DeepCanaryConfigInput } from './config.js'
 import { ContextDshAdapter } from './adapters/dsh.js'
@@ -22,10 +23,16 @@ import type {
   AttentionLevel,
   CanarySignal,
   DeepCanaryConfig,
+  DryRunRequest,
+  DryRunResult,
+  DryRunSignalInput,
+  EvidenceAuthority,
   InboxItem,
+  PolicyDecisionTrace,
   PublicInboxItem,
   PublicSettings,
   PublicSnapshot,
+  ReasonCode,
   RuntimeStatus,
 } from './types.js'
 import { ATTENTION_PROTOCOL_VERSION as PROTOCOL_VERSION } from './types.js'
@@ -210,7 +217,7 @@ export class DeepCanaryService {
     if (this.disposed || signal.schemaVersion !== 1) return undefined
     const now = Number.isFinite(Date.parse(signal.occurredAt)) ? Date.parse(signal.occurredAt) : Date.now()
     this.normalizeLifecycle(now)
-    const verdict = this.safeVerdict(judgeSignal(signal))
+    let verdict = this.safeVerdict(judgeSignal(signal))
     if (verdict.level === 'C0') return undefined
     const dedupeKey = signal.dedupeKey ?? `${signal.kind}:${signal.sessionId ?? 'host'}`
     if (!this.dedupe.accept(dedupeKey, now)) return undefined
@@ -225,16 +232,22 @@ export class DeepCanaryService {
     const bundleKey = signal.bundleKey ? hashMetadata(signal.bundleKey) : undefined
     const existing = bundleKey ? this.findBundle(bundleKey, now) : undefined
     if (existing) {
-      this.mergeBundle(existing, verdict, signal, now)
+      const bundledVerdict = applyDeliveryPolicy(verdict, this.config, now, { budgetAvailable: this.budget.canInterrupt(now) })
+      this.mergeBundle(existing, bundledVerdict, signal, now)
       this.bumpRevision()
       this.queueSave()
       return existing
     }
 
-    let action = verdict.action
-    if (this.isQuietHours(now) && action === 'INTERRUPT') action = 'DIGEST'
-    if (levelValue[verdict.level] > levelValue[this.config.notificationLevel] && action !== 'INBOX') action = 'INBOX'
-    if (action === 'INTERRUPT' && !this.budget.consume(now)) action = 'DIGEST'
+    let policyVerdict = applyDeliveryPolicy(verdict, this.config, now, { budgetAvailable: this.budget.canInterrupt(now) })
+    if (policyVerdict.action === 'INTERRUPT') {
+      if (this.budget.consume(now)) {
+        policyVerdict = applyDeliveryPolicy(verdict, this.config, now, { budgetAvailable: true, budgetConsumed: true })
+      } else {
+        policyVerdict = applyDeliveryPolicy(verdict, this.config, now, { budgetAvailable: false })
+      }
+    }
+    verdict = policyVerdict
 
     const item: InboxItem = {
       ...verdict,
@@ -244,7 +257,7 @@ export class DeepCanaryService {
       ...(signal.sessionId ? { sessionRef: hashMetadata(signal.sessionId) } : {}),
       ...(signal.workspaceId ? { workspaceRef: hashMetadata(signal.workspaceId) } : {}),
       occurredAt: signal.occurredAt,
-      action,
+      action: verdict.action,
       status: 'open',
       ...(bundleKey ? { bundleKey } : {}),
       bundleCount: 1,
@@ -381,6 +394,37 @@ export class DeepCanaryService {
   explain(id: string): PublicInboxItem | undefined {
     const item = this.find(id)
     return item ? this.toPublic(item) : undefined
+  }
+
+  /** Preview current and candidate policy outcomes without touching state or DSH. */
+  async dryRun(input: DryRunRequest): Promise<DryRunResult> {
+    await this.ready
+    const request = normalizeDryRunRequest(input)
+    const now = Date.now()
+    const signal = dryRunSignal(request.signal, now)
+    const baseVerdict = this.safeVerdict(judgeSignal(signal))
+    const budgetAvailable = this.budget.canInterrupt(now)
+    const current = applyDeliveryPolicy(baseVerdict, this.config, now, { budgetAvailable })
+    const candidateConfig = normalizeConfig({
+      ...this.config,
+      ...(request.candidate?.notificationLevel === undefined ? {} : { notificationLevel: request.candidate.notificationLevel }),
+      quietHours: { ...this.config.quietHours, ...(request.candidate?.quietHours ?? {}) },
+    })
+    const candidate = applyDeliveryPolicy(baseVerdict, candidateConfig, now, { budgetAvailable, candidate: true })
+    const differences = (['level', 'action', 'reasonCode'] as const)
+      .filter(field => current[field] !== candidate[field])
+      .map(field => ({ field, current: current[field], candidate: candidate[field] }))
+    return {
+      schemaVersion: 1,
+      mode: 'dry-run',
+      readOnly: true,
+      generatedAt: new Date(now).toISOString(),
+      input: request.signal,
+      current,
+      candidate,
+      differences,
+      changed: differences.length > 0,
+    }
   }
 
   jump(id: string): { sessionId?: string; url?: string; available: boolean; note: string } {
@@ -673,9 +717,21 @@ export class DeepCanaryService {
     } else if (previousLevel === 'C1' && verdict.level === 'C1' && item.action === 'INBOX') {
       item.action = 'INBOX'
     }
-    if (this.isQuietHours(now) && item.action === 'INTERRUPT') item.action = 'DIGEST'
+    if (this.isQuietHours(now) && item.action === 'INTERRUPT') {
+      item.action = 'DIGEST'
+      if (item.decisionTrace !== undefined) {
+        item.decisionTrace = {
+          ...item.decisionTrace,
+          appliedScopes: [...new Set([...item.decisionTrace.appliedScopes, 'quiet-hours'])],
+          suppressedBy: [...new Set([...item.decisionTrace.suppressedBy, 'quiet-hours'])],
+        }
+      }
+    }
     item.confidence = Math.max(item.confidence, verdict.confidence)
     item.occurredAt = signal.occurredAt
+    const bundleTrace = mergeBundleTrace(item.decisionTrace, verdict.decisionTrace, item.bundleCount, item.reasonCodes, item.level, item.action)
+    if (bundleTrace === undefined) delete item.decisionTrace
+    else item.decisionTrace = bundleTrace
   }
 
   private recover(signal: CanarySignal, verdict: AttentionVerdict, now: number): InboxItem | undefined {
@@ -696,6 +752,11 @@ export class DeepCanaryService {
       .filter((candidate, index, all) => all.findIndex(value => value.type === candidate.type && value.authority === candidate.authority && value.ref === candidate.ref) === index)
       .slice(-8)
     item.confidence = Math.max(item.confidence, verdict.confidence)
+    const recoveryTrace = withRecoveryTrace(item.decisionTrace ?? verdict.decisionTrace, 'recovery.host-stall-closes-root-cause')
+    if (recoveryTrace === undefined) delete item.decisionTrace
+    else {
+      item.decisionTrace = { ...recoveryTrace, finalLevel: item.level, finalAction: item.action }
+    }
     this.bumpRevision()
     return item
   }
@@ -815,6 +876,7 @@ export class DeepCanaryService {
       why: item.why,
       ...(item.suggestedAction ? { suggestedAction: item.suggestedAction } : {}),
       evidence: item.evidence.map(evidence => ({ type: evidence.type, authority: evidence.authority, summary: evidence.summary })),
+      ...(item.decisionTrace === undefined ? {} : { decisionTrace: publicDecisionTrace(item.decisionTrace) }),
       status: item.status,
       ...(item.snoozedUntil ? { snoozedUntil: item.snoozedUntil } : {}),
       ...(item.seenAt ? { seenAt: item.seenAt } : {}),
@@ -861,6 +923,132 @@ export class DeepCanaryService {
     this.saveChain = this.saveChain
       .then(() => this.store.save(this.items))
       .catch(error => this.logger.warn?.(`${PLUGIN_NAME}: metadata state could not be saved`, error))
+  }
+}
+
+const dryRunReasons = new Set<ReasonCode>([
+  'HUMAN_APPROVAL_REQUIRED',
+  'HUMAN_QUESTION_PENDING',
+  'HOST_UNREACHABLE',
+  'HOST_SUSPECTED_STALL',
+  'TOOL_FAILURE_LOOP',
+  'NO_MEANINGFUL_PROGRESS',
+  'SUBAGENT_PRESSURE',
+  'CONTEXT_PRESSURE',
+  'COMPACTION_OCCURRED',
+  'TASK_COMPLETED',
+  'TASK_FAILED',
+  'TASK_ABORTED',
+  'COMPLETION_SUSPICIOUS',
+  'HOST_STALL_RECOVERED',
+])
+
+const dryRunAuthorities = new Set<EvidenceAuthority>(['host', 'runtime', 'derived', 'heuristic'])
+
+function normalizeDryRunRequest(input: DryRunRequest): DryRunRequest {
+  if (input === null || typeof input !== 'object' || input.signal === null || typeof input.signal !== 'object') {
+    throw new TypeError('dry-run.signal is required')
+  }
+  const candidate = input.candidate
+  if (candidate !== undefined && (candidate === null || typeof candidate !== 'object')) throw new TypeError('dry-run.candidate must be an object')
+  const raw = input.signal as DryRunSignalInput
+  if (!dryRunReasons.has(raw.kind)) throw new TypeError('dry-run.signal.kind is unsupported')
+  if (!dryRunAuthorities.has(raw.authority)) throw new TypeError('dry-run.signal.authority is unsupported')
+  if (raw.severityHint !== undefined && (!Number.isSafeInteger(raw.severityHint) || raw.severityHint < 0 || raw.severityHint > 3)) throw new TypeError('dry-run.signal.severityHint must be 0-3')
+  if (raw.id !== undefined && (typeof raw.id !== 'string' || raw.id.length === 0 || raw.id.length > 128 || /[\u0000-\u001f]/.test(raw.id))) throw new TypeError('dry-run.signal.id must be a printable string of 1-128 characters')
+  for (const key of ['healthy', 'userViewing'] as const) {
+    const value = raw[key]
+    if (value !== undefined && typeof value !== 'boolean') throw new TypeError(`dry-run.signal.${key} must be boolean`)
+  }
+  const scalarKeys = ['threshold', 'failureCount', 'activeSubagents', 'idleMs'] as const
+  for (const key of scalarKeys) {
+    const value = raw[key]
+    if (value !== undefined && (typeof value !== 'number' || !Number.isFinite(value) || value < 0)) throw new TypeError(`dry-run.signal.${key} must be a finite non-negative number`)
+  }
+  let normalizedCandidate: DryRunRequest['candidate']
+  if (candidate !== undefined) {
+    const candidateRecord = candidate as Record<string, unknown>
+    for (const key of Object.keys(candidateRecord)) if (key !== 'notificationLevel' && key !== 'quietHours') throw new TypeError(`unsupported dry-run candidate setting: ${key}`)
+    if (candidateRecord.notificationLevel !== undefined && candidateRecord.notificationLevel !== 'C1' && candidateRecord.notificationLevel !== 'C2' && candidateRecord.notificationLevel !== 'C3') throw new TypeError('dry-run candidate notificationLevel must be C1, C2, or C3')
+    if (candidateRecord.quietHours !== undefined) {
+      const quietHours = candidateRecord.quietHours
+      if (quietHours === null || typeof quietHours !== 'object') throw new TypeError('dry-run candidate quietHours must be an object')
+      const quietRecord = quietHours as Record<string, unknown>
+      for (const key of Object.keys(quietRecord)) if (key !== 'enabled' && key !== 'start' && key !== 'end') throw new TypeError(`unsupported dry-run quiet-hours setting: ${key}`)
+      if (quietRecord.enabled !== undefined && typeof quietRecord.enabled !== 'boolean') throw new TypeError('dry-run candidate quietHours.enabled must be boolean')
+      for (const key of ['start', 'end'] as const) {
+        const value = quietRecord[key]
+        if (value !== undefined && (typeof value !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(value))) throw new TypeError(`dry-run candidate quietHours.${key} must use HH:MM format`)
+      }
+      normalizedCandidate = {
+        ...(candidateRecord.notificationLevel === undefined ? {} : { notificationLevel: candidateRecord.notificationLevel as 'C1' | 'C2' | 'C3' }),
+        quietHours: {
+          ...(quietRecord.enabled === undefined ? {} : { enabled: quietRecord.enabled }),
+          ...(quietRecord.start === undefined ? {} : { start: quietRecord.start as string }),
+          ...(quietRecord.end === undefined ? {} : { end: quietRecord.end as string }),
+        },
+      }
+    } else if (candidateRecord.notificationLevel !== undefined) {
+      normalizedCandidate = { notificationLevel: candidateRecord.notificationLevel as 'C1' | 'C2' | 'C3' }
+    } else {
+      normalizedCandidate = {}
+    }
+  }
+  return {
+    signal: {
+      ...(raw.id === undefined ? {} : { id: raw.id }),
+      kind: raw.kind,
+      authority: raw.authority,
+      ...(raw.severityHint === undefined ? {} : { severityHint: raw.severityHint }),
+      ...(raw.healthy === undefined ? {} : { healthy: raw.healthy }),
+      ...(raw.userViewing === undefined ? {} : { userViewing: raw.userViewing }),
+      ...(raw.threshold === undefined ? {} : { threshold: raw.threshold }),
+      ...(raw.failureCount === undefined ? {} : { failureCount: raw.failureCount }),
+      ...(raw.activeSubagents === undefined ? {} : { activeSubagents: raw.activeSubagents }),
+      ...(raw.idleMs === undefined ? {} : { idleMs: raw.idleMs }),
+    },
+    ...(normalizedCandidate === undefined ? {} : { candidate: normalizedCandidate }),
+  }
+}
+
+function dryRunSignal(input: DryRunSignalInput, now: number): CanarySignal {
+  const data: CanarySignal['data'] = {}
+  for (const key of ['healthy', 'userViewing', 'threshold', 'failureCount', 'activeSubagents', 'idleMs'] as const) {
+    const value = input[key]
+    if (value !== undefined) data[key] = value
+  }
+  const source: CanarySignal['source'] = input.kind === 'SUBAGENT_PRESSURE'
+    ? 'subagent'
+    : input.kind.startsWith('HOST_')
+      ? 'host'
+      : input.kind === 'TOOL_FAILURE_LOOP'
+        ? 'tool'
+        : 'session'
+  return {
+    schemaVersion: 1,
+    id: input.id ?? 'dry-run-event',
+    occurredAt: new Date(now).toISOString(),
+    source,
+    kind: input.kind,
+    ...(input.severityHint === undefined ? {} : { severityHint: input.severityHint }),
+    evidence: [{
+      type: input.authority === 'host' ? 'http-probe' : input.authority === 'runtime' ? 'runtime-probe' : 'model-judgment',
+      authority: input.authority,
+      ref: 'dry-run',
+      summary: `Structured ${input.kind} signal with ${input.authority} evidence.`,
+    }],
+    data,
+  }
+}
+
+function publicDecisionTrace(trace: PolicyDecisionTrace): PolicyDecisionTrace {
+  return {
+    ...trace,
+    matchedRules: [...trace.matchedRules],
+    appliedScopes: [...trace.appliedScopes],
+    suppressedBy: [...trace.suppressedBy],
+    ...(trace.bundledWith === undefined ? {} : { bundledWith: { eventCount: trace.bundledWith.eventCount, reasonCodes: [...trace.bundledWith.reasonCodes] } }),
+    authoritySummary: { strongest: trace.authoritySummary.strongest, counts: { ...trace.authoritySummary.counts } },
   }
 }
 

@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "development-compatibility",
+  "status": "PASS",
+  "scope": "current worktree and isolated local acceptance profiles",
+  "plugin": "dsh-deepcanary",
+  "pluginVersion": "0.1.0-rc.2",
+  "runtime": {
+    "tag": "dsh-v0.1.2-alpha.3",
+    "version": "0.1.2-alpha.3",
+    "commit": "dd6322d604e00eec1ba5e0c8541159906a21094a",
+    "windowsSource": "official-git-tag",
+    "wslRuntime": "official-npm-package"
+  },
+  "environment": {
+    "windowsNodeVersion": "v24.19.0",
+    "wslNodeVersion": "v22.23.2",
+    "packageManager": "pnpm@11.7.0 for the Windows source checkout",
+    "wslPackage": "@deepseek-ai/dsh@0.1.2-alpha.3",
+    "profiles": ["windows-web", "windows-headless", "wsl-web", "wsl-headless"]
+  },
+  "gates": {
+    "runtimeInstall": true,
+    "runtimeBuild": true,
+    "cliVersion": true,
+    "webDumpConfig": true,
+    "pluginBuild": true,
+    "pluginTests": true,
+    "attentionGoldV3": true,
+    "qualityReportFixture": true,
+    "multiSessionLoad": true,
+    "policyExplainDryRun": true,
+    "windowsWebE2E": true,
+    "windowsSettingsE2E": true,
+    "windowsModelSmoke": true,
+    "wslProtocolSmoke": true,
+    "wslWebE2E": true,
+    "unloadReload": true,
+    "distributionIntegrity": true
+  },
+  "evidence": {
+    "tests": {
+      "testFiles": 10,
+      "tests": 34,
+      "windows": "PASS",
+      "wsl": "PASS"
+    },
+    "attentionGold": {
+      "fixtureVersion": 3,
+      "classificationScenarios": 20,
+      "humanNeededRecall": 1,
+      "criticalRecall": 1,
+      "attentionCompressionRatio": 1.6666666667
+    },
+    "loadBenchmark": {
+      "eventsSubmitted": 1008,
+      "eventsResolved": 1008,
+      "droppedEvents": 0,
+      "sessions": 4,
+      "reconnectEventsSubmitted": 8,
+      "reconnectEventsResolved": 8,
+      "retainedInboxItems": 496,
+      "maxInboxItems": 500,
+      "resourceFields": [
+        "cpuUserMicros",
+        "cpuSystemMicros",
+        "cpuPercentOfOneCore",
+        "heapDeltaBytes",
+        "rssDeltaBytes",
+        "peakHeapUsedBytes",
+        "peakRssBytes",
+        "stateBytes"
+      ]
+    },
+    "webE2E": {
+      "hiddenByClose": true,
+      "hiddenByEscape": true,
+      "outsideClick": true,
+      "focusReturnedToTrigger": true,
+      "keyboardResize": true,
+      "pointerResize": true,
+      "bilingualSurface": true,
+      "notificationPermissionAllowedBranch": true,
+      "narrowViewport": {
+        "viewportWidth": 360,
+        "documentScrollWidth": 360,
+        "panelWidth": 344,
+        "horizontalOverflow": false
+      }
+    },
+    "wslModelSmoke": {
+      "status": "NOT_RUN",
+      "reason": "The isolated WSL profile intentionally contains no API credential; the Windows alpha.3 headless smoke passed."
+    }
+  },
+  "pendingForPublicRelease": [
+    "immutable plugin tag and public-tag installation for this candidate",
+    "artifact-specific release receipt after the candidate version is cut",
+    "physical touch-device, screen-reader, high-contrast, and full viewport-matrix coverage",
+    "WSL model smoke when an isolated WSL credential is explicitly provisioned"
+  ],
+  "verifiedAt": "2026-09-01",
+  "note": "This receipt records the alpha.3 development compatibility lane. benchmark/release-receipt.json remains the historical public RC.2 receipt and is not relabeled. No prompt, transcript, credential, raw model output, or private design material is included."
+}

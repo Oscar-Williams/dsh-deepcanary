@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 import os from 'node:os'
 import path from 'node:path'
 import { ATTENTION_POLICY_VERSION } from './types.js'
-import type { AttentionAction, AttentionLevel, EvidenceAuthority, EvidenceType, InboxItem, InboxStatus, MessageParams, ReasonCode } from './types.js'
+import type { AttentionAction, AttentionLevel, EvidenceAuthority, EvidenceType, InboxItem, InboxStatus, MessageParams, PolicyDecisionTrace, ReasonCode } from './types.js'
 
 interface PersistedEvidence {
   type: EvidenceType
@@ -11,6 +11,8 @@ interface PersistedEvidence {
   code: string
   summary: string
 }
+
+type PersistedDecisionTrace = PolicyDecisionTrace
 
 interface PersistedItem {
   id: string
@@ -28,6 +30,7 @@ interface PersistedItem {
   why: string
   suggestedAction?: string
   evidence: PersistedEvidence[]
+  decisionTrace?: PersistedDecisionTrace
   status: InboxStatus
   snoozedUntil?: string
   seenAt?: string
@@ -77,6 +80,7 @@ function toPersisted(item: InboxItem): PersistedItem {
       code: hashMetadata(item.ref),
       summary: item.summary.slice(0, 240),
     })),
+    ...(item.decisionTrace === undefined ? {} : { decisionTrace: persistDecisionTrace(item.decisionTrace) }),
     status: item.status,
     ...(item.snoozedUntil ? { snoozedUntil: item.snoozedUntil } : {}),
     ...(item.seenAt ? { seenAt: item.seenAt } : {}),
@@ -116,6 +120,7 @@ function fromPersisted(item: PersistedItem): InboxItem {
       ref: `metadata:${evidence.code}`,
       summary: evidence.summary,
     })),
+    ...(item.decisionTrace === undefined || !isDecisionTrace(item.decisionTrace) ? {} : { decisionTrace: item.decisionTrace }),
     status: item.status,
     ...(item.snoozedUntil ? { snoozedUntil: item.snoozedUntil } : {}),
     ...(item.seenAt ? { seenAt: item.seenAt } : {}),
@@ -175,6 +180,83 @@ function isPersistedItem(value: unknown): value is PersistedItem {
     && Array.isArray(item.evidence)
     && typeof item.status === 'string'
     && isInboxStatus(item.status)
+}
+
+function persistDecisionTrace(trace: PolicyDecisionTrace): PersistedDecisionTrace {
+  return {
+    ...trace,
+    matchedRules: trace.matchedRules.slice(0, 32),
+    appliedScopes: trace.appliedScopes.slice(0, 16),
+    suppressedBy: trace.suppressedBy.slice(0, 16),
+    ...(trace.bundledWith === undefined ? {} : {
+      bundledWith: {
+        eventCount: trace.bundledWith.eventCount,
+        reasonCodes: [...new Set(trace.bundledWith.reasonCodes)].slice(0, 32),
+      },
+    }),
+    authoritySummary: {
+      strongest: trace.authoritySummary.strongest,
+      counts: { ...trace.authoritySummary.counts },
+    },
+  }
+}
+
+function isDecisionTrace(value: unknown): value is PersistedDecisionTrace {
+  if (value === null || typeof value !== 'object') return false
+  const trace = value as Partial<PersistedDecisionTrace>
+  const counts = trace.authoritySummary?.counts
+  const bundle = trace.bundledWith
+  return trace.schemaVersion === 1
+    && typeof trace.policyVersion === 'string' && trace.policyVersion.length > 0 && trace.policyVersion.length <= 128
+    && typeof trace.verdictId === 'string' && trace.verdictId.length > 0 && trace.verdictId.length <= 128
+    && isBoundedStringArray(trace.matchedRules, 32)
+    && isBoundedStringArray(trace.appliedScopes, 16)
+    && isBoundedStringArray(trace.suppressedBy, 16)
+    && (bundle === undefined || (
+      typeof bundle === 'object' && bundle !== null
+      && Number.isSafeInteger(bundle.eventCount) && bundle.eventCount > 0
+      && isReasonCodeArray(bundle.reasonCodes)
+    ))
+    && (trace.recoveryRule === undefined || (typeof trace.recoveryRule === 'string' && trace.recoveryRule.length > 0 && trace.recoveryRule.length <= 128))
+    && trace.authoritySummary !== undefined
+    && (trace.authoritySummary.strongest === 'host' || trace.authoritySummary.strongest === 'runtime' || trace.authoritySummary.strongest === 'derived' || trace.authoritySummary.strongest === 'heuristic')
+    && counts !== undefined
+    && Number.isSafeInteger(counts.host) && counts.host >= 0
+    && Number.isSafeInteger(counts.runtime) && counts.runtime >= 0
+    && Number.isSafeInteger(counts.derived) && counts.derived >= 0
+    && Number.isSafeInteger(counts.heuristic) && counts.heuristic >= 0
+    && (trace.finalLevel === 'C0' || trace.finalLevel === 'C1' || trace.finalLevel === 'C2' || trace.finalLevel === 'C3')
+    && (trace.finalAction === 'IGNORE' || trace.finalAction === 'INBOX' || trace.finalAction === 'DIGEST' || trace.finalAction === 'INTERRUPT' || trace.finalAction === 'ESCALATE')
+}
+
+function isBoundedStringArray(value: unknown, max: number): value is string[] {
+  return Array.isArray(value)
+    && value.length <= max
+    && value.every(item => typeof item === 'string' && item.length > 0 && item.length <= 128 && !/[\u0000-\u001f]/.test(item))
+}
+
+function isReasonCodeArray(value: unknown): value is ReasonCode[] {
+  return Array.isArray(value)
+    && value.length > 0
+    && value.length <= 32
+    && value.every(item => typeof item === 'string' && isReasonCode(item))
+}
+
+function isReasonCode(value: string): value is ReasonCode {
+  return value === 'HUMAN_APPROVAL_REQUIRED'
+    || value === 'HUMAN_QUESTION_PENDING'
+    || value === 'HOST_UNREACHABLE'
+    || value === 'HOST_SUSPECTED_STALL'
+    || value === 'TOOL_FAILURE_LOOP'
+    || value === 'NO_MEANINGFUL_PROGRESS'
+    || value === 'SUBAGENT_PRESSURE'
+    || value === 'CONTEXT_PRESSURE'
+    || value === 'COMPACTION_OCCURRED'
+    || value === 'TASK_COMPLETED'
+    || value === 'TASK_FAILED'
+    || value === 'TASK_ABORTED'
+    || value === 'COMPLETION_SUSPICIOUS'
+    || value === 'HOST_STALL_RECOVERED'
 }
 
 function isInboxStatus(value: string): value is InboxStatus {

@@ -18,6 +18,26 @@ function asJson(value: unknown): JsonValue {
   return value as JsonValue
 }
 
+const reasonCodes = [
+  'HUMAN_APPROVAL_REQUIRED',
+  'HUMAN_QUESTION_PENDING',
+  'HOST_UNREACHABLE',
+  'HOST_SUSPECTED_STALL',
+  'TOOL_FAILURE_LOOP',
+  'NO_MEANINGFUL_PROGRESS',
+  'SUBAGENT_PRESSURE',
+  'CONTEXT_PRESSURE',
+  'COMPACTION_OCCURRED',
+  'TASK_COMPLETED',
+  'TASK_FAILED',
+  'TASK_ABORTED',
+  'COMPLETION_SUSPICIOUS',
+  'HOST_STALL_RECOVERED',
+] as const
+
+const evidenceAuthorities = ['host', 'runtime', 'derived', 'heuristic'] as const
+const attentionLevels = ['C1', 'C2', 'C3'] as const
+
 export function registerTools(ctx: unknown, service: DeepCanaryService): string[] {
   const tools = (ctx as { tools?: { register?: (definition: unknown) => unknown } }).tools
   if (!tools?.register) return []
@@ -90,12 +110,60 @@ export function registerTools(ctx: unknown, service: DeepCanaryService): string[
 
   register(defineTool({
     name: 'deepcanary_explain',
-    description: 'Explain one DeepCanary inbox item using its deterministic reason code and evidence summaries.',
+    description: 'Explain one DeepCanary inbox item with its deterministic rules, evidence authority, policy scopes, suppression causes, and bundle state.',
     parameters: {
       id: { type: 'string', required: true, description: 'The inbox item id.' },
     },
     output: jsonOutput(),
     execute: async args => asJson(service.explain(args.id) ?? { id: args.id, found: false }),
+  }))
+
+  register(defineTool({
+    name: 'deepcanary_dry_run',
+    description: 'Preview a DeepCanary policy decision for one structured signal. This is read-only: it never sends notifications or changes a DSH session.',
+    parameters: {
+      kind: { type: 'string', enum: reasonCodes, required: true, description: 'Structured DeepCanary reason code.' },
+      authority: { type: 'string', enum: evidenceAuthorities, required: true, description: 'Evidence authority available for the signal.' },
+      severityHint: { type: 'integer', enum: [0, 1, 2, 3] as const, description: 'Optional severity hint from the provider.' },
+      healthy: { type: 'boolean', description: 'Mark a long-running operation as healthy.' },
+      userViewing: { type: 'boolean', description: 'Whether the user is already viewing the relevant DSH surface.' },
+      threshold: { type: 'number', description: 'Optional numeric threshold used by the provider.' },
+      failureCount: { type: 'number', description: 'Optional consecutive failure count.' },
+      activeSubagents: { type: 'number', description: 'Optional active Subagent count.' },
+      idleMs: { type: 'number', description: 'Optional idle duration in milliseconds.' },
+      candidate: {
+        type: 'object',
+        additionalProperties: false,
+        description: 'Optional candidate policy overlay. Only notificationLevel and quietHours are evaluated.',
+        properties: {
+          notificationLevel: { type: 'string', enum: attentionLevels, description: 'Candidate maximum delivery level.' },
+          quietHours: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+              enabled: { type: 'boolean' },
+              start: { type: 'string', description: 'Start time in HH:MM format.' },
+              end: { type: 'string', description: 'End time in HH:MM format.' },
+            },
+          },
+        },
+      },
+    },
+    output: jsonOutput(),
+    execute: async args => asJson(await service.dryRun({
+      signal: {
+        kind: args.kind,
+        authority: args.authority,
+        ...(args.severityHint === undefined ? {} : { severityHint: args.severityHint }),
+        ...(args.healthy === undefined ? {} : { healthy: args.healthy }),
+        ...(args.userViewing === undefined ? {} : { userViewing: args.userViewing }),
+        ...(args.threshold === undefined ? {} : { threshold: args.threshold }),
+        ...(args.failureCount === undefined ? {} : { failureCount: args.failureCount }),
+        ...(args.activeSubagents === undefined ? {} : { activeSubagents: args.activeSubagents }),
+        ...(args.idleMs === undefined ? {} : { idleMs: args.idleMs }),
+      },
+      ...(args.candidate === undefined ? {} : { candidate: args.candidate }),
+    })),
   }))
 
   register(defineTool({

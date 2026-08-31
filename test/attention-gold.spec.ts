@@ -75,4 +75,36 @@ describe('AttentionGold', () => {
       }
     }
   })
+
+  it('replays the v3 boundary cases and exposes a trace for every actionable verdict', async () => {
+    const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)))
+    const gold = JSON.parse(await readFile(path.join(root, 'benchmark', 'attention-gold-v3.json'), 'utf8')) as Gold
+    expect(gold.fixtureVersion).toBe(3)
+    expect(gold.scenarios.length).toBeGreaterThanOrEqual(20)
+    for (const scenario of gold.scenarios) {
+      const verdict = judgeSignal(makeSignal(scenario.signal, scenario.id, 0))
+      expect({ level: verdict.level, action: verdict.action, reasonCode: verdict.reasonCode }, scenario.id).toEqual(scenario.expected)
+      expect(verdict.decisionTrace).toMatchObject({ schemaVersion: 1, verdictId: expect.any(String), finalLevel: verdict.level, finalAction: verdict.action })
+    }
+  })
+
+  it('keeps v3 recovery, parallel-session, and high-compression scenarios bounded', async () => {
+    const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)))
+    const gold = JSON.parse(await readFile(path.join(root, 'benchmark', 'attention-gold-v3.json'), 'utf8')) as Gold
+    for (const scenario of gold.serviceScenarios.slice(2)) {
+      const directory = await mkdtemp(path.join(os.tmpdir(), `deepcanary-gold-v3-${scenario.id}-`))
+      const service = new DeepCanaryService({ logger: {} } as never, { stateDir: directory, maxInboxItems: 50 })
+      try {
+        await service.ready
+        for (const [index, input] of scenario.signals.entries()) await service.ingest(makeSignal(input, scenario.id, index))
+        expect(service.inbox(50)).toHaveLength(scenario.expected.items)
+        const items = service.inbox(50)
+        expect(Math.max(...items.map(item => item.bundleCount))).toBe(scenario.expected.bundleCount)
+        expect(items[0]?.decisionTrace).toMatchObject({ schemaVersion: 1 })
+      } finally {
+        await service.dispose()
+        await rm(directory, { recursive: true, force: true })
+      }
+    }
+  })
 })

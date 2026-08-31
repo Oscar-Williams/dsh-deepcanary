@@ -1,5 +1,5 @@
 import { ATTENTION_POLICY_VERSION, ATTENTION_PROTOCOL_VERSION } from '../types.js'
-import type { AttentionAction, AttentionLevel, AttentionVerdict, CanarySignal, MessageParams, ReasonCode } from '../types.js'
+import type { AttentionAction, AttentionLevel, AttentionVerdict, CanarySignal, EvidenceAuthority, MessageParams, PolicyDecisionTrace, ReasonCode } from '../types.js'
 
 const c2Reasons = new Set<ReasonCode>([
   'HUMAN_APPROVAL_REQUIRED',
@@ -14,19 +14,40 @@ const c2Reasons = new Set<ReasonCode>([
   'COMPLETION_SUSPICIOUS',
 ])
 
-function levelFor(signal: CanarySignal): AttentionLevel {
-  if (signal.data.healthy === true) return 'C0'
-  if (signal.data.userViewing === true && signal.severityHint !== 0) return 'C1'
-  if (signal.kind === 'HOST_UNREACHABLE') return signal.evidence.some(item => item.authority === 'host' || item.authority === 'runtime') ? 'C3' : 'C2'
-  if (signal.kind === 'SUBAGENT_PRESSURE') {
-    if (signal.severityHint === 3) return 'C3'
-    if (signal.severityHint === 2) return 'C2'
-    return 'C1'
+function levelFor(signal: CanarySignal): { level: AttentionLevel; matchedRules: string[] } {
+  const matchedRules: string[] = []
+  if (signal.data.healthy === true) {
+    matchedRules.push('signal.healthy-c0')
+    return { level: 'C0', matchedRules }
   }
-  if (signal.severityHint === 3 && signal.evidence.some(item => item.authority === 'host' || item.authority === 'runtime')) return 'C3'
-  if (c2Reasons.has(signal.kind)) return 'C2'
-  if (signal.kind === 'TASK_COMPLETED' || signal.kind === 'COMPACTION_OCCURRED') return 'C1'
-  return signal.severityHint === 0 ? 'C0' : 'C1'
+  if (signal.data.userViewing === true && signal.severityHint !== 0) {
+    matchedRules.push('context.user-viewing-downgrade')
+    return { level: 'C1', matchedRules }
+  }
+  if (signal.kind === 'HOST_UNREACHABLE') {
+    matchedRules.push(signal.evidence.some(item => item.authority === 'host' || item.authority === 'runtime') ? 'host.authoritative-c3' : 'host.heuristic-c2')
+    return { level: signal.evidence.some(item => item.authority === 'host' || item.authority === 'runtime') ? 'C3' : 'C2', matchedRules }
+  }
+  if (signal.kind === 'SUBAGENT_PRESSURE') {
+    matchedRules.push('subagent.pressure-threshold')
+    if (signal.severityHint === 3) return { level: 'C3', matchedRules }
+    if (signal.severityHint === 2) return { level: 'C2', matchedRules }
+    return { level: 'C1', matchedRules }
+  }
+  if (signal.severityHint === 3 && signal.evidence.some(item => item.authority === 'host' || item.authority === 'runtime')) {
+    matchedRules.push('severity.authoritative-c3')
+    return { level: 'C3', matchedRules }
+  }
+  if (c2Reasons.has(signal.kind)) {
+    matchedRules.push('reason.default-c2')
+    return { level: 'C2', matchedRules }
+  }
+  if (signal.kind === 'TASK_COMPLETED' || signal.kind === 'COMPACTION_OCCURRED') {
+    matchedRules.push('reason.status-c1')
+    return { level: 'C1', matchedRules }
+  }
+  matchedRules.push(signal.severityHint === 0 ? 'severity.zero-c0' : 'severity.default-c1')
+  return { level: signal.severityHint === 0 ? 'C0' : 'C1', matchedRules }
 }
 
 function actionFor(level: AttentionLevel): AttentionAction {
@@ -81,8 +102,22 @@ function messageParamsFor(signal: CanarySignal): MessageParams | undefined {
   return Object.keys(params).length > 0 ? params : undefined
 }
 
+function authoritySummary(signal: CanarySignal): PolicyDecisionTrace['authoritySummary'] {
+  const counts: Record<EvidenceAuthority, number> = { host: 0, runtime: 0, derived: 0, heuristic: 0 }
+  for (const evidence of signal.evidence) counts[evidence.authority] += 1
+  const strongest: EvidenceAuthority = counts.host > 0
+    ? 'host'
+    : counts.runtime > 0
+      ? 'runtime'
+      : counts.derived > 0
+        ? 'derived'
+        : 'heuristic'
+  return { strongest, counts }
+}
+
 export function judgeSignal(signal: CanarySignal): AttentionVerdict {
-  const level = levelFor(signal)
+  const classification = levelFor(signal)
+  const level = classification.level
   const suggestedAction = suggestionFor(signal.kind)
   const messageParams = messageParamsFor(signal)
   const why = signal.kind === 'TASK_COMPLETED'
@@ -92,11 +127,24 @@ export function judgeSignal(signal: CanarySignal): AttentionVerdict {
       : signal.kind === 'SUBAGENT_PRESSURE'
         ? `Active subagent pressure crossed the configured ${signal.data.threshold ?? 'standard'} threshold.`
         : signal.evidence[0]?.summary ?? 'A DeepCanary provider observed an attention-worthy runtime fact.'
+  const action = actionFor(level)
+  const decisionTrace: PolicyDecisionTrace = {
+    schemaVersion: 1,
+    policyVersion: ATTENTION_POLICY_VERSION,
+    verdictId: signal.id,
+    matchedRules: classification.matchedRules,
+    appliedScopes: ['global'],
+    suppressedBy: [],
+    authoritySummary: authoritySummary(signal),
+    finalLevel: level,
+    finalAction: action,
+    ...(signal.kind === 'HOST_STALL_RECOVERED' ? { recoveryRule: 'recovery.host-stall-closes-root-cause' } : {}),
+  }
   return {
     schemaVersion: ATTENTION_PROTOCOL_VERSION,
     eventId: signal.id,
     level,
-    action: actionFor(level),
+    action,
     confidence: confidenceFor(signal, level),
     reasonCode: signal.kind,
     messageKey: messageKeyFor(signal.kind),
@@ -106,5 +154,6 @@ export function judgeSignal(signal: CanarySignal): AttentionVerdict {
     why,
     ...(suggestedAction === undefined ? {} : { suggestedAction }),
     evidence: signal.evidence,
+    decisionTrace,
   }
 }

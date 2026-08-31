@@ -23,6 +23,17 @@ type ClientItem = {
   why: string
   suggestedAction?: string
   evidence: Array<{ type: string; authority: string; summary: string }>
+  decisionTrace?: {
+    policyVersion: string
+    matchedRules: string[]
+    appliedScopes: string[]
+    suppressedBy: string[]
+    bundledWith?: { eventCount: number; reasonCodes: string[] }
+    authoritySummary: { strongest: string; counts: Record<string, number> }
+    finalLevel: 'C0' | 'C1' | 'C2' | 'C3'
+    finalAction: string
+    recoveryRule?: string
+  }
   status: string
   snoozedUntil?: string
   seenAt?: string
@@ -231,6 +242,16 @@ const zh = {
   'item.authority.derived': '派生',
   'item.authority.heuristic': '启发式',
   'item.technicalDetail': '依据：{text}',
+  'item.policyTrace': '查看决策轨迹',
+  'item.policyVersion': '策略版本：{version}',
+  'item.matchedRules': '命中规则：{rules}',
+  'item.appliedScopes': '生效范围：{scopes}',
+  'item.suppressedBy': '抑制因素：{values}',
+  'item.authoritySummary': '证据权威：{text}',
+  'item.finalDecision': '最终判定：{level} / {action}',
+  'item.bundled': 'Bundle 聚合：{count} 个事件',
+  'item.recoveryRule': '恢复规则：{rule}',
+  'item.none': '无',
   'item.acknowledge': '已处理',
   'item.snooze': '稍后提醒',
   'item.mute': '静音',
@@ -358,6 +379,16 @@ const en = {
   'item.authority.derived': 'Derived',
   'item.authority.heuristic': 'Heuristic',
   'item.technicalDetail': 'Evidence basis: {text}',
+  'item.policyTrace': 'View decision trace',
+  'item.policyVersion': 'Policy version: {version}',
+  'item.matchedRules': 'Matched rules: {rules}',
+  'item.appliedScopes': 'Applied scopes: {scopes}',
+  'item.suppressedBy': 'Suppressed by: {values}',
+  'item.authoritySummary': 'Evidence authority: {text}',
+  'item.finalDecision': 'Final decision: {level} / {action}',
+  'item.bundled': 'Bundle aggregation: {count} events',
+  'item.recoveryRule': 'Recovery rule: {rule}',
+  'item.none': 'None',
   'item.acknowledge': 'Acknowledge',
   'item.snooze': 'Snooze',
   'item.mute': 'Mute',
@@ -1143,6 +1174,29 @@ function actionButton(label: string, onClick: () => void, disabled: boolean, pri
   }, label)
 }
 
+function decisionTraceDetails(item: ClientItem, t: Translate): ReactNode | undefined {
+  const trace = item.decisionTrace
+  if (trace === undefined) return undefined
+  const authority = Object.entries(trace.authoritySummary.counts)
+    .filter(([, count]) => count > 0)
+    .map(([name, count]) => `${authorityText(name, t)} ${count}`)
+    .join(' · ')
+  const traceRows: ReactNode[] = [
+    createElement('p', { key: 'version' }, translate(t, 'item.policyVersion', { version: trace.policyVersion })),
+    createElement('p', { key: 'rules' }, translate(t, 'item.matchedRules', { rules: trace.matchedRules.join(', ') || translate(t, 'item.none') })),
+    createElement('p', { key: 'scopes' }, translate(t, 'item.appliedScopes', { scopes: trace.appliedScopes.join(', ') || translate(t, 'item.none') })),
+    createElement('p', { key: 'suppressed' }, translate(t, 'item.suppressedBy', { values: trace.suppressedBy.join(', ') || translate(t, 'item.none') })),
+    createElement('p', { key: 'authority' }, translate(t, 'item.authoritySummary', { text: authority || translate(t, 'item.none') })),
+    createElement('p', { key: 'final' }, translate(t, 'item.finalDecision', { level: trace.finalLevel, action: trace.finalAction })),
+  ]
+  if (trace.bundledWith !== undefined) traceRows.push(createElement('p', { key: 'bundle' }, translate(t, 'item.bundled', { count: trace.bundledWith.eventCount })))
+  if (trace.recoveryRule !== undefined) traceRows.push(createElement('p', { key: 'recovery' }, translate(t, 'item.recoveryRule', { rule: trace.recoveryRule })))
+  return createElement('details', { className: 'dsc-evidence', key: 'decision-trace' },
+    createElement('summary', null, translate(t, 'item.policyTrace')),
+    ...traceRows,
+  )
+}
+
 function itemCard(item: ClientItem, state: ControllerState, t: Translate, controller: Controller, selected: boolean): ReactNode {
   const busy = state.pending.has(item.id)
   const reason = reasonText(item, t)
@@ -1172,6 +1226,8 @@ function itemCard(item: ClientItem, state: ControllerState, t: Translate, contro
     createElement('summary', null, translate(t, 'item.evidence') + (evidence ? ' · ' + evidence : '')),
     createElement('p', null, translate(t, 'item.technicalDetail', { text: reason })),
   ))
+  const traceDetails = decisionTraceDetails(item, t)
+  if (traceDetails !== undefined) children.push(traceDetails)
   const actions: ReactNode[] = [
     actionButton(translate(t, 'item.acknowledge'), () => {
       void controller.action(item.id, { action: 'acknowledge' })

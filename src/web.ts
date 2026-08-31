@@ -54,6 +54,32 @@ async function actionHandler(req: IncomingMessage, res: ServerResponse, service:
   }
 }
 
+function explainHandler(req: IncomingMessage, res: ServerResponse, service: DeepCanaryService): void {
+  if (req.method !== 'GET') {
+    sendJson(res, 405, { error: 'GET required', schemaVersion: ATTENTION_PROTOCOL_VERSION })
+    return
+  }
+  const url = new URL(req.url ?? '/', 'http://127.0.0.1')
+  const id = url.searchParams.get('id') ?? ''
+  const explanation = service.explain(id)
+  if (explanation === undefined) sendJson(res, 404, { id, found: false, schemaVersion: ATTENTION_PROTOCOL_VERSION })
+  else sendJson(res, 200, explanation)
+}
+
+async function dryRunHandler(req: IncomingMessage, res: ServerResponse, service: DeepCanaryService): Promise<void> {
+  if (req.method !== 'POST') {
+    sendJson(res, 405, { error: 'POST required', schemaVersion: ATTENTION_PROTOCOL_VERSION })
+    return
+  }
+  try {
+    const payload = JSON.parse(await readBody(req))
+    const result = await service.dryRun(payload)
+    sendJson(res, 200, result)
+  } catch (error: unknown) {
+    sendJson(res, 400, { error: error instanceof Error ? error.message : 'invalid dry-run payload', schemaVersion: ATTENTION_PROTOCOL_VERSION })
+  }
+}
+
 export function installWebRoutes(ctx: unknown, service: DeepCanaryService): void {
   const context = ctx as {
     inject?: (services: string[], callback: (ctx: any) => unknown) => unknown
@@ -98,6 +124,8 @@ export function installWebRoutes(ctx: unknown, service: DeepCanaryService): void
         }
       } }),
       server.register({ kind: 'exact', path: `${basePath}/action`, handler: (req, res) => actionHandler(req, res, service) }),
+      server.register({ kind: 'exact', path: `${basePath}/explain`, handler: (req, res) => explainHandler(req, res, service) }),
+      server.register({ kind: 'exact', path: `${basePath}/dry-run`, handler: (req, res) => dryRunHandler(req, res, service) }),
     ]
 
     webCtx.on?.('dispose', () => { for (const dispose of disposers) dispose() })

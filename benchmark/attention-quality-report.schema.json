@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DeepCanary Attention Quality Report",
+  "type": "object",
+  "required": [
+    "reportSchemaVersion",
+    "status",
+    "pluginVersion",
+    "runtimeTag",
+    "policyVersion",
+    "attentionFixtureVersion",
+    "scenarioSource",
+    "signalCounts",
+    "verdictCounts",
+    "interruptCounts",
+    "generatedAt"
+  ],
+  "properties": {
+    "reportSchemaVersion": { "const": 1 },
+    "status": { "enum": ["fixture-only", "dogfood", "replay"] },
+    "pluginVersion": { "type": "string" },
+    "runtimeTag": { "type": "string" },
+    "policyVersion": { "type": "string" },
+    "attentionFixtureVersion": { "type": "integer", "minimum": 1 },
+    "scenarioSource": { "type": "string" },
+    "signalCounts": { "type": "object" },
+    "verdictCounts": { "type": "object" },
+    "interruptCounts": { "type": "object" },
+    "generatedAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": true
+}

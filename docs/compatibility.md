@@ -2,16 +2,20 @@
 
 ## Verification lanes
 
-DeepCanary maintains two explicit lanes:
+DeepCanary maintains separate historical and current lanes so a released result remains reproducible while upstream compatibility moves forward:
 
-1. **Upstream canary lane** — the exact official `dsh-v0.1.2-alpha.2` source tag. This is the required integration-test runtime for this RC.
-2. **Public distribution lane** — the package layout, built `lib/`, bundle patch, immutable Git tag, and peer ranges consumed by DSH. It verifies installation shape and must not be mistaken for a different DSH runtime.
+1. **RC.2 historical lane** — the exact official `dsh-v0.1.2-alpha.2` source tag and public `v0.1.0-rc.2` plugin tag.
+2. **Current upstream lane** — the exact official `dsh-v0.1.2-alpha.3` source tag and the local plugin worktree used for the next release candidate.
+3. **Public distribution lane** — the package layout, built `lib/`, bundle patch, immutable Git tag, and peer ranges consumed by DSH.
 
-| Component | RC baseline | Role | Notes |
+The current lane is the required baseline for new development and compatibility tests. The public RC.2 lane remains available for comparison and does not imply alpha.3 support for that historical tag. The completed local alpha.3 result is recorded in [`benchmark/alpha3-compatibility-receipt.json`](../benchmark/alpha3-compatibility-receipt.json); it describes the current worktree and is not a public release receipt.
+
+| Component | RC.2 historical | Current compatibility lane | Notes |
 | --- | --- | --- | --- |
-| DSH | `dsh-v0.1.2-alpha.2` | required runtime | Official source checkout; verify `dsh --version` prints `0.1.2-alpha.2` |
-| DSH commit | `0a53fb55bea101816fa226bb964ae2bed71c343b` | reproducibility | Exact commit used for the release receipt |
-| Node.js | `22.19+` | runtime requirement | Local Windows verification uses `v24.19.0`; DSH alpha.2 declares `^22.19.0 || >=24.0.0` |
+| DSH | `dsh-v0.1.2-alpha.2` | `dsh-v0.1.2-alpha.3` | Official source checkout; verify the matching `dsh --version` output |
+| DSH commit | `0a53fb55bea101816fa226bb964ae2bed71c343b` | `dd6322d604e00eec1ba5e0c8541159906a21094a` | Immutable upstream commits used for reproducibility |
+| Plugin | `v0.1.0-rc.2` | local worktree during development | A new public tag requires a new receipt and an artifact-specific install check |
+| Node.js | `22.19+` | `22.19+` | Local Windows verification uses `v24.19.0`; current DSH packages declare the same supported range |
 | pnpm | `11.7.0` | DSH source installation | Invoke as `npx --yes pnpm@11.7.0` |
 | Windows x64 | supported | primary host | Browser Notification and Web Inbox are the baseline sinks |
 | WSL2 Ubuntu | supported | alternate host | `/mnt/<drive>` paths normalize to the Windows workspace identity; interop is capability-detected |
@@ -22,7 +26,7 @@ DeepCanary maintains two explicit lanes:
 | Surface | Required for mount | Behavior when present | Fallback |
 | --- | --- | --- | --- |
 | `@deepseek-ai/dsh-session` | yes | Session lifecycle and event feed | Plugin does not claim a valid mount without Session |
-| `@deepseek-ai/dsh-tools` | yes for model tools | Registers the eight `deepcanary_*` tools | Web and local service remain usable if tool registration is unavailable |
+| `@deepseek-ai/dsh-tools` | yes for model tools | Registers the nine `deepcanary_*` tools, including explanation and read-only dry-run | Web and local service remain usable if tool registration is unavailable |
 | `@deepseek-ai/dsh-agent` | no | Agent error provider | Session facts remain available |
 | `@deepseek-ai/dsh-subagent` | no | Active Subagent pressure provider | Pressure signals remain inactive |
 | `@deepseek-ai/dsh-host-webserver` | no | State, settings, health, action, client routes | Model tools and local persistence remain available |
@@ -41,11 +45,13 @@ The supported notification order is:
 
 This RC deliberately keeps the Web path independent of a native toast dependency. `nativeToast` and `windowsInterop` are capability fields, not hidden claims that a native companion is installed.
 
-The Web UI requires the DSH alpha.2 client-module surface: the plugin manifest must expose `dsh.client` and `./client`, and the host must provide the `sidebar.footer.action`, `shell.overlay`, and `settings.plugin.item` slots. A profile that only installs the historical `v0.1.0-rc.1` package cannot verify the current four interaction gates or the standard settings card.
+The Web UI requires the DSH client-module surface used by alpha.2 and alpha.3: the plugin manifest must expose `dsh.client` and `./client`, and the host must provide the `sidebar.footer.action`, `shell.overlay`, and `settings.plugin.item` slots. A profile that only installs the historical `v0.1.0-rc.1` package cannot verify the current four interaction gates or the standard settings card.
+
+For the current alpha.3 lane, install the local built package into the isolated test profile, then verify `dsh --profile web --dump-config`, the DeepCanary health route, the nine registered tools, and the client-module boot graph. The Windows source checkout and the WSL2 official npm runtime have both completed this local compatibility path. Public RC.2 installation commands remain tied to alpha.2 and are retained for historical reproduction.
 
 ## Known limitations
 
-- The alpha.2 source tag is the tested runtime because this baseline is pinned to the official repository tag. Do not substitute an unverified npm package or a stale local DSH installation.
+- RC.2 evidence is tied to the alpha.2 source tag and cannot be relabeled as alpha.3 evidence. Current development evidence is tied to the alpha.3 tag and the exact local package/profile recorded by the active receipt.
 - The jump action returns a local DSH navigation hint; the host decides whether the target session URL is available.
 - Liveness is conservative: session heartbeat silence produces a suspected-stall C2; a C3 host failure requires a failed local HTTP probe.
 - Native Windows Toast is not a hard dependency in this RC. Browser and Web fallback behavior is the supported cross-platform path.

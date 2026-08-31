@@ -19,6 +19,7 @@ describe('DSH tool registration', () => {
       'deepcanary_mute',
       'deepcanary_feedback',
       'deepcanary_explain',
+      'deepcanary_dry_run',
       'deepcanary_jump',
     ])
     expect(definitions.every(definition => typeof definition.output === 'object')).toBe(true)

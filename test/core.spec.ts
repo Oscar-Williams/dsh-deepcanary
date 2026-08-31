@@ -29,6 +29,21 @@ describe('attention judge', () => {
     expect(judgeSignal(signal({ kind: 'HOST_UNREACHABLE', severityHint: 3, evidence: [{ type: 'model-judgment', authority: 'heuristic', ref: 'model', summary: 'heuristic only' }] }))).toMatchObject({ level: 'C2' })
     expect(judgeSignal(signal({ kind: 'HOST_UNREACHABLE', severityHint: 3 }))).toMatchObject({ level: 'C3', action: 'ESCALATE' })
   })
+
+  it('emits a privacy-safe deterministic decision trace', () => {
+    const verdict = judgeSignal(signal({ kind: 'HUMAN_APPROVAL_REQUIRED', severityHint: 2 }))
+    expect(verdict.decisionTrace).toMatchObject({
+      schemaVersion: 1,
+      policyVersion: 'attention-policy.v1',
+      verdictId: 'test-event',
+      matchedRules: ['reason.default-c2'],
+      appliedScopes: ['global'],
+      suppressedBy: [],
+      finalLevel: 'C2',
+      finalAction: 'INTERRUPT',
+      authoritySummary: { strongest: 'runtime', counts: { runtime: 1 } },
+    })
+  })
 })
 
 describe('dedupe and budget', () => {

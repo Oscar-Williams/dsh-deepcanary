@@ -2,6 +2,20 @@
 
 All notable changes to `dsh-deepcanary` are recorded here.
 
+## Unreleased
+
+### Added
+
+- a privacy-safe `PolicyDecisionTrace` carried from deterministic judgment through Inbox persistence, Web state, model explanation, and the bilingual client details view;
+- read-only `deepcanary_dry_run` and `/dsh-deepcanary/dry-run` policy previews with bounded structured input and field-level differences;
+- AttentionGold v3 cases for heuristic-versus-authoritative host facts, low-hint Human Needed signals, recovery, recurrence, parallel sessions, and presentation metadata;
+- a local dogfood protocol, aggregate quality-report schema/generator, and high-throughput bounded-state benchmark;
+
+### Compatibility
+
+- prepared the current development line against the official immutable DSH `dsh-v0.1.2-alpha.3` tag at commit `dd6322d604e00eec1ba5e0c8541159906a21094a`.
+- The public `v0.1.0-rc.2` release remains the historical alpha.2 distribution until a new release candidate has its own receipt and artifact checks.
+
 ## 0.1.0-rc.2 — 2026-08-31
 
 ### Changed

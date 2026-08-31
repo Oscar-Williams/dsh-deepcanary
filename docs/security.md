@@ -11,7 +11,8 @@ The default state file is `~/.dsh/dsh-deepcanary/inbox.json`. It contains:
 - schema version, item ID, timestamp, level, action, status, reason code, and bounded feedback;
 - hashed Session and Workspace references;
 - hashed evidence references plus provider-written type, authority, and bounded summary;
-- Decision Bundle hash, count, and reason-code set.
+- Decision Bundle hash, count, and reason-code set;
+- bounded `PolicyDecisionTrace` fields: policy version, stable rule IDs, scopes, suppression markers, authority counts, final decision, and recovery rule.
 
 It does not contain prompts, assistant output, tool arguments, raw tool results, environment variables, API keys, credentials, arbitrary file contents, or a session transcript. The provider contract rejects the use of raw conversation content as an input to the local state path; new providers must use structured facts and short summaries.
 
@@ -20,6 +21,8 @@ Persistence uses an atomic temporary file and rename within the configured state
 ## Public surfaces and actions
 
 The Web routes are registered on DSH's local same-origin WebServer and send `cache-control: no-store`. The action endpoint accepts only `acknowledge`, `snooze`, `mute`, `feedback`, and `jump`. Model-visible tools expose the same bounded operations. `jump` returns a URL hint; it does not navigate, open, mutate, or stop a session by itself.
+
+`deepcanary_explain` returns the same privacy-safe trace for one Inbox item. `deepcanary_dry_run` and `POST /dsh-deepcanary/dry-run` accept only bounded structured signal fields and an allowlisted notification-policy candidate. Dry-run never writes state, consumes an interrupt budget, sends a notification, or mutates a DSH Session.
 
 The plugin has no shell, file-write, process-control, approval, rejection, arbitrary network, or destructive tool. It does not terminate or restart DSH or any Agent.
 

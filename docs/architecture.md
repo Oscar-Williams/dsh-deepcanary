@@ -21,11 +21,13 @@ The plugin observes DSH seams; it does not reimplement the agent loop. Session e
 
 - `CanarySignal` carries source, reason code, evidence, an optional severity hint, a dedupe key, a root-cause Bundle key, and privacy-safe scalar data;
 - `EvidenceRef` records the evidence type and authority: `host`, `runtime`, `derived`, or `heuristic`;
-- `AttentionVerdict` carries C0–C3, action, confidence, reason, evidence, a stable message key, and the protocol/policy versions;
+- `AttentionVerdict` carries C0–C3, action, confidence, reason, evidence, a stable message key, the protocol/policy versions, and a privacy-safe `PolicyDecisionTrace`;
 - `InboxItem` adds reversible local status, feedback, Bundle count, lifecycle timestamps, and the reason-code set shown to users;
 - `PublicSnapshot` is the Web and client boundary, carries a monotonic revision for conditional reads, and excludes internal hashes and raw evidence references.
 
-`src/adapters/dsh.ts` owns the DSH-facing adapter contract. `ContextDshAdapter` translates the alpha.2 Context events into a small lifecycle interface and keeps session snapshots in memory. Providers do not depend on Web UI or persistence details.
+`PolicyDecisionTrace` records stable rule identifiers, applied scopes, suppression causes, evidence-authority counts, final delivery action, Bundle aggregation, and recovery correlation. It contains no prompt, transcript, tool payload, credential, or raw event reference. `deepcanary_explain` and the Web explain route expose this projection for user decisions and support diagnosis.
+
+`src/adapters/dsh.ts` owns the DSH-facing adapter contract. `ContextDshAdapter` translates the alpha.3 Context events into a small lifecycle interface and keeps session snapshots in memory. Providers do not depend on Web UI or persistence details.
 
 ## Provider coverage
 
@@ -42,7 +44,7 @@ Each provider emits a stable reason code and an `EvidenceRef`. The provider may 
 
 ## Deterministic attention policy
 
-The judge is deterministic and runs before all notification policy:
+The judge is deterministic and runs before all notification policy. It emits a trace at the same time as the base verdict, and the pure delivery-policy layer appends quiet-hours, notification-level, budget, candidate-policy, Bundle, and recovery details:
 
 - C0 is silent;
 - C1 is recorded in the Inbox;
@@ -50,6 +52,8 @@ The judge is deterministic and runs before all notification policy:
 - C3 is an escalation candidate, requires Host or Runtime authority, and does not consume the ordinary C2 budget;
 - duplicate signals are rejected inside `dedupeWindowMinutes`;
 - an event with a shared root-cause key is merged into a Decision Bundle inside `bundleWindowSeconds`.
+
+The policy layer is pure and reusable by `DeepCanaryService.dryRun()`. Dry-run accepts bounded structured signal fields, compares current and candidate notification policy, returns field-level differences, and does not consume a budget, write state, send a notification, or mutate a DSH Session.
 
 Normal completion is C1. Human approval/question, failure, suspected stall, no-progress, repeated tool failures, context pressure, and suspicious completion are C2 by default. Host unreachability with Host evidence and the highest Subagent threshold are C3. A healthy fact is explicitly silent, and a user-viewing fact downgrades a reminder to C1.
 
@@ -65,12 +69,12 @@ The entry point is `src/index.ts`:
 - `session/created`, `session/event`, and `session/disposed` feed the adapter and Session providers;
 - optional `agents` and `subagents` injections observe live lifecycle facts;
 - optional `webServer` injection registers exact same-origin state, settings, health, and action routes;
-- optional `settings` injection registers the `dsh-deepcanary` namespace through the alpha.2 `installSection` API, with the composed configuration as its base and live user changes applied through the provider;
+- optional `settings` injection registers the `dsh-deepcanary` namespace through the DSH Settings `installSection` API used by alpha.2 and alpha.3, with the composed configuration as its base and live user changes applied through the provider;
 - DSH Tools are registered with `defineTool`, explicit JSON output schemas, and text renderers.
 
-The browser client is a DSH alpha.2 `dsh.client` module. Its `./client` export is built as a lazy-CJS factory for the client-module loader, then contributes the sidebar entry through `sidebar.footer.action`, the floating Inbox through `shell.overlay`, and the settings card through `settings.plugin.item`. The state route remains the source of truth; no permanent body injection is needed.
+The browser client is a DSH alpha.3 `dsh.client` module. Its `./client` export is built as a lazy-CJS factory for the client-module loader, then contributes the sidebar entry through `sidebar.footer.action`, the floating Inbox through `shell.overlay`, and the settings card through `settings.plugin.item`. The state route remains the source of truth; no permanent body injection is needed. The Inbox renders the decision trace in a bilingual details section so policy reasoning remains available without opening a second surface.
 
-The Web protocol is versioned independently from the persisted file format. State and action responses expose `schemaVersion` and a monotonic `revision`; state reads use an ETag and may return `304 Not Modified`. Actions require a client-generated `requestId`, and identical replays return the original receipt without applying the mutation twice. Inbox entries move through explicit `open`, `seen`, `acknowledged`, `snoozed`, `muted`, `recovered`, and `expired` states so a transient host recovery cannot create a second alert for the same root cause.
+The Web protocol is versioned independently from the persisted file format. State and action responses expose `schemaVersion` and a monotonic `revision`; state reads use an ETag and may return `304 Not Modified`. Actions require a client-generated `requestId`, and identical replays return the original receipt without applying the mutation twice. `GET /dsh-deepcanary/explain?id=...` returns one public trace projection, while `POST /dsh-deepcanary/dry-run` returns a read-only current/candidate comparison. Inbox entries move through explicit `open`, `seen`, `acknowledged`, `snoozed`, `muted`, `recovered`, and `expired` states so a transient host recovery cannot create a second alert for the same root cause.
 
 ## Configuration and lifecycle
 
@@ -86,4 +90,4 @@ The store is local by construction and writes only below the configured state di
 
 ## Extending the plugin
 
-Add a provider only when its runtime fact has a clear event or probe boundary. Give it a stable reason code, evidence authority, dedupe key, Bundle key where appropriate, and an AttentionGold case. Prefer structured DSH facts over content inspection. Any new user-facing behavior must update the stable types, Web contract, tests, README files, compatibility audit, security notes, and release receipt procedure together.
+Add a provider only when its runtime fact has a clear event or probe boundary. Give it a stable reason code, evidence authority, dedupe key, Bundle key where appropriate, and an AttentionGold case. Prefer structured DSH facts over content inspection. Any new user-facing behavior must update the stable types, Web contract, tests, README files, compatibility audit, security notes, quality report procedure, and release receipt procedure together. AttentionGold v3 and the local dogfood protocol provide the replay and aggregate-evidence path for rule changes.

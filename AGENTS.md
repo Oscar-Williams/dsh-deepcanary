@@ -10,7 +10,7 @@ The implementation must preserve these boundaries:
 - A provider may summarize facts, but it must not copy prompts, model output, tool arguments, credentials, or transcript content into local state.
 - C3 requires authoritative Host or Runtime evidence.
 - User actions are limited to local metadata and navigation hints. Never add an automatic terminate, restart, approval, rejection, shell, or destructive tool.
-- Keep the official alpha.2 source checkout at the pinned tag and commit as the only integration-test runtime until the compatibility gate explicitly changes.
+- Keep two explicit runtime lanes: the historical RC.2 receipt uses official alpha.2 at its pinned commit; current development and new compatibility tests use official alpha.3 at tag `dsh-v0.1.2-alpha.3`, commit `dd6322d604e00eec1ba5e0c8541159906a21094a`. Never relabel one lane's evidence as the other.
 
 ## Commands
 
@@ -21,9 +21,11 @@ The implementation must preserve these boundaries:
     npm run build
     npm run verify:distribution
     npm run verify:release-receipt
+    npm run quality:report
+    npm run benchmark:attention
     npm pack --dry-run
 
-For an end-to-end check, use the official DSH checkout documented in README.md, verify dsh --version is 0.1.2-alpha.2, install this package into the isolated web profile, run dsh web, and check HTTP 200 on the DeepCanary health route.
+For current development end-to-end checks, use the official alpha.3 checkout documented in `docs/compatibility.md`, verify `dsh --version` is `0.1.2-alpha.3`, install the current built package into the isolated web profile, run `dsh web`, and check HTTP 200 on the DeepCanary health route. Use the alpha.2 checkout only when reproducing the historical RC.2 receipt.
 
 The release branch tracks the built `lib/` output because DSH installs a public Git tag without running this repository's TypeScript toolchain. Every source change must therefore be followed by `npm run build`, and CI must fail if the committed `lib/` output is stale.
 

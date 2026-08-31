@@ -20,6 +20,9 @@ const required = [
   'docs/security.md',
   'docs/release-checklist.md',
   'benchmark/attention-gold.json',
+  'benchmark/attention-gold-v3.json',
+  'benchmark/attention-quality-report.schema.json',
+  'benchmark/alpha3-compatibility-receipt.json',
   'benchmark/release-receipt.json',
   'LICENSE',
 ]
@@ -44,8 +47,11 @@ const commandArgs = npmCli === undefined ? npmArgs : [npmCli, ...npmArgs]
 const { stdout } = await execFileAsync(npmCommand, commandArgs, { cwd: root, maxBuffer: 2_000_000 })
 const packReport = JSON.parse(stdout)
 const packedFiles = new Set(packReport[0]?.files?.map(file => file.path) ?? [])
-for (const file of ['lib/index.js', 'lib/client.js', 'cordis.patch.yml', 'benchmark/attention-gold.json']) {
+for (const file of ['lib/index.js', 'lib/client.js', 'cordis.patch.yml', 'benchmark/attention-gold.json', 'benchmark/attention-gold-v3.json', 'benchmark/attention-quality-report.schema.json']) {
   if (![...packedFiles].some(candidate => candidate === file || candidate.endsWith(`/${file}`))) throw new Error(`required file is absent from npm package: ${file}`)
+}
+if ([...packedFiles].some(candidate => candidate === 'benchmark/alpha3-compatibility-receipt.json' || candidate.endsWith('/benchmark/alpha3-compatibility-receipt.json'))) {
+  throw new Error('development compatibility receipt must remain outside the npm package')
 }
 for (const file of ['lib/client.d.ts', 'lib/client.d.ts.map', 'lib/client.js.map', 'lib/client/index.js']) {
   if ([...packedFiles].some(candidate => candidate === file || candidate.endsWith(`/${file}`))) {

@@ -2,7 +2,7 @@ import type { Context } from '@deepseek-ai/cordis';
 import type { DeepCanaryConfigInput } from './config.js';
 import { ContextDshAdapter } from './adapters/dsh.js';
 import { MetadataStore } from './persistence.js';
-import type { CanarySignal, DeepCanaryConfig, InboxItem, PublicInboxItem, PublicSettings, PublicSnapshot, RuntimeStatus } from './types.js';
+import type { CanarySignal, DeepCanaryConfig, DryRunRequest, DryRunResult, InboxItem, PublicInboxItem, PublicSettings, PublicSnapshot, RuntimeStatus } from './types.js';
 declare const PLUGIN_NAME = "dsh-deepcanary";
 declare const PLUGIN_VERSION = "0.1.0-rc.2";
 interface ActionReceipt {
@@ -56,6 +56,8 @@ export declare class DeepCanaryService {
     mute(id: string): boolean;
     feedback(id: string, useful: boolean, note?: string): boolean;
     explain(id: string): PublicInboxItem | undefined;
+    /** Preview current and candidate policy outcomes without touching state or DSH. */
+    dryRun(input: DryRunRequest): Promise<DryRunResult>;
     jump(id: string): {
         sessionId?: string;
         url?: string;

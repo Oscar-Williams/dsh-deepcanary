@@ -4,6 +4,12 @@
 
 `dsh-deepcanary` is a local attention-supervision plugin for [DeepSeek Harness (DSH)](https://github.com/deepseek-ai/deepseek-harness). It reads structured facts from Sessions, Tools, Agents, Subagents, and the Host, then applies deterministic policy to decide what can stay quiet, what belongs in the Inbox, and what deserves a user-facing reminder.
 
+## Current development line (unreleased)
+
+The current `main` branch contains the next candidate's Policy Explain, read-only Dry-run, AttentionGold v3, privacy-safe dogfood protocol, and a bounded high-throughput benchmark covering multiple sessions, recovery samples, and resource measurements. This development line is being checked locally against the official DSH `dsh-v0.1.2-alpha.3` exact tag (commit `dd6322d604e00eec1ba5e0c8541159906a21094a`); it has not replaced the public `v0.1.0-rc.2` installation instructions or its historical alpha.2 receipt.
+
+To reproduce the published release, follow the RC.2 installation path below. To validate the current source, use the alpha.3 development lane in [`docs/compatibility.md`](docs/compatibility.md) with an isolated test profile.
+
 The current public RC tag is `v0.1.0-rc.2`, pointing to `4ae7c2bb577d7a2b855f425a8e3fde7800a9feb2`; its release receipt passes on the official `dsh-v0.1.2-alpha.2` runtime. `v0.1.0-rc.1` and npm `0.1.1-rc.2` are historical dependencies and must not be used as this revision's integration baseline. If a test profile still contains an older version, stop DSH and replace it before testing so the result cannot be confused with a stale install.
 
 ## What it does
@@ -99,13 +105,15 @@ The plugin registers these same-origin local WebServer routes:
 | `/dsh-deepcanary/state` | status, settings, and pending Inbox snapshot |
 | `/dsh-deepcanary/settings` | read or validate and update user-facing settings |
 | `/dsh-deepcanary/health` | plugin health check |
+| `/dsh-deepcanary/explain?id=...` | read a privacy-safe explanation for one Inbox item |
+| `/dsh-deepcanary/dry-run` | compare current and candidate alert policy without side effects |
 | `/dsh-deepcanary/action` | acknowledge, mute, snooze, feedback, and navigation hint |
 
-The DSH model can use `deepcanary_status`, `deepcanary_inbox`, `deepcanary_acknowledge`, `deepcanary_snooze`, `deepcanary_mute`, `deepcanary_feedback`, `deepcanary_explain`, and `deepcanary_jump`.
+The DSH model can use nine tools: `deepcanary_status`, `deepcanary_inbox`, `deepcanary_acknowledge`, `deepcanary_snooze`, `deepcanary_mute`, `deepcanary_feedback`, `deepcanary_explain`, `deepcanary_dry_run`, and `deepcanary_jump`.
 
 The settings card uses DSH's standard `settings.plugin.item` location and exposes notification level, automatic critical-panel wake-up, hourly interrupt budget, quiet hours, long-run threshold, subagent-pressure mode, adjacent-event bundling, and privacy-safe summaries. When `@deepseek-ai/dsh-settings` is mounted, updates use the `dsh-deepcanary` namespace and take effect live; without that provider, the plugin continues to use its composed bundle configuration.
 
-The client no longer registers a separate `/dsh-deepcanary/client.js` route or uses `webserver/index-inject`. The `dsh.client` manifest declaration and `./client` export are loaded by DSH alpha.2's client-module loader; the entry contributes to `sidebar.footer.action`, the floating panel to `shell.overlay`, and the settings card to `settings.plugin.item`.
+The client no longer registers a separate `/dsh-deepcanary/client.js` route or uses `webserver/index-inject`. The `dsh.client` manifest declaration and `./client` export are loaded by the DSH alpha.2/alpha.3 client-module loader; the entry contributes to `sidebar.footer.action`, the floating panel to `shell.overlay`, and the settings card to `settings.plugin.item`.
 
 ## Attention policy
 
@@ -138,7 +146,16 @@ npm run verify:distribution
 npm pack --dry-run
 ```
 
-AttentionGold freezes 15 classification scenarios plus duplicate-event and shared-root Bundle scenarios. RC.2 evidence for the upstream runtime, Windows/WSL, public-tag installation, Web, settings, unload/restart, and distribution integrity is recorded in [`benchmark/release-receipt.json`](benchmark/release-receipt.json), whose status is `PASS`. The receipt is intentionally excluded from the npm runtime package so its SHA-256 can be verified without a circular dependency. See [`docs/release-checklist.md`](docs/release-checklist.md) for the reproducible release procedure.
+The current development line also provides local value and reliability checks:
+
+```powershell
+npm run quality:report
+npm run benchmark:attention
+```
+
+The quality report stores aggregate results only. Raw dogfood data should remain in the isolated test directory; see [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md) for the fields and privacy boundary. The current alpha.3 local compatibility evidence is recorded in [`benchmark/alpha3-compatibility-receipt.json`](benchmark/alpha3-compatibility-receipt.json); it describes the current worktree and isolated profiles and does not replace the public RC.2 receipt.
+
+The current development line freezes 20 AttentionGold v3 classification scenarios plus duplicate-event, shared-root Bundle, recovery-recurrence, and parallel-session scenarios; the public RC.2 receipt still records the historical v2 set of 15 classification scenarios. RC.2 evidence for the upstream runtime, Windows/WSL, public-tag installation, Web, settings, unload/restart, and distribution integrity is recorded in [`benchmark/release-receipt.json`](benchmark/release-receipt.json), whose status is `PASS`. The receipt is intentionally excluded from the npm runtime package so its SHA-256 can be verified without a circular dependency. See [`docs/release-checklist.md`](docs/release-checklist.md) for the reproducible release procedure.
 
 ## Documentation
 
@@ -146,6 +163,7 @@ AttentionGold freezes 15 classification scenarios plus duplicate-event and share
 - [`docs/dsh-surface-audit.md`](docs/dsh-surface-audit.md) — DSH surface audit against alpha.2;
 - [`docs/compatibility.md`](docs/compatibility.md) — runtime, platform, and known limitations;
 - [`docs/security.md`](docs/security.md) — local state, action, and Web boundaries;
+- [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md) — privacy-safe dogfood, quality reports, and local benchmarks;
 - [`docs/release-checklist.md`](docs/release-checklist.md) — reproducible release checks.
 
 ## License

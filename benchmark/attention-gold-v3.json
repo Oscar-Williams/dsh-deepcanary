@@ -1,0 +1,173 @@
+{
+  "schemaVersion": 1,
+  "fixtureVersion": 3,
+  "name": "AttentionGold",
+  "description": "Deterministic regression cases for DeepCanary classification, policy explanation, recovery, and compression.",
+  "scenarios": [
+    {
+      "id": "normal-completion",
+      "source": "controlled-fixture",
+      "signal": { "kind": "TASK_COMPLETED", "severityHint": 1, "authority": "runtime" },
+      "expected": { "level": "C1", "action": "INBOX", "reasonCode": "TASK_COMPLETED" }
+    },
+    {
+      "id": "human-approval",
+      "source": "controlled-fixture",
+      "signal": { "kind": "HUMAN_APPROVAL_REQUIRED", "severityHint": 2, "authority": "runtime" },
+      "expected": { "level": "C2", "action": "INTERRUPT", "reasonCode": "HUMAN_APPROVAL_REQUIRED" }
+    },
+    {
+      "id": "user-question",
+      "source": "controlled-fixture",
+      "signal": { "kind": "HUMAN_QUESTION_PENDING", "severityHint": 2, "authority": "runtime" },
+      "expected": { "level": "C2", "action": "INTERRUPT", "reasonCode": "HUMAN_QUESTION_PENDING" }
+    },
+    {
+      "id": "host-unreachable",
+      "source": "controlled-fixture",
+      "signal": { "kind": "HOST_UNREACHABLE", "severityHint": 3, "authority": "host" },
+      "expected": { "level": "C3", "action": "ESCALATE", "reasonCode": "HOST_UNREACHABLE" }
+    },
+    {
+      "id": "host-stalled",
+      "source": "controlled-fixture",
+      "signal": { "kind": "HOST_SUSPECTED_STALL", "severityHint": 2, "authority": "runtime" },
+      "expected": { "level": "C2", "action": "INTERRUPT", "reasonCode": "HOST_SUSPECTED_STALL" }
+    },
+    {
+      "id": "no-meaningful-progress",
+      "source": "controlled-fixture",
+      "signal": { "kind": "NO_MEANINGFUL_PROGRESS", "severityHint": 2, "authority": "derived" },
+      "expected": { "level": "C2", "action": "INTERRUPT", "reasonCode": "NO_MEANINGFUL_PROGRESS" }
+    },
+    {
+      "id": "tool-failure-loop",
+      "source": "controlled-fixture",
+      "signal": { "kind": "TOOL_FAILURE_LOOP", "severityHint": 2, "authority": "derived" },
+      "expected": { "level": "C2", "action": "INTERRUPT", "reasonCode": "TOOL_FAILURE_LOOP" }
+    },
+    {
+      "id": "subagent-pressure",
+      "source": "controlled-fixture",
+      "signal": { "kind": "SUBAGENT_PRESSURE", "severityHint": 3, "authority": "runtime" },
+      "expected": { "level": "C3", "action": "ESCALATE", "reasonCode": "SUBAGENT_PRESSURE" }
+    },
+    {
+      "id": "context-compaction",
+      "source": "controlled-fixture",
+      "signal": { "kind": "COMPACTION_OCCURRED", "severityHint": 1, "authority": "runtime" },
+      "expected": { "level": "C1", "action": "INBOX", "reasonCode": "COMPACTION_OCCURRED" }
+    },
+    {
+      "id": "context-overflow",
+      "source": "controlled-fixture",
+      "signal": { "kind": "CONTEXT_PRESSURE", "severityHint": 2, "authority": "runtime" },
+      "expected": { "level": "C2", "action": "INTERRUPT", "reasonCode": "CONTEXT_PRESSURE" }
+    },
+    {
+      "id": "long-tool-call-healthy",
+      "source": "controlled-fixture",
+      "signal": { "kind": "HOST_SUSPECTED_STALL", "severityHint": 2, "authority": "runtime", "data": { "healthy": true, "idleMs": 900000 } },
+      "expected": { "level": "C0", "action": "IGNORE", "reasonCode": "HOST_SUSPECTED_STALL" }
+    },
+    {
+      "id": "background-completion",
+      "source": "controlled-fixture",
+      "signal": { "kind": "TASK_COMPLETED", "severityHint": 1, "authority": "runtime", "data": { "background": true } },
+      "expected": { "level": "C1", "action": "INBOX", "reasonCode": "TASK_COMPLETED" }
+    },
+    {
+      "id": "user-already-viewing-dsh",
+      "source": "controlled-fixture",
+      "signal": { "kind": "HUMAN_APPROVAL_REQUIRED", "severityHint": 2, "authority": "runtime", "data": { "userViewing": true } },
+      "expected": { "level": "C1", "action": "INBOX", "reasonCode": "HUMAN_APPROVAL_REQUIRED" }
+    },
+    {
+      "id": "suspicious-completion",
+      "source": "controlled-fixture",
+      "signal": { "kind": "COMPLETION_SUSPICIOUS", "severityHint": 2, "authority": "heuristic" },
+      "expected": { "level": "C2", "action": "INTERRUPT", "reasonCode": "COMPLETION_SUSPICIOUS" }
+    },
+    {
+      "id": "recovered-stall",
+      "source": "controlled-fixture",
+      "signal": { "kind": "HOST_STALL_RECOVERED", "severityHint": 1, "authority": "runtime" },
+      "expected": { "level": "C1", "action": "INBOX", "reasonCode": "HOST_STALL_RECOVERED" }
+    },
+    {
+      "id": "heuristic-network-transient",
+      "source": "controlled-fixture",
+      "rationale": "Heuristic reachability evidence stays below an authoritative Host failure.",
+      "signal": { "kind": "HOST_UNREACHABLE", "severityHint": 3, "authority": "heuristic" },
+      "expected": { "level": "C2", "action": "INTERRUPT", "reasonCode": "HOST_UNREACHABLE" }
+    },
+    {
+      "id": "low-hint-human-needed",
+      "source": "controlled-fixture",
+      "rationale": "The stable reason code keeps a Human Needed boundary actionable even when the provider hint is conservative.",
+      "signal": { "kind": "HUMAN_QUESTION_PENDING", "severityHint": 0, "authority": "runtime" },
+      "expected": { "level": "C2", "action": "INTERRUPT", "reasonCode": "HUMAN_QUESTION_PENDING" }
+    },
+    {
+      "id": "locale-and-window-metadata",
+      "source": "controlled-fixture",
+      "rationale": "Presentation metadata does not change deterministic classification.",
+      "signal": { "kind": "TASK_COMPLETED", "severityHint": 1, "authority": "runtime", "data": { "locale": "zh-CN", "windowState": "hidden", "viewportWidth": 360 } },
+      "expected": { "level": "C1", "action": "INBOX", "reasonCode": "TASK_COMPLETED" }
+    },
+    {
+      "id": "healthy-completion-fact",
+      "source": "controlled-fixture",
+      "rationale": "An explicit healthy fact is silent regardless of the reason label.",
+      "signal": { "kind": "TASK_COMPLETED", "severityHint": 2, "authority": "runtime", "data": { "healthy": true } },
+      "expected": { "level": "C0", "action": "IGNORE", "reasonCode": "TASK_COMPLETED" }
+    },
+    {
+      "id": "heuristic-suspicious-completion",
+      "source": "replay",
+      "rationale": "Heuristic completion concerns remain actionable without acquiring Host authority.",
+      "signal": { "kind": "COMPLETION_SUSPICIOUS", "severityHint": 3, "authority": "heuristic" },
+      "expected": { "level": "C2", "action": "INTERRUPT", "reasonCode": "COMPLETION_SUSPICIOUS" }
+    }
+  ],
+  "serviceScenarios": [
+    {
+      "id": "duplicate-events",
+      "source": "controlled-fixture",
+      "signals": [
+        { "id": "duplicate-1", "kind": "HUMAN_APPROVAL_REQUIRED", "severityHint": 2, "authority": "runtime", "dedupeKey": "approval:duplicate" },
+        { "id": "duplicate-2", "kind": "HUMAN_APPROVAL_REQUIRED", "severityHint": 2, "authority": "runtime", "dedupeKey": "approval:duplicate" }
+      ],
+      "expected": { "items": 1, "bundleCount": 1 }
+    },
+    {
+      "id": "shared-root-decision-bundle",
+      "source": "controlled-fixture",
+      "signals": [
+        { "id": "bundle-1", "kind": "TOOL_FAILURE_LOOP", "severityHint": 2, "authority": "derived", "dedupeKey": "failure:1", "bundleKey": "session:root-cause" },
+        { "id": "bundle-2", "kind": "NO_MEANINGFUL_PROGRESS", "severityHint": 2, "authority": "derived", "dedupeKey": "progress:1", "bundleKey": "session:root-cause" }
+      ],
+      "expected": { "items": 1, "bundleCount": 2 }
+    },
+    {
+      "id": "recovery-and-short-recurrence",
+      "source": "replay",
+      "signals": [
+        { "id": "recurrence-stall", "kind": "HOST_SUSPECTED_STALL", "severityHint": 2, "authority": "runtime", "dedupeKey": "recurrence:stall:1", "bundleKey": "session:recurrence" },
+        { "id": "recurrence-recovered", "kind": "HOST_STALL_RECOVERED", "severityHint": 1, "authority": "runtime", "dedupeKey": "recurrence:recovered:1", "bundleKey": "session:recurrence" },
+        { "id": "recurrence-stall-again", "kind": "HOST_SUSPECTED_STALL", "severityHint": 2, "authority": "runtime", "dedupeKey": "recurrence:stall:2", "bundleKey": "session:recurrence" }
+      ],
+      "expected": { "items": 2, "bundleCount": 1 }
+    },
+    {
+      "id": "parallel-sessions",
+      "source": "controlled-fixture",
+      "signals": [
+        { "id": "session-a", "kind": "HUMAN_QUESTION_PENDING", "severityHint": 2, "authority": "runtime", "dedupeKey": "session:a", "bundleKey": "session:a" },
+        { "id": "session-b", "kind": "HUMAN_QUESTION_PENDING", "severityHint": 2, "authority": "runtime", "dedupeKey": "session:b", "bundleKey": "session:b" },
+        { "id": "session-a-repeat", "kind": "HUMAN_QUESTION_PENDING", "severityHint": 2, "authority": "runtime", "dedupeKey": "session:a:repeat", "bundleKey": "session:a" }
+      ],
+      "expected": { "items": 2, "bundleCount": 2 }
+    }
+  ]
+}
