@@ -128,7 +128,7 @@
     "real screen-reader verification",
     "OS-level notification delivery with permission allowed"
   ],
-  "artifactSha256": "d98136440e4327efea1d85579563d2102afb4615c527df61e06d35d37aee61e2",
+  "artifactSha256": "0dd76ccd9fa508a998d844c969a71df5d6b9309f4b75506e708554fee998d5cd",
   "verifiedAt": "2026-09-01",
   "note": "This receipt records the RC4 release candidate for the official DSH alpha.3 runtime. Public npm next publication, immutable Git tag, GitHub Release, and public installation evidence are recorded only after each external operation succeeds. RC3 behavior evidence remains the compatibility baseline for this metadata-only candidate refresh. Device-level follow-up checks remain listed separately. Credentials, raw prompts, transcripts, model output, workspace contents, and private design material are excluded."
 }

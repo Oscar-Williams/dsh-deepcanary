@@ -11,9 +11,9 @@
 
 ## 版本与兼容性
 
-**当前发布版本**：公开插件 tag 为 [`v0.1.0-rc.4`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.4)，npm 包为 [`dsh-deepcanary@0.1.0-rc.4`](https://www.npmjs.com/package/dsh-deepcanary/v/0.1.0-rc.4)，可通过 `next` 预发布通道获取。本版本面向官方 DSH [`dsh-v0.1.2-alpha.3`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.3)，沿用 RC3 已验证的 Windows、WSL2、Node.js 22/24、WebUI 交互和模型烟测基线；RC4 的发布提交和包摘要见 [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json)。
+**当前候选版本**：`0.1.0-rc.4` 已完成本地构建、测试和分发门禁，目标为 npm `next` 预发布通道和 GitHub `v0.1.0-rc.4` tag。npm 正在执行整包撤销后的 24 小时保护期，公共 npm 包和 GitHub Release 将在保护期结束并分别完成验证后提供。本版本面向官方 DSH [`dsh-v0.1.2-alpha.3`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.3)，沿用 RC3 已验证的 Windows、WSL2、Node.js 22/24、WebUI 交互和模型烟测基线；RC4 的候选提交、包摘要和发布状态见 [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json)。
 
-RC4 保持为预发布版本，适合日常试用、反馈和插件集成验证。物理触摸设备、真实屏幕阅读器和允许通知权限后的操作系统级通知属于发布后的补充验证项；浏览器自动化、键盘操作、窄视口、强制颜色和通知拒绝分支已有自动化证据。
+RC4 保持为预发布候选，适合本地试用、反馈和插件集成验证。物理触摸设备、真实屏幕阅读器和允许通知权限后的操作系统级通知属于发布后的补充验证项；浏览器自动化、键盘操作、窄视口、强制颜色和通知拒绝分支已有自动化证据。
 
 历史 [`v0.1.0-rc.3`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.3) Git tag 保留用于版本对照；对应 npm 版本已撤销，npm 规则不允许复用。历史 [`v0.1.0-rc.2`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.2) 与官方 DSH `dsh-v0.1.2-alpha.2` 的组合仍保留用于复现。`v0.1.0-rc.1` 以及 DSH npm `0.1.1-rc.2` 仅用于历史环境排查，不属于当前安装或测试基线。测试前请先停止 DSH，移除测试配置中的旧插件，再安装目标版本。
 
@@ -32,7 +32,7 @@ DeepCanary 只回答一个问题：当前是否值得用户看一眼？它不重
 
 ## 安装和启动
 
-下面提供两条清晰路径：已发布 RC4 适合日常试用；从源码重建适合开发、复现和提交问题。
+下面提供两条清晰路径：RC4 公共发布完成后适合日常试用；当前可通过源码重建和本地压缩包完成开发、复现与提交问题。
 
 ### 环境要求
 
@@ -41,7 +41,9 @@ DeepCanary 只回答一个问题：当前是否值得用户看一眼？它不重
 - pnpm `11.7.0`；
 - 已安装官方 DSH 源码运行时；RC4 使用 `dsh-v0.1.2-alpha.3`。
 
-### 已发布版本：v0.1.0-rc.4
+### RC4 公共发布后：v0.1.0-rc.4
+
+npm 保护期结束前，下面的公共安装命令用于发布完成后的复验；当前本地验收请使用“从源码重建并验证 RC4”流程生成的压缩包。
 
 #### 1. 准备官方 DSH alpha.3
 
@@ -95,7 +97,7 @@ npx --yes pnpm@11.7.0 dsh plugin --profile web remove dsh-deepcanary
 
 ### 从源码重建并验证 RC4
 
-需要调试源码或复现构建时，可使用官方 DSH `dsh-v0.1.2-alpha.3` 和独立测试配置；请将 `$pluginDir`、`$dshDir` 改为本机路径。该流程生成的本地压缩包应与公开 RC4 的版本和文件布局一致。
+需要调试源码或复现构建时，可使用官方 DSH `dsh-v0.1.2-alpha.3` 和独立测试配置；请将 `$pluginDir`、`$dshDir` 改为本机路径。该流程生成的本地压缩包应与 RC4 候选版本的版本和文件布局一致，公共发布完成后可继续用于比对。
 
 ```powershell
 $pluginDir = 'C:\path\to\dsh-deepcanary'

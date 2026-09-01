@@ -11,9 +11,9 @@
 
 ## Versions and compatibility
 
-**Current release:** the public plugin tag is [`v0.1.0-rc.4`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.4), and the npm package is [`dsh-deepcanary@0.1.0-rc.4`](https://www.npmjs.com/package/dsh-deepcanary/v/0.1.0-rc.4), available through the `next` prerelease channel. It targets the official DSH [`dsh-v0.1.2-alpha.3`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.3) and has been verified on Windows, WSL2, Node.js 22/24, the Web UI interaction surface, and the model smoke path; the release commit and artifact digest are recorded in [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json).
+**Current candidate:** `0.1.0-rc.4` has passed the local build, test, and distribution gates and is prepared for the npm `next` prerelease channel and GitHub `v0.1.0-rc.4` tag. npm is enforcing the 24-hour protection window after the package was unpublished; the public npm package and GitHub Release will be made available after the window ends and each external check passes. It targets the official DSH [`dsh-v0.1.2-alpha.3`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.3) and carries forward the RC3 baseline verified on Windows, WSL2, Node.js 22/24, the Web UI interaction surface, and the model smoke path; the RC4 candidate commit, artifact digest, and publication status are recorded in [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json).
 
-RC4 remains a pre-release for daily trial use, feedback, and plugin integration testing. Physical touch hardware, a real screen reader, and operating-system notification delivery after granting permission are post-release supplemental checks; browser automation, keyboard interaction, narrow viewports, forced colors, and the notification-denied branch already have automated evidence.
+RC4 remains a pre-release candidate for local trials, feedback, and plugin integration testing. Physical touch hardware, a real screen reader, and operating-system notification delivery after granting permission are post-release supplemental checks; browser automation, keyboard interaction, narrow viewports, forced colors, and the notification-denied branch already have automated evidence.
 
 Historical v0.1.0-rc.3 remains available as a Git tag for comparison; its npm version was withdrawn and cannot be reused under npm policy.
 
@@ -34,7 +34,7 @@ The governing rule is evidence before escalation. C3 requires Host or Runtime au
 
 ## Install and start
 
-The two paths below have different purposes: the published RC4 is for daily trial use; source builds are for development, reproduction, and issue reports.
+The two paths below have different purposes: the public RC4 will be for daily trial use after publication; source builds and the local tarball are available now for development, reproduction, and issue reports.
 
 ### Requirements
 
@@ -43,7 +43,9 @@ The two paths below have different purposes: the published RC4 is for daily tria
 - pnpm `11.7.0`;
 - an official DSH source runtime; RC4 uses `dsh-v0.1.2-alpha.3`.
 
-### Published version: v0.1.0-rc.4
+### After public RC4 publication: v0.1.0-rc.4
+
+Until npm's protection window ends, the public installation commands below are reserved for post-publication verification; use the “Rebuild and verify RC4 from source” path for local acceptance.
 
 #### 1. Prepare the official DSH alpha.3 runtime
 
@@ -97,7 +99,7 @@ To reinstall the current published version, rerun the RC4 installation command a
 
 ### Rebuild and verify RC4 from source
 
-For source debugging or reproduction, use the official DSH `dsh-v0.1.2-alpha.3` and a separate profile; replace `$pluginDir` and `$dshDir` with paths on your machine. The generated tarball should have the same version and file layout as the published RC4 package.
+For source debugging or reproduction, use the official DSH `dsh-v0.1.2-alpha.3` and a separate profile; replace `$pluginDir` and `$dshDir` with paths on your machine. The generated tarball should have the RC4 candidate's version and file layout and can be compared with the public package after publication.
 
 ```powershell
 $pluginDir = 'C:\path\to\dsh-deepcanary'

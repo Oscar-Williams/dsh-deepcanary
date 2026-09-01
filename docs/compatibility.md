@@ -4,19 +4,19 @@
 
 DeepCanary records the public RC4 result, the historical RC2 result, and the distribution-package checks separately. This keeps each published result reproducible while compatibility with DSH advances:
 
-1. **Published RC.4** — the exact official `dsh-v0.1.2-alpha.3` source tag, public `v0.1.0-rc.4` plugin tag, and npm package.
+1. **RC.4 candidate** — the exact official `dsh-v0.1.2-alpha.3` source tag, the prepared `v0.1.0-rc.4` plugin tag, and the locally verified npm package contents.
 2. **Historical RC.2** — the exact official `dsh-v0.1.2-alpha.2` source tag and public `v0.1.0-rc.2` plugin tag.
 3. **Distribution package** — the package layout, built `lib/`, bundle patch, immutable Git tag, npm metadata, and peer ranges consumed by DSH.
 
-RC4 is the required baseline for new development and compatibility tests. The historical RC2 result remains available for comparison and does not imply alpha.3 support for that older tag. The public RC4 evidence is recorded in [`benchmark/release-candidate-receipt.json`](../benchmark/release-candidate-receipt.json); the earlier alpha.3 browser record remains in [`benchmark/alpha3-compatibility-receipt.json`](../benchmark/alpha3-compatibility-receipt.json).
+RC4 is the required baseline for new development and compatibility tests. The historical RC2 result remains available for comparison and does not imply alpha.3 support for that older tag. The RC4 candidate evidence is recorded in [`benchmark/release-candidate-receipt.json`](../benchmark/release-candidate-receipt.json); its public npm and GitHub evidence will be added after publication. The earlier alpha.3 browser record remains in [`benchmark/alpha3-compatibility-receipt.json`](../benchmark/alpha3-compatibility-receipt.json).
 
 The previous v0.1.0-rc.3 tag remains historical for comparison; its npm version was withdrawn and cannot be reused.
 
-| Component | Published RC.4 | Historical RC.2 | Notes |
+| Component | RC.4 candidate | Historical RC.2 | Notes |
 | --- | --- | --- | --- |
 | DSH | `dsh-v0.1.2-alpha.3` | `dsh-v0.1.2-alpha.2` | Official source checkout; verify the matching `dsh --version` output |
 | DSH commit | `dd6322d604e00eec1ba5e0c8541159906a21094a` | `0a53fb55bea101816fa226bb964ae2bed71c343b` | Immutable upstream commits used for reproducibility |
-| Plugin | `v0.1.0-rc.4` and npm `0.1.0-rc.4` | `v0.1.0-rc.2` | RC4 has a public tag, npm package, and artifact-specific install check |
+| Plugin | `v0.1.0-rc.4` and npm `0.1.0-rc.4` | `v0.1.0-rc.2` | RC4 package contents and artifact-specific checks are ready for public publication |
 | Node.js | `22.19+` | `22.19+` | Local Windows verification uses `v24.19.0`; current DSH packages declare the same supported range |
 | pnpm | `11.7.0` | `11.7.0` | Invoke as `npx --yes pnpm@11.7.0` |
 | Windows x64 | supported | primary host | Browser Notification and Web Inbox are the baseline sinks |
@@ -49,7 +49,7 @@ This RC deliberately keeps the Web path independent of a native toast dependency
 
 The Web UI requires the DSH client-module interfaces used by alpha.2 and alpha.3: the plugin manifest must expose `dsh.client` and `./client`, and the host must provide the `sidebar.footer.action`, `shell.overlay`, and `settings.plugin.item` slots. A profile that only installs the historical `v0.1.0-rc.1` package cannot verify the current four interaction gates or the standard settings card.
 
-For the public RC4 verification, install `dsh-deepcanary@0.1.0-rc.4` or the immutable `v0.1.0-rc.4` tag into an isolated test profile, then verify `dsh --profile web --dump-config`, the DeepCanary health and OutcomeReceipt routes, the nine registered tools, and the client-module boot graph. The RC4 receipt records the exact runtime, profiles, package digest, and public-tag installation. The historical RC2 installation commands remain tied to alpha.2 and are retained for reproduction.
+For RC4 verification, use the locally generated `dsh-deepcanary-0.1.0-rc.4.tgz` until public publication completes; then install `dsh-deepcanary@0.1.0-rc.4` or the immutable `v0.1.0-rc.4` tag into an isolated test profile. Verify `dsh --profile web --dump-config`, the DeepCanary health and OutcomeReceipt routes, the nine registered tools, and the client-module boot graph. The RC4 receipt records the exact runtime, profiles, package digest, and each public-install result as it becomes available. The historical RC2 installation commands remain tied to alpha.2 and are retained for reproduction.
 
 ## Known limitations
 

@@ -20,6 +20,6 @@
 | 发布与验收的完整步骤 | [`release-checklist.md`](release-checklist.md) |
 | 参与代码、测试和文档贡献 | [`../CONTRIBUTING.md`](../CONTRIBUTING.md) |
 
-结果记录的公开字段约束见 [`../benchmark/outcome-receipt.schema.json`](../benchmark/outcome-receipt.schema.json)，汇总报告约束见 [`../benchmark/outcome-report.schema.json`](../benchmark/outcome-report.schema.json)。公开 RC4 的验收与发布回执见 [`../benchmark/release-candidate-receipt.json`](../benchmark/release-candidate-receipt.json)，历史 RC2 发布记录见 [`../benchmark/release-receipt.json`](../benchmark/release-receipt.json)。
+结果记录的公开字段约束见 [`../benchmark/outcome-receipt.schema.json`](../benchmark/outcome-receipt.schema.json)，汇总报告约束见 [`../benchmark/outcome-report.schema.json`](../benchmark/outcome-report.schema.json)。RC4 候选版本的验收与发布回执见 [`../benchmark/release-candidate-receipt.json`](../benchmark/release-candidate-receipt.json)，历史 RC2 发布记录见 [`../benchmark/release-receipt.json`](../benchmark/release-receipt.json)。
 
 设计指南保存在仓库外的本地“设计思路(不提交)”目录，不属于安装包和公开仓库内容。

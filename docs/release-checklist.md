@@ -1,6 +1,6 @@
 # RC release checklist
 
-This checklist records the public `dsh-deepcanary` `v0.1.0-rc.4` prerelease and preserves the historical RC2 procedure for reproduction. RC4 is pinned to the exact official `dsh-v0.1.2-alpha.3` tag at commit `dd6322d604e00eec1ba5e0c8541159906a21094a`; RC2 remains tied to `dsh-v0.1.2-alpha.2`. An older DSH npm runtime must not silently become either test baseline. The public `v0.1.0-rc.1` remains a historical artifact.
+This checklist prepares the public `dsh-deepcanary` `v0.1.0-rc.4` prerelease and preserves the historical RC2 procedure for reproduction. RC4 is pinned to the exact official `dsh-v0.1.2-alpha.3` tag at commit `dd6322d604e00eec1ba5e0c8541159906a21094a`; RC2 remains tied to `dsh-v0.1.2-alpha.2`. An older DSH npm runtime must not silently become either test baseline. The public `v0.1.0-rc.1` remains a historical artifact.
 
 RC4 public npm publication and GitHub Release remain pending until the npm account withdrawal window ends; mark public install, tag, Release, and npm dist-tag items only after each external check passes.
 
@@ -21,7 +21,7 @@ The version must be `0.1.2-alpha.3` and the checkout must resolve to `dd6322d604
 
 RC4 also runs `npm run quality:report` and `npm run benchmark:attention`. These commands provide the frozen replay and local resource baseline. A sanitized trial records OutcomeReceipts through `/dsh-deepcanary/outcome` and produces a source-filtered report with `npm run outcomes:report`; the public schemas are [`benchmark/outcome-receipt.schema.json`](../benchmark/outcome-receipt.schema.json) and [`benchmark/outcome-report.schema.json`](../benchmark/outcome-report.schema.json). The RC4 public receipt is [`benchmark/release-candidate-receipt.json`](../benchmark/release-candidate-receipt.json); the earlier alpha.3 compatibility record remains separate and does not replace the historical RC2 receipt.
 
-The repository CI workflow also starts the pinned alpha.3 Web profile in an isolated home and exercises the panel through Playwright CLI. Run [33481882712](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33481882712) passed on the public RC4 revision; it includes the live OutcomeReceipt route check, pointer resize, keyboard bounds, and outside-click lifecycle checks. Automated checks do not replace physical touch or real Screen Reader evaluation.
+The repository CI workflow also starts the pinned alpha.3 Web profile in an isolated home and exercises the panel through Playwright CLI. Run [33481882712](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33481882712) passed on the preceding public RC3 revision and supplies the inherited compatibility baseline; a new RC4 run will be recorded after the candidate commit is pushed. Automated checks do not replace physical touch or real Screen Reader evaluation.
 
 ## 1. Source and documentation
 

@@ -2,9 +2,9 @@
 
 All notable changes to `dsh-deepcanary` are recorded here.
 
-## 0.1.0-rc.4 — 2026-09-02
+## 0.1.0-rc.4 — release candidate (2026-09-01)
 
-`0.1.0-rc.4` is the current release candidate for the official DSH `dsh-v0.1.2-alpha.3`. It provides the current npm installation target after the previous `0.1.0-rc.3` registry entry was withdrawn during account maintenance; the previous version cannot be reused under npm registry policy.
+`0.1.0-rc.4` is the prepared release candidate for the official DSH `dsh-v0.1.2-alpha.3`. It will provide the next npm installation target after the previous `0.1.0-rc.3` registry entry was withdrawn during account maintenance and npm's protection window ends; the previous version cannot be reused under npm registry policy.
 
 The runtime behavior and Web UI contract remain aligned with RC3. This release refreshes the package identity, public installation instructions, release evidence, and GitHub Release path so users have one installable version to follow.
 
