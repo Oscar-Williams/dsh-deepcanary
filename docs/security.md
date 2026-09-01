@@ -18,7 +18,7 @@ It does not contain prompts, assistant output, tool arguments, raw tool results,
 
 Persistence uses an atomic temporary file and rename within the configured state directory. The plugin does not create files elsewhere.
 
-## Public surfaces and actions
+## Public interfaces and actions
 
 The Web routes are registered on DSH's local same-origin WebServer and send `cache-control: no-store`. The action endpoint accepts only `acknowledge`, `snooze`, `mute`, `feedback`, and `jump`. Model-visible tools expose the same bounded operations. `jump` returns a URL hint; it does not navigate, open, mutate, or stop a session by itself.
 
@@ -28,7 +28,7 @@ The plugin has no shell, file-write, process-control, approval, rejection, arbit
 
 ## Client safety
 
-The DSH client-module browser surface uses DOM node construction and `textContent` for runtime values. It does not interpolate runtime values into `innerHTML`. The panel is mounted in the host's additive overlay slot and remains click-through outside its own bounds. Browser notifications are created only after the user grants permission. If permission is denied or the browser API is unavailable, the Web Inbox and model tools remain the fallback surfaces.
+The DSH client-module browser interface uses DOM node construction and `textContent` for runtime values. It does not interpolate runtime values into `innerHTML`. The panel is mounted in the host's additive overlay slot and remains click-through outside its own bounds. Browser notifications are created only after the user grants permission. If permission is denied or the browser API is unavailable, the Web Inbox and model tools remain available as fallbacks.
 
 ## Evidence authority
 
@@ -43,7 +43,7 @@ C3 requires Host or Runtime authority. The deterministic judge remains the final
 
 ## Settings safety
 
-The Settings provider receives the same schema as the bundle configuration. Web updates pass through an allowlist and bounded range checks; `stateDir` and unknown keys cannot be changed through the live Web surface. State-directory changes remain restart-scoped. Privacy-safe summaries are enabled by default.
+The Settings provider receives the same schema as the bundle configuration. Web updates pass through an allowlist and bounded range checks; `stateDir` and unknown keys cannot be changed through the live Web interface. State-directory changes remain restart-scoped. Privacy-safe summaries are enabled by default.
 
 ## Deployment boundary
 

@@ -1,16 +1,19 @@
 # dsh-deepcanary
 
+[![CI](https://github.com/Oscar-Williams/dsh-deepcanary/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Oscar-Williams/dsh-deepcanary/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f.svg)](LICENSE)
+
 > A quiet layer for the moments that genuinely need your attention.
 
 `dsh-deepcanary` is a local attention-supervision plugin for [DeepSeek Harness (DSH)](https://github.com/deepseek-ai/deepseek-harness). It reads structured facts from Sessions, Tools, Agents, Subagents, and the Host, then applies deterministic policy to decide what can stay quiet, what belongs in the Inbox, and what deserves a user-facing reminder.
 
-## Current development line (unreleased)
+## Versions and compatibility
 
-The current `main` branch contains the next candidate's Policy Explain, read-only Dry-run, AttentionGold v3, privacy-safe dogfood protocol, and a bounded high-throughput benchmark covering multiple sessions, recovery samples, and resource measurements. This development line is being checked locally against the official DSH `dsh-v0.1.2-alpha.3` exact tag (commit `dd6322d604e00eec1ba5e0c8541159906a21094a`); the local WebUI pass also covers ARIA semantics, emulated touch input, forced colors, and a multi-viewport layout matrix, while the public commit `7600c13` passes the alpha.3 GitHub Actions browser smoke. It has not replaced the public `v0.1.0-rc.2` installation instructions or its historical alpha.2 receipt.
+**Published version:** the public plugin tag is `v0.1.0-rc.2`, at commit `4ae7c2bb577d7a2b855f425a8e3fde7800a9feb2`. This version completed its release verification on the official DSH `dsh-v0.1.2-alpha.2` runtime. Use the “Published version” path below for regular installation.
 
-To reproduce the published release, follow the RC.2 installation path below. To validate the current source, use the alpha.3 development lane in [`docs/compatibility.md`](docs/compatibility.md) with an isolated test profile.
+**Latest source:** `main` has completed local compatibility checks against the official DSH `dsh-v0.1.2-alpha.3` exact tag (commit `dd6322d604e00eec1ba5e0c8541159906a21094a`), and public CI has passed its Web UI browser acceptance check ([CI run](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33455584434)). A new public plugin tag has not been created yet. To validate the latest source, follow the “Validate the latest source” path below with an isolated test profile.
 
-The current public RC tag is `v0.1.0-rc.2`, pointing to `4ae7c2bb577d7a2b855f425a8e3fde7800a9feb2`; its release receipt passes on the official `dsh-v0.1.2-alpha.2` runtime. `v0.1.0-rc.1` and npm `0.1.1-rc.2` are historical dependencies and must not be used as this revision's integration baseline. If a test profile still contains an older version, stop DSH and replace it before testing so the result cannot be confused with a stale install.
+`v0.1.0-rc.1` and npm `0.1.1-rc.2` are retained only for historical reproduction. They are not the installation or testing baseline for this repository. Before testing, stop DSH, remove the older plugin from the profile, and install the intended version.
 
 ## What it does
 
@@ -25,16 +28,20 @@ DeepCanary answers one question: is this worth a human looking at now? It does n
 
 The governing rule is evidence before escalation. C3 requires Host or Runtime authority, and model judgment is not required by this RC.
 
-## Installation
+## Install and start
+
+The two paths below have different purposes: the published version is for regular use; the latest source is for testing or development.
 
 ### Requirements
 
 - Windows x64 or WSL2 Ubuntu;
 - Node.js `22.19+` (the release verification used Node.js `24.19.0`);
 - pnpm `11.7.0`;
-- the official DSH `dsh-v0.1.2-alpha.2` source runtime.
+- an official DSH source runtime; use `dsh-v0.1.2-alpha.2` for the published version and `dsh-v0.1.2-alpha.3` when validating the latest source.
 
-### 1. Prepare the official DSH alpha.2 runtime
+### Published version: v0.1.0-rc.2
+
+#### 1. Prepare the official DSH alpha.2 runtime
 
 ```powershell
 git clone --depth 1 --branch dsh-v0.1.2-alpha.2 https://github.com/deepseek-ai/deepseek-harness.git dsh-runtime-alpha2
@@ -47,7 +54,7 @@ git rev-parse HEAD
 
 The version command should print `0.1.2-alpha.2`, and the commit command should print `0a53fb55bea101816fa226bb964ae2bed71c343b`. See the official release page: [dsh-v0.1.2-alpha.2](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.2). An existing checkout may still be named `dsh-runtime-alpha1`; its tag, commit, and `dsh --version` must still match the values above.
 
-### 2. Install the plugin
+#### 2. Install the plugin
 
 For the supported installation path, use the independently verified immutable tag `v0.1.0-rc.2`. Do not use a local source directory or a directory containing personal design notes as the production installation source.
 
@@ -66,28 +73,40 @@ To update an existing RC installation, rebuild only when using a local developme
 npx --yes pnpm@11.7.0 dsh plugin --profile web update dsh-deepcanary
 ```
 
-### Local development installation
+### Validate the latest source: official DSH alpha.3
 
-For an unpublished change, build the npm package and install the explicit local tarball into the test profile. This makes it clear that DSH is loading the current build rather than a stale tag:
+Latest-source validation must use the official DSH `dsh-v0.1.2-alpha.3`. The commands below use a separate DSH directory and profile; replace `$pluginDir` and `$dshDir` with paths on your machine.
 
 ```powershell
-Set-Location F:\Agent_Related\ZCode_Related\plugin2
-npm install
+$pluginDir = 'C:\path\to\dsh-deepcanary'
+$dshDir = 'C:\path\to\dsh-runtime-alpha3'
+$testHome = Join-Path $env:USERPROFILE '.dsh-deepcanary-test'
+
+git clone --depth 1 --branch dsh-v0.1.2-alpha.3 https://github.com/deepseek-ai/deepseek-harness.git $dshDir
+Set-Location $dshDir
+npx --yes pnpm@11.7.0 install --frozen-lockfile
+npx --yes pnpm@11.7.0 run build
+npx --yes pnpm@11.7.0 dsh --version
+git rev-parse HEAD
+
+Set-Location $pluginDir
+npm ci
 npm run build
-$packDir = Join-Path $env:TEMP 'dsh-deepcanary-rc2-pack'
+$packDir = Join-Path $env:TEMP 'dsh-deepcanary-local-pack'
 New-Item -ItemType Directory -Force $packDir | Out-Null
 npm pack --pack-destination $packDir
-$tarball = Join-Path $packDir 'dsh-deepcanary-0.1.0-rc.2.tgz'
+$packageVersion = (Get-Content .\package.json | ConvertFrom-Json).version
+$tarball = Join-Path $packDir "dsh-deepcanary-$packageVersion.tgz"
 
-Set-Location F:\Agent_Related\Deepseek-Harness_Related\dsh-runtime-alpha1
-$env:DSH_HOME = 'F:\Agent_Related\Deepseek-Harness_test\.dsh-home'
+Set-Location $dshDir
+$env:DSH_HOME = $testHome
 npx --yes pnpm@11.7.0 dsh plugin --profile web remove dsh-deepcanary
 npx --yes pnpm@11.7.0 dsh plugin --profile web add $tarball
 npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
 
-The existing local runtime directory is named `dsh-runtime-alpha1`, but the version checks remain mandatory. Before testing the Web UI, confirm that the profile's `node_modules/dsh-deepcanary/package.json` is version `0.1.0-rc.2` and contains `exports["./client"]` and `dsh.client`. If a fixed card still appears on the right side, stop DSH and replace the profile package before testing again.
+`dsh --version` should print `0.1.2-alpha.3`, and `git rev-parse HEAD` should print `dd6322d604e00eec1ba5e0c8541159906a21094a`. The local tarball may still show package version `0.1.0-rc.2` until a new public candidate is created; it is only for isolated testing and does not recreate the historical RC.2 artifact. Before opening the Web UI, confirm that the profile loaded the current tarball and that the page shows only the sidebar entry, with no fixed legacy card on the right.
 
 ### Web UI interactions
 
@@ -147,25 +166,26 @@ npm run verify:distribution
 npm pack --dry-run
 ```
 
-The current development line also provides local value and reliability checks:
+The repository also provides local quality and reliability checks:
 
 ```powershell
 npm run quality:report
 npm run benchmark:attention
 ```
 
-The quality report stores aggregate results only. Raw dogfood data should remain in the isolated test directory; see [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md) for the fields and privacy boundary. The current alpha.3 local compatibility evidence and public-commit browser smoke are recorded in [`benchmark/alpha3-compatibility-receipt.json`](benchmark/alpha3-compatibility-receipt.json); it describes the current development lane and does not replace the public RC.2 receipt.
+The quality report stores aggregate results only. Raw trial data should remain in the isolated test directory; see [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md) for the fields and privacy boundary. The latest-source alpha.3 compatibility evidence and public-commit browser smoke are recorded in [`benchmark/alpha3-compatibility-receipt.json`](benchmark/alpha3-compatibility-receipt.json); it does not replace the public RC.2 receipt.
 
-The current development line freezes 20 AttentionGold v3 classification scenarios plus duplicate-event, shared-root Bundle, recovery-recurrence, and parallel-session scenarios; the public RC.2 receipt still records the historical v2 set of 15 classification scenarios. RC.2 evidence for the upstream runtime, Windows/WSL, public-tag installation, Web, settings, unload/restart, and distribution integrity is recorded in [`benchmark/release-receipt.json`](benchmark/release-receipt.json), whose status is `PASS`. The receipt is intentionally excluded from the npm runtime package so its SHA-256 can be verified without a circular dependency. See [`docs/release-checklist.md`](docs/release-checklist.md) for the reproducible release procedure.
+The latest source freezes 20 AttentionGold v3 classification scenarios plus duplicate-event, shared-root Bundle, recovery-recurrence, and parallel-session scenarios; the public RC.2 receipt still records the historical v2 set of 15 classification scenarios. RC.2 evidence for the upstream runtime, Windows/WSL, public-tag installation, Web, settings, unload/restart, and distribution integrity is recorded in [`benchmark/release-receipt.json`](benchmark/release-receipt.json), whose status is `PASS`. The receipt is intentionally excluded from the npm runtime package so its SHA-256 can be verified without a circular dependency. See [`docs/release-checklist.md`](docs/release-checklist.md) for the reproducible release procedure.
 
 ## Documentation
 
-- [`docs/architecture.md`](docs/architecture.md) — runtime pipeline, stable contracts, and extension boundaries;
-- [`docs/dsh-surface-audit.md`](docs/dsh-surface-audit.md) — DSH surface audit against alpha.2;
-- [`docs/compatibility.md`](docs/compatibility.md) — runtime, platform, and known limitations;
-- [`docs/security.md`](docs/security.md) — local state, action, and Web boundaries;
-- [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md) — privacy-safe dogfood, quality reports, and local benchmarks;
-- [`docs/release-checklist.md`](docs/release-checklist.md) — reproducible release checks.
+- [`docs/README.md`](docs/README.md) — documentation index;
+- [`docs/architecture.md`](docs/architecture.md) — how the plugin receives DSH activity, decides when to remind you, and exposes Web and model-visible interfaces;
+- [`docs/dsh-surface-audit.md`](docs/dsh-surface-audit.md) — DSH interfaces used by the plugin, supported versions, and compatibility notes;
+- [`docs/compatibility.md`](docs/compatibility.md) — DSH versions, operating systems, Node.js, and known limitations;
+- [`docs/security.md`](docs/security.md) — stored data, available actions, and security considerations;
+- [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md) — privacy-safe trials, quality evaluation, and local performance checks;
+- [`docs/release-checklist.md`](docs/release-checklist.md) — the step-by-step pre-release verification checklist.
 
 ## License
 

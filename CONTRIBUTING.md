@@ -1,10 +1,10 @@
 # Contributing to dsh-deepcanary
 
-Thank you for helping improve `dsh-deepcanary`. Contributions are most useful when they preserve the plugin's evidence-first behavior, keep the local privacy boundary explicit, and remain compatible with the exact DeepSeek Harness surface under test.
+Thank you for helping improve `dsh-deepcanary`. Contributions are most useful when they preserve the plugin's evidence-first behavior, keep the local privacy boundary explicit, and remain compatible with the exact DeepSeek Harness interfaces under test.
 
 ## Development baseline
 
-Use Node.js 22.19.0 or 24.19.0. The RC release baseline is the official `dsh-v0.1.2-alpha.2` tag of DeepSeek Harness, commit `0a53fb55bea101816fa226bb964ae2bed71c343b`. Do not use the older `0.1.1-rc.2` runtime as an integration-test substitute.
+Use Node.js 22.19.0 or 24.19.0. The published RC.2 evidence uses the official `dsh-v0.1.2-alpha.2` tag of DeepSeek Harness, commit `0a53fb55bea101816fa226bb964ae2bed71c343b`. New changes and compatibility tests use the latest official `dsh-v0.1.2-alpha.3` tag, commit `dd6322d604e00eec1ba5e0c8541159906a21094a`. Do not use the older `0.1.1-rc.2` runtime as an integration-test substitute.
 
 Install dependencies and run the complete local gate from the repository root:
 
@@ -31,4 +31,4 @@ The release branch tracks the generated `lib/` directory because DSH installs a 
 
 ## Pull requests
 
-Describe the user-visible behavior, the DSH event or API surface involved, and the tests run. For changes that affect compatibility, update `docs/dsh-surface-audit.md` and `docs/compatibility.md`. Keep the local design notes under `设计思路(不提交)/`; they are intentionally excluded from commits and release artifacts.
+Describe the user-visible behavior, the DSH event or API interface involved, and the tests run. For changes that affect compatibility, update `docs/dsh-surface-audit.md` and `docs/compatibility.md`. Keep the local design notes under `设计思路(不提交)/`; they are intentionally excluded from commits and release artifacts.

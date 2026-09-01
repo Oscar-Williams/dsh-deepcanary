@@ -1,8 +1,8 @@
 # RC release checklist
 
-This checklist records the historical `dsh-deepcanary` `v0.1.0-rc.2` release and the current candidate procedure. The RC.2 receipt is pinned to the exact official `dsh-v0.1.2-alpha.2` tag; the current candidate lane uses immutable DSH `dsh-v0.1.2-alpha.3` at commit `dd6322d604e00eec1ba5e0c8541159906a21094a`. An older npm runtime must not silently become either test baseline. The public `v0.1.0-rc.1` remains a historical artifact.
+This checklist records the historical `dsh-deepcanary` `v0.1.0-rc.2` release and the procedure for the next release candidate. The RC.2 receipt is pinned to the exact official `dsh-v0.1.2-alpha.2` tag; the latest-source checks use immutable DSH `dsh-v0.1.2-alpha.3` at commit `dd6322d604e00eec1ba5e0c8541159906a21094a`. An older npm runtime must not silently become either test baseline. The public `v0.1.0-rc.1` remains a historical artifact.
 
-## Current candidate lane: official DSH alpha.3
+## Next release candidate: official DSH alpha.3
 
 Run the following from a clean or verified checkout before evaluating a new plugin tag:
 
@@ -17,9 +17,9 @@ npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 
 The version must be `0.1.2-alpha.3` and the checkout must resolve to `dd6322d604e00eec1ba5e0c8541159906a21094a`. Install the current plugin build into isolated `web` and `headless` profiles, then record the plugin package version, health route, nine model-visible tools, settings namespace, client-module boot graph, unload/reload result, and model smoke result. Keep the alpha.3 result in a separate receipt; do not append it to the historical RC.2 receipt.
 
-The current candidate also runs `npm run quality:report` and `npm run benchmark:attention`. These commands provide the frozen replay and local resource baseline; real-user outcome fields remain pending until a sanitized dogfood run supplies them. The completed alpha.3 local compatibility result is recorded separately in [`benchmark/alpha3-compatibility-receipt.json`](../benchmark/alpha3-compatibility-receipt.json); it is excluded from the npm package and does not replace the historical RC.2 receipt.
+The next release candidate also runs `npm run quality:report` and `npm run benchmark:attention`. These commands provide the frozen replay and local resource baseline; real-user outcome fields remain pending until a sanitized trial supplies them. The completed alpha.3 local compatibility result is recorded separately in [`benchmark/alpha3-compatibility-receipt.json`](../benchmark/alpha3-compatibility-receipt.json); it is excluded from the npm package and does not replace the historical RC.2 receipt.
 
-The repository CI workflow also starts the pinned alpha.3 Web profile in an isolated home and exercises the panel through Playwright CLI. Run [33455401831](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33455401831) passed on public commit `7600c13`. This automated check covers first-run dismissal, mount semantics, close and Escape behavior, focus return, narrow-viewport bounds, forced-colors rendering, and the live status region; it does not replace physical touch or real Screen Reader evaluation.
+The repository CI workflow also starts the pinned alpha.3 Web profile in an isolated home and exercises the panel through Playwright CLI. Run [33455584434](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33455584434) passed on public commit `68c02bf`. This automated check covers first-run dismissal, mount semantics, close and Escape behavior, focus return, narrow-viewport bounds, forced-colors rendering, and the live status region; it does not replace physical touch or real Screen Reader evaluation.
 
 ## 1. Source and documentation
 

@@ -1,10 +1,10 @@
-# DeepCanary Dogfood Protocol
+# DeepCanary Local Trial and Quality Protocol
 
-This protocol defines a repeatable local evidence collection lane for DeepCanary. It measures attention value and runtime reliability while keeping personal session content outside the repository and outside the report.
+This protocol defines a repeatable local trial for DeepCanary. It measures whether reminders are useful and whether the plugin remains reliable while keeping personal session content outside the repository and the report.
 
 ## Purpose
 
-The dogfood lane answers six product questions:
+The trial answers six product questions:
 
 - Are Human Needed boundaries discovered reliably?
 - Do C2 and C3 notifications lead to a useful human decision?
@@ -29,7 +29,7 @@ Use a fresh isolated DSH profile and cover the following task families:
 10. explicit failure;
 11. recovery followed by continued progress.
 
-The profile must use the exact DSH runtime tag named in the current compatibility matrix. Keep the profile directory separate from the Conda environment and the user's normal DSH profile.
+The profile must use the specific DSH runtime tag listed in the compatibility matrix. Keep the test profile directory separate from the Conda environment and the user's normal DSH profile.
 
 ## Collection record
 
@@ -68,7 +68,7 @@ memoryOverhead
 
 The local record contains no prompt, transcript, tool argument, credential, raw model output, or complete local path. Provider summaries are reduced to structured reason codes and bounded evidence summaries. A reviewed `missedHumanNeeded` or `falseStall` case is converted into a sanitized AttentionGold scenario containing its expected level, action, authority, and replay rationale.
 
-Raw event exports remain in the local test directory and are removed after the aggregate report is produced. The repository stores the protocol and report schema; it does not store raw dogfood data.
+Raw event exports remain in the local test directory and are removed after the aggregate report is produced. The repository stores the protocol and report schema; it does not store raw trial data.
 
 ## Quality report
 
@@ -78,7 +78,7 @@ Generate the deterministic baseline after building the plugin:
 npm run quality:report
 ```
 
-The command writes `output/attention-quality-report.json`, which is intentionally ignored by Git. It reports the frozen AttentionGold baseline and leaves user-outcome, recovery-latency, CPU, and memory fields empty until a sanitized dogfood run supplies those measurements.
+The command writes `output/attention-quality-report.json`, which is intentionally ignored by Git. It reports the frozen AttentionGold baseline and leaves user-outcome, recovery-latency, CPU, and memory fields empty until a sanitized trial supplies those measurements.
 
 For a controlled multi-session throughput and recovery sample:
 
@@ -92,4 +92,4 @@ The benchmark uses synthetic structured signals across four isolated session ide
 
 ## Review and promotion
 
-At the end of a run, review the aggregate for missed Human Needed cases, wrong-level decisions, false stalls, duplicate final interrupts, provider errors, sink errors, and dropped events. Promote only sanitized cases into AttentionGold v3. Keep the source label and the replay expectation with every promoted case. Public README and release receipts describe only measurements that have completed the corresponding runtime and artifact gates.
+At the end of a run, review the aggregate for missed Human Needed cases, wrong-level decisions, false stalls, duplicate final interrupts, provider errors, sink errors, and dropped events. Promote only sanitized cases into AttentionGold v3. Keep the source label and the replay expectation with every promoted case. Public README and release receipts describe only measurements that have completed the corresponding runtime and package checks.
