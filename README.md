@@ -11,9 +11,9 @@
 
 **已发布版本**：公开插件 tag 为 `v0.1.0-rc.2`，对应提交 `4ae7c2bb577d7a2b855f425a8e3fde7800a9feb2`。该版本已在官方 DSH `dsh-v0.1.2-alpha.2` 上完成发布验证，日常安装请使用下面的“已发布版本”路径。
 
-**本地候选版本**：当前实现的候选版本为 `0.1.0-rc.3`，目标运行时为官方 DSH `dsh-v0.1.2-alpha.3`（commit `dd6322d604e00eec1ba5e0c8541159906a21094a`）。候选包已完成本机 Windows WebUI 验收，公开 tag、Release 和公共 CI 结果将在候选收据、dogfood 与设备级证据齐备后统一建立。
+**本地候选版本**：当前实现的候选版本为 `0.1.0-rc.3`，目标运行时为官方 DSH `dsh-v0.1.2-alpha.3`（commit `dd6322d604e00eec1ba5e0c8541159906a21094a`）。候选包已完成本机 Windows WebUI 与 WSL2 隔离 profile 的兼容性验证，公开 tag、Release 和公共 CI 结果将在候选收据、dogfood 与设备级证据齐备后统一建立。
 
-**兼容性参考**：此前公开提交已通过 alpha.3 Web UI 浏览器验收（[CI 工作流](https://github.com/Oscar-Williams/dsh-deepcanary/actions/workflows/ci.yml)）；该历史结果用于参考，当前 `0.1.0-rc.3` 以本地隔离 profile 和最新构建包为测试对象。
+**兼容性参考**：此前公开提交已通过 alpha.3 Web UI 浏览器验收（[CI 工作流](https://github.com/Oscar-Williams/dsh-deepcanary/actions/workflows/ci.yml)）；该历史结果用于参考，当前 `0.1.0-rc.3` 以本地隔离 profile 和当前构建包为测试对象。
 
 `v0.1.0-rc.1` 和 npm `0.1.1-rc.2` 仅用于历史复现，不属于本仓库当前的安装或测试基线。测试前请先停止 DSH，移除测试配置中的旧插件，再安装目标版本。
 
