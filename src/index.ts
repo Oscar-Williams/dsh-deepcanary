@@ -18,6 +18,7 @@ export { applyDeliveryPolicy, mergeBundleTrace, withBundleTrace, withRecoveryTra
 export { getWorkspaceIdentity, probeWindowsInterop, windowsPathToWsl, wslPathToWindows } from './adapters/windows.js'
 export { ContextDshAdapter } from './adapters/dsh.js'
 export type { DeepCanaryEvent, DshAdapter, RuntimeHealth, SessionSnapshot } from './adapters/dsh.js'
+export { OutcomeStore, buildOutcomeReceipt, eventClassForReason, isOutcomeReceipt, normalizeOutcomeDeleteFilter, normalizeOutcomeInput, strongestEvidenceAuthority } from './outcome.js'
 export { DeepCanaryService } from './service.js'
 
 export function apply(ctx: Context, config?: DeepCanaryConfigInput): void {

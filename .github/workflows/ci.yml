@@ -93,6 +93,12 @@ jobs:
           test -n "$token"
           echo "::add-mask::$token"
           printf 'DSH_URL=%s\n' "$url" >> "$GITHUB_ENV"
+      - name: Check the live OutcomeReceipt routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error "http://127.0.0.1:43135/dsh-deepcanary/health" | grep -F '"ok":true'
+          curl --fail --silent --show-error "http://127.0.0.1:43135/dsh-deepcanary/outcomes" | grep -F '"outcomeSchemaVersion":1'
       - name: Exercise the panel in a real browser
         shell: bash
         run: |
@@ -115,8 +121,26 @@ jobs:
             await trigger.click()
             const panel = page.getByRole('dialog', { name: 'DeepCanary' })
             await panel.waitFor({ state: 'visible' })
-            if (await page.getByRole('separator', { name: /Resize panel width|调整面板宽度/i }).count() !== 1) throw new Error('width resize handle missing')
-            if (await page.getByRole('separator', { name: /Resize panel height|调整面板高度/i }).count() !== 1) throw new Error('height resize handle missing')
+            const widthHandle = page.getByRole('separator', { name: /Resize panel width|调整面板宽度/i })
+            const heightHandle = page.getByRole('separator', { name: /Resize panel height|调整面板高度/i })
+            if (await widthHandle.count() !== 1) throw new Error('width resize handle missing')
+            if (await heightHandle.count() !== 1) throw new Error('height resize handle missing')
+            const pointerBefore = await panel.boundingBox()
+            const widthBox = await widthHandle.boundingBox()
+            if (!pointerBefore || !widthBox) throw new Error('resize geometry missing')
+            await page.mouse.move(widthBox.x + widthBox.width / 2, widthBox.y + widthBox.height / 2)
+            await page.mouse.down()
+            await page.mouse.move(widthBox.x + widthBox.width / 2 - 48, widthBox.y + widthBox.height / 2, { steps: 3 })
+            await page.mouse.up()
+            const pointerAfter = await panel.boundingBox()
+            if (!pointerAfter || pointerAfter.width <= pointerBefore.width) throw new Error('pointer resize did not grow the panel')
+            await widthHandle.focus()
+            await page.keyboard.press('Home')
+            const keyboardMinimum = await panel.boundingBox()
+            await widthHandle.focus()
+            await page.keyboard.press('End')
+            const keyboardMaximum = await panel.boundingBox()
+            if (!keyboardMinimum || !keyboardMaximum || keyboardMinimum.width >= keyboardMaximum.width) throw new Error('keyboard resize bounds did not change')
             await page.getByRole('button', { name: /Close panel|关闭面板/i }).click()
             if (await page.getByRole('dialog', { name: 'DeepCanary' }).count() !== 0) throw new Error('close did not hide panel')
             if (await trigger.getAttribute('aria-expanded') !== 'false') throw new Error('trigger state did not close')
@@ -125,19 +149,25 @@ jobs:
             if (await page.getByRole('dialog', { name: 'DeepCanary' }).count() !== 0) throw new Error('escape did not hide panel')
             if (!await trigger.evaluate((element) => document.activeElement === element)) throw new Error('focus did not return to trigger')
             await trigger.click()
+            await page.mouse.click(24, 120)
+            if (await panel.count() !== 0) throw new Error('outside click did not hide panel')
+            if (await trigger.getAttribute('aria-expanded') !== 'false') throw new Error('outside click did not close trigger state')
+            await trigger.click()
             await page.setViewportSize({ width: 360, height: 640 })
             await page.waitForTimeout(100)
             const narrow = await page.evaluate(() => {
               const element = document.querySelector('[role=dialog]')
               const rect = element?.getBoundingClientRect()
-              return { overflow: document.documentElement.scrollWidth > innerWidth, inside: !!rect && rect.left >= 0 && rect.right <= innerWidth && rect.top >= 0 && rect.bottom <= innerHeight, width: rect?.width ?? 0 }
+              return { overflow: document.documentElement.scrollWidth > innerWidth, inside: !!rect && rect.left >= 0 && rect.right <= innerWidth && rect.top >= 0 && rect.bottom <= innerHeight, width: rect?.width ?? 0, height: rect?.height ?? 0 }
             })
             if (narrow.overflow || !narrow.inside || narrow.width <= 0) throw new Error(`narrow viewport failed: ${JSON.stringify(narrow)}`)
             await page.emulateMedia({ forcedColors: 'active' })
             if (!await page.evaluate(() => matchMedia('(forced-colors: active)').matches)) throw new Error('forced colors was not enabled')
             if (await panel.getByRole('status').count() !== 1) throw new Error('status live region missing')
+            const triggerLabel = await trigger.getAttribute('aria-label')
+            if (!triggerLabel || !/DeepCanary|注意力提醒/i.test(triggerLabel)) throw new Error('bilingual trigger label missing')
             await page.screenshot({ path: 'output/playwright/ci-alpha3-forced-colors.png', animations: 'disabled' })
-            return { narrow, forcedColors: true }
+            return { narrow, forcedColors: true, triggerLabel }
           }
           EOF
           )

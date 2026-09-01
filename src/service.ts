@@ -8,6 +8,7 @@ import { ContextDshAdapter } from './adapters/dsh.js'
 import type { Disposable } from './adapters/dsh.js'
 import { getWorkspaceIdentity } from './adapters/windows.js'
 import { hashMetadata, MetadataStore } from './persistence.js'
+import { buildOutcomeReceipt, MAX_OUTCOME_RECEIPTS, normalizeOutcomeDeleteFilter, normalizeOutcomeInput, OutcomeStore } from './outcome.js'
 import {
   signalFromAgentError,
   signalFromHostRecovery,
@@ -33,12 +34,15 @@ import type {
   PublicSettings,
   PublicSnapshot,
   ReasonCode,
+  OutcomeReceipt,
+  OutcomeDeleteFilter,
+  OutcomeReceiptInput,
   RuntimeStatus,
 } from './types.js'
 import { ATTENTION_PROTOCOL_VERSION as PROTOCOL_VERSION } from './types.js'
 
 const PLUGIN_NAME = 'dsh-deepcanary'
-const PLUGIN_VERSION = '0.1.0-rc.2'
+const PLUGIN_VERSION = '0.1.0-rc.3'
 const SETTINGS_NAMESPACE = 'dsh-deepcanary'
 
 interface LiveSession {
@@ -104,9 +108,21 @@ function nowIso(): string {
   return new Date().toISOString()
 }
 
+function safeFeedbackNote(note: string | undefined): string | undefined {
+  if (!note) return undefined
+  const normalized = note.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200)
+  if (!normalized || sensitiveSummaryPattern.test(normalized)) return undefined
+  return normalized
+}
+
+function cloneOutcome(receipt: OutcomeReceipt): OutcomeReceipt {
+  return { ...receipt, reviewFlags: [...receipt.reviewFlags] }
+}
+
 export class DeepCanaryService {
   config: DeepCanaryConfig
   readonly store: MetadataStore
+  readonly outcomeStore: OutcomeStore
   readonly workspace = getWorkspaceIdentity()
   readonly adapter: ContextDshAdapter
   readonly ready: Promise<void>
@@ -136,12 +152,15 @@ export class DeepCanaryService {
   private started = false
   private revision = 0
   private readonly actionReceipts = new Map<string, ActionReceipt>()
+  private readonly outcomeReceipts = new Map<string, OutcomeReceipt>()
+  private outcomeSaveChain = Promise.resolve()
 
   constructor(ctx: Context, input?: DeepCanaryConfigInput) {
     this.ctx = ctx as unknown as ContextLike
     this.adapter = new ContextDshAdapter(ctx)
     this.config = normalizeConfig(input)
     this.store = new MetadataStore(this.config.stateDir)
+    this.outcomeStore = new OutcomeStore(this.config.stateDir)
     this.dedupe = new DedupeLedger(this.config.dedupeWindowMinutes * 60 * 1000)
     this.budget = new InterruptBudget(this.config.maxInterruptsPerHour)
     this.logger = this.ctx.logger ?? {}
@@ -334,6 +353,55 @@ export class DeepCanaryService {
     return this.items.slice(0, safeLimit).map(item => this.toPublic(item))
   }
 
+  /** Record one redacted decision outcome for a local, controlled, or replay trial. */
+  async recordOutcome(id: string, input: unknown): Promise<OutcomeReceipt | undefined> {
+    await this.ready
+    if (typeof id !== 'string' || id.length === 0 || id.length > 256 || /[\u0000-\u001f\u007f]/.test(id)) {
+      throw new TypeError('outcome.id must be a printable string of 1-256 characters')
+    }
+    const normalized = normalizeOutcomeInput(input)
+    const item = this.find(id)
+    if (item === undefined) return undefined
+    const attentionRef = hashMetadata(item.id)
+    const previous = this.outcomeReceipts.get(attentionRef)
+    const receipt = buildOutcomeReceipt(item, normalized, previous)
+    this.outcomeReceipts.set(attentionRef, receipt)
+    this.bumpRevision()
+    this.queueOutcomeSave()
+    return cloneOutcome(receipt)
+  }
+
+  outcomes(limit = 100, source?: OutcomeReceiptInput['source'], trialId?: string): OutcomeReceipt[] {
+    const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(MAX_OUTCOME_RECEIPTS, Math.trunc(limit))) : 100
+    return [...this.outcomeReceipts.values()]
+      .filter(receipt => source === undefined || receipt.source === source)
+      .filter(receipt => trialId === undefined || receipt.trialId === trialId)
+      .sort((left, right) => right.recordedAt.localeCompare(left.recordedAt))
+      .slice(0, safeLimit)
+      .map(cloneOutcome)
+  }
+
+  /** Permanently remove only records selected by an explicit trial or retention cutoff. */
+  async deleteOutcomes(filter: OutcomeDeleteFilter): Promise<number> {
+    await this.ready
+    const normalized = normalizeOutcomeDeleteFilter(filter)
+    const before = normalized.before === undefined ? undefined : Date.parse(normalized.before)
+    let removed = 0
+    for (const [attentionRef, receipt] of this.outcomeReceipts) {
+      const matches = (normalized.source === undefined || receipt.source === normalized.source)
+        && (normalized.trialId === undefined || receipt.trialId === normalized.trialId)
+        && (before === undefined || Date.parse(receipt.recordedAt) < before)
+      if (!matches) continue
+      this.outcomeReceipts.delete(attentionRef)
+      removed += 1
+    }
+    if (removed > 0) {
+      this.bumpRevision()
+      await this.queueOutcomeSave()
+    }
+    return removed
+  }
+
   seen(id: string): boolean {
     const item = this.find(id)
     if (!item || item.status === 'acknowledged' || item.status === 'muted' || item.status === 'recovered' || item.status === 'expired') return false
@@ -343,6 +411,7 @@ export class DeepCanaryService {
     delete item.snoozedUntil
     this.bumpRevision()
     this.queueSave()
+    this.updateExistingOutcome(item, { opened: true })
     return true
   }
 
@@ -354,6 +423,7 @@ export class DeepCanaryService {
     delete item.snoozedUntil
     this.bumpRevision()
     this.queueSave()
+    this.updateExistingOutcome(item, { opened: true, acknowledged: true })
     return true
   }
 
@@ -365,6 +435,7 @@ export class DeepCanaryService {
     item.snoozedUntil = new Date(Date.now() + bounded * 60 * 1000).toISOString()
     this.bumpRevision()
     this.queueSave()
+    this.updateExistingOutcome(item, { opened: true, snoozed: true })
     return true
   }
 
@@ -375,19 +446,22 @@ export class DeepCanaryService {
     delete item.snoozedUntil
     this.bumpRevision()
     this.queueSave()
+    this.updateExistingOutcome(item, { opened: true, muted: true })
     return true
   }
 
   feedback(id: string, useful: boolean, note?: string): boolean {
     const item = this.find(id)
     if (!item) return false
+    const safeNote = safeFeedbackNote(note)
     item.feedback = {
       useful: Boolean(useful),
-      ...(note ? { note: note.slice(0, 200) } : {}),
+      ...(safeNote === undefined ? {} : { note: safeNote }),
       at: nowIso(),
     }
     this.bumpRevision()
     this.queueSave()
+    this.updateExistingOutcome(item, { opened: true, feedback: useful ? 'useful' : 'not-useful' })
     return true
   }
 
@@ -545,6 +619,7 @@ export class DeepCanaryService {
     if (this.hostProbeInterval !== undefined) clearInterval(this.hostProbeInterval)
     await this.ready.catch(() => undefined)
     await this.saveChain
+    await this.outcomeSaveChain
   }
 
   private async hydrate(): Promise<void> {
@@ -553,9 +628,15 @@ export class DeepCanaryService {
       this.items.splice(0, this.items.length, ...restored.slice(0, this.config.maxInboxItems))
     } catch (error: unknown) {
       this.logger.warn?.(`${PLUGIN_NAME}: metadata state could not be loaded; starting with an empty inbox`, error)
-    } finally {
-      this.hydrated = true
     }
+    try {
+      const restoredOutcomes = await this.outcomeStore.load()
+      this.outcomeReceipts.clear()
+      for (const receipt of restoredOutcomes.slice(-MAX_OUTCOME_RECEIPTS)) this.outcomeReceipts.set(receipt.attentionRef, receipt)
+    } catch (error: unknown) {
+      this.logger.warn?.(`${PLUGIN_NAME}: outcome records could not be loaded; starting with an empty outcome set`, error)
+    }
+    this.hydrated = true
   }
 
   private onSessionCreated(value: unknown): void {
@@ -757,6 +838,10 @@ export class DeepCanaryService {
     else {
       item.decisionTrace = { ...recoveryTrace, finalLevel: item.level, finalAction: item.action }
     }
+    const previousOutcome = this.outcomeReceipts.get(hashMetadata(item.id))
+    if (previousOutcome !== undefined) {
+      this.updateExistingOutcome(item, { laterOutcome: 'recovered', recoveredBeforeOpen: !previousOutcome.opened })
+    }
     this.bumpRevision()
     return item
   }
@@ -923,6 +1008,27 @@ export class DeepCanaryService {
     this.saveChain = this.saveChain
       .then(() => this.store.save(this.items))
       .catch(error => this.logger.warn?.(`${PLUGIN_NAME}: metadata state could not be saved`, error))
+  }
+
+  private updateExistingOutcome(item: InboxItem, patch: Omit<Partial<OutcomeReceiptInput>, 'source' | 'trialId'>): void {
+    const attentionRef = hashMetadata(item.id)
+    const previous = this.outcomeReceipts.get(attentionRef)
+    if (previous === undefined) return
+    try {
+      const receipt = buildOutcomeReceipt(item, { source: previous.source, trialId: previous.trialId, ...patch }, previous)
+      this.outcomeReceipts.set(attentionRef, receipt)
+      this.queueOutcomeSave()
+    } catch (error: unknown) {
+      this.logger.warn?.(`${PLUGIN_NAME}: outcome record could not be updated`, error)
+    }
+  }
+
+  private queueOutcomeSave(): Promise<void> {
+    const snapshot = [...this.outcomeReceipts.values()].map(cloneOutcome)
+    this.outcomeSaveChain = this.outcomeSaveChain
+      .then(() => this.outcomeStore.save(snapshot))
+      .catch(error => this.logger.warn?.(`${PLUGIN_NAME}: outcome records could not be saved`, error))
+    return this.outcomeSaveChain
   }
 }
 

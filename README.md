@@ -11,7 +11,9 @@
 
 **已发布版本**：公开插件 tag 为 `v0.1.0-rc.2`，对应提交 `4ae7c2bb577d7a2b855f425a8e3fde7800a9feb2`。该版本已在官方 DSH `dsh-v0.1.2-alpha.2` 上完成发布验证，日常安装请使用下面的“已发布版本”路径。
 
-**最新代码**：`main` 已在官方 DSH `dsh-v0.1.2-alpha.3` 固定版本标签（commit `dd6322d604e00eec1ba5e0c8541159906a21094a`）上完成本地兼容性验证，公开 CI 也已通过 Web UI 浏览器验收（[CI 工作流](https://github.com/Oscar-Williams/dsh-deepcanary/actions/workflows/ci.yml)）。新的公开插件 tag 尚未建立；需要验证最新代码时，请使用下面的“验证最新代码”路径和独立测试配置。
+**本地候选版本**：当前实现的候选版本为 `0.1.0-rc.3`，目标运行时为官方 DSH `dsh-v0.1.2-alpha.3`（commit `dd6322d604e00eec1ba5e0c8541159906a21094a`）。候选包已完成本机 Windows WebUI 验收，公开 tag、Release 和公共 CI 结果将在候选收据、dogfood 与设备级证据齐备后统一建立。
+
+**兼容性参考**：此前公开提交已通过 alpha.3 Web UI 浏览器验收（[CI 工作流](https://github.com/Oscar-Williams/dsh-deepcanary/actions/workflows/ci.yml)）；该历史结果用于参考，当前 `0.1.0-rc.3` 以本地隔离 profile 和最新构建包为测试对象。
 
 `v0.1.0-rc.1` 和 npm `0.1.1-rc.2` 仅用于历史复现，不属于本仓库当前的安装或测试基线。测试前请先停止 DSH，移除测试配置中的旧插件，再安装目标版本。
 
@@ -30,14 +32,14 @@ DeepCanary 只回答一个问题：当前是否值得用户看一眼？它不重
 
 ## 安装和启动
 
-下面提供两条清晰路径：已发布版本适合日常使用；最新代码适合参与测试或开发。
+下面提供两条清晰路径：已发布版本适合日常使用；本地候选版本适合参与测试或开发。
 
 ### 环境要求
 
 - Windows x64 或 WSL2 Ubuntu；
 - Node.js `22.19+`（本次 RC 验证使用 Node.js `24.19.0`）；
 - pnpm `11.7.0`；
-- 已安装官方 DSH 源码运行时；已发布版本使用 `dsh-v0.1.2-alpha.2`，最新代码验证使用 `dsh-v0.1.2-alpha.3`。
+- 已安装官方 DSH 源码运行时；已发布版本使用 `dsh-v0.1.2-alpha.2`，本地候选版本使用 `dsh-v0.1.2-alpha.3`。
 
 ### 已发布版本：v0.1.0-rc.2
 
@@ -73,9 +75,9 @@ npx --yes pnpm@11.7.0 dsh web --no-open
 npx --yes pnpm@11.7.0 dsh plugin --profile web update dsh-deepcanary
 ```
 
-### 验证最新代码：官方 DSH alpha.3
+### 本地候选版本：0.1.0-rc.3（官方 DSH alpha.3）
 
-最新代码验证必须使用官方 DSH `dsh-v0.1.2-alpha.3`。以下命令使用单独的 DSH 目录和测试配置；请将 `$pluginDir`、`$dshDir` 改为本机路径。
+本地候选验证使用官方 DSH `dsh-v0.1.2-alpha.3` 和独立测试配置；请将 `$pluginDir`、`$dshDir` 改为本机路径。候选版本仍未建立公开 tag，安装来源应为当前工作树生成的本地压缩包。
 
 ```powershell
 $pluginDir = 'C:\path\to\dsh-deepcanary'
@@ -106,7 +108,7 @@ npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
 
-`dsh --version` 应输出 `0.1.2-alpha.3`，`git rev-parse HEAD` 应输出 `dd6322d604e00eec1ba5e0c8541159906a21094a`。本地压缩包的包版本在新的公开候选版本建立前仍可能显示 `0.1.0-rc.2`；它只用于独立测试，不代表重新发布了历史 RC.2。开始 Web UI 手测前，请确认测试配置已加载当前压缩包，并且页面只显示侧栏入口，不再出现固定在右侧的旧卡片。
+`dsh --version` 应输出 `0.1.2-alpha.3`，`git rev-parse HEAD` 应输出 `dd6322d604e00eec1ba5e0c8541159906a21094a`，本地压缩包应显示 `0.1.0-rc.3`。`cordis.patch.yml` 使用 DSH 的 `dshHomePath('dsh-deepcanary')`，因此设置 `DSH_HOME` 后，插件状态会跟随独立 DSH home 保存。开始 Web UI 手测前，请确认测试配置已加载当前压缩包，并且页面只显示侧栏入口，不再出现固定在右侧的旧卡片。公开 tag 和 Release 建立后，再将本地命令替换为不可变 tag 安装。
 
 ### WebUI 交互
 
@@ -128,10 +130,34 @@ npx --yes pnpm@11.7.0 dsh web --no-open
 | `/dsh-deepcanary/explain?id=...` | 读取单条 Inbox 的隐私安全决策解释 |
 | `/dsh-deepcanary/dry-run` | 只读比较当前与候选提醒策略 |
 | `/dsh-deepcanary/action` | 确认、静音、稍后提醒、反馈和跳转提示 |
+| `/dsh-deepcanary/outcome` | 记录一条脱敏的决策结果，供本地 dogfood 复盘 |
+| `/dsh-deepcanary/outcomes` | 读取经过筛选的 OutcomeReceipt，不返回会话正文 |
+| `DELETE /dsh-deepcanary/outcomes` | 按明确的 trial 或时间边界删除本地结果记录 |
 
 DSH 模型可使用九个工具：
 
 `deepcanary_status`、`deepcanary_inbox`、`deepcanary_acknowledge`、`deepcanary_snooze`、`deepcanary_mute`、`deepcanary_feedback`、`deepcanary_explain`、`deepcanary_dry_run`、`deepcanary_jump`。
+
+### 记录一次脱敏结果
+
+dogfood 或受控试验可以在产生提醒后，使用 Inbox 条目的 `id` 调用 `/dsh-deepcanary/outcome`。`source` 必须明确填写为 `real`、`controlled` 或 `replay`，`trialId` 使用不含路径和敏感内容的本地试验标识：
+
+```json
+{
+  "id": "<Inbox item id>",
+  "source": "real",
+  "trialId": "manual-alpha3-01",
+  "opened": true,
+  "acknowledged": true,
+  "feedback": "useful",
+  "laterOutcome": "continued",
+  "recoveredBeforeOpen": false,
+  "latencyBucket": "under-1m",
+  "reviewFlags": []
+}
+```
+
+随后使用 `GET /dsh-deepcanary/outcomes?source=real&trialId=manual-alpha3-01` 读取结果。记录文件为本地状态目录中的 `outcomes.json`；真实、受控和回放数据应使用不同的 `trialId` 或独立状态目录，并通过 [`benchmark/outcome-receipt.schema.json`](benchmark/outcome-receipt.schema.json) 约束字段。试验撤回或达到保留期限后，可使用 `DELETE /dsh-deepcanary/outcomes?source=real&trialId=manual-alpha3-01`，或提供明确的 `before=<ISO 日期>` 进行定点清理；删除请求必须包含 trial 或时间边界。
 
 设置卡片通过 DSH 标准 `settings.plugin.item` 位置暴露通知级别、自动唤起策略、每小时打断预算、静默时段、长时间阈值、Subagent 压力档位、相邻事件合并窗口和隐私安全摘要选项。挂载 `@deepseek-ai/dsh-settings` 后，设置通过 `dsh-deepcanary` namespace 实时生效；没有该 provider 时，插件仍按 bundle 配置工作。
 
@@ -150,7 +176,7 @@ DSH 模型可使用九个工具：
 
 ## 隐私与安全边界
 
-默认状态文件为 `~/.dsh/dsh-deepcanary/inbox.json`。只保存时间、等级、原因码、哈希化的 Session/Workspace 引用、证据摘要、Bundle 元数据和用户反馈。Prompt、模型输出、工具参数、凭据、原始工具结果和完整会话内容留在 DSH，不写入 DeepCanary 状态文件。
+默认状态目录跟随 DSH 的 home，bundle 配置使用 `dshHomePath('dsh-deepcanary')`；未设置 `DSH_HOME` 时通常对应 `~/.dsh/dsh-deepcanary`。其中的 `inbox.json` 保存提醒元数据，`outcomes.json` 保存脱敏结果记录。两者只保存时间、等级、原因码、哈希化的 Session/Workspace 引用、证据摘要、Bundle 元数据、用户反馈和结果枚举。Prompt、模型输出、工具参数、凭据、原始工具结果和完整会话内容留在 DSH，不写入 DeepCanary 状态文件。
 
 Web 接口使用同源本地 WebServer 和 `no-store` 响应；客户端通过 DOM `textContent` 渲染动态字段，不拼接 `innerHTML`。插件不提供 shell、文件写入、终止、重启、批准或拒绝工具。不要把 DSH WebServer 暴露到未经认证的公网反向代理后面。
 
@@ -173,11 +199,12 @@ npm pack --dry-run
 ```powershell
 npm run quality:report
 npm run benchmark:attention
+npm run outcomes:report -- --input <path-to-outcomes.json> --source real
 ```
 
-质量报告只保存汇总结果；原始试用数据应留在隔离测试目录，具体字段和隐私边界见 [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md)。最新代码的 alpha.3 本地兼容性证据与公开 CI 浏览器验收结果见 [`benchmark/alpha3-compatibility-receipt.json`](benchmark/alpha3-compatibility-receipt.json)，该收据不替代公开 RC.2 收据。
+质量报告和 Outcome 报告只保存汇总结果；原始试用数据应留在隔离测试目录，具体字段和隐私边界见 [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md)。Outcome 报告使用 [`benchmark/outcome-report.schema.json`](benchmark/outcome-report.schema.json)，同一次汇总只接收一个 `source`。当前 RC3 候选的安装、测试和待发布事项记录在 [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json)；较早的 alpha.3 兼容性记录仍保存在 [`benchmark/alpha3-compatibility-receipt.json`](benchmark/alpha3-compatibility-receipt.json) 中。
 
-最新代码的 AttentionGold v3 固定覆盖 20 个分类场景，以及重复、共享根因 Bundle、恢复复发和多 Session 场景；公开 RC.2 收据仍记录历史 v2 的 15 个分类场景。RC.2 的官方运行时、Windows/WSL、公开 tag 安装、Web、设置、卸载重启和分发完整性证据记录在仓库内的 [`benchmark/release-receipt.json`](benchmark/release-receipt.json)，收据状态为 `PASS`。该文件不进入 npm 运行包，以避免与发布包 SHA-256 形成循环依赖。可复现检查步骤见 [`docs/release-checklist.md`](docs/release-checklist.md)。
+当前候选实现的 AttentionGold v3 固定覆盖 20 个分类场景，以及重复、共享根因 Bundle、恢复复发和多 Session 场景；公开 RC.2 收据仍记录历史 v2 的 15 个分类场景。RC.2 的官方运行时、Windows/WSL、公开 tag 安装、Web、设置、卸载重启和分发完整性证据记录在仓库内的 [`benchmark/release-receipt.json`](benchmark/release-receipt.json)，收据状态为 `PASS`。该历史文件与当前 RC3 候选收据都不进入 npm 运行包，以避免与发布包 SHA-256 形成循环依赖。可复现检查步骤见 [`docs/release-checklist.md`](docs/release-checklist.md)。
 
 ## 文档
 
@@ -187,6 +214,7 @@ npm run benchmark:attention
 - [`docs/compatibility.md`](docs/compatibility.md)：DSH 版本、操作系统、Node.js 与已知限制；
 - [`docs/security.md`](docs/security.md)：保存哪些数据、提供哪些操作以及安全注意事项；
 - [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md)：如何进行脱敏试用、质量评估和本地性能测试；
+- [`benchmark/outcome-receipt.schema.json`](benchmark/outcome-receipt.schema.json) 与 [`benchmark/outcome-report.schema.json`](benchmark/outcome-report.schema.json)：结果记录和汇总报告的公开字段约束；
 - [`docs/release-checklist.md`](docs/release-checklist.md)：发布前逐项执行的验证清单。
 
 ## 反馈与贡献

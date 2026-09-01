@@ -23,6 +23,7 @@ The plugin observes DSH interfaces; it does not reimplement the agent loop. Sess
 - `EvidenceRef` records the evidence type and authority: `host`, `runtime`, `derived`, or `heuristic`;
 - `AttentionVerdict` carries C0–C3, action, confidence, reason, evidence, a stable message key, the protocol/policy versions, and a privacy-safe `PolicyDecisionTrace`;
 - `InboxItem` adds reversible local status, feedback, Bundle count, lifecycle timestamps, and the reason-code set shown to users;
+- `OutcomeReceipt` links one redacted decision to observed user and task outcomes while preserving source (`real`, `controlled`, or `replay`), policy version, review flags, and bounded outcome enums;
 - `PublicSnapshot` is the data exposed to the Web client, carries a monotonic revision for conditional reads, and excludes internal hashes and raw evidence references.
 
 `PolicyDecisionTrace` records stable rule identifiers, applied scopes, suppression causes, evidence-authority counts, final delivery action, Bundle aggregation, and recovery correlation. It contains no prompt, transcript, tool payload, credential, or raw event reference. `deepcanary_explain` and the Web explain route expose this projection for user decisions and support diagnosis.
@@ -68,13 +69,13 @@ The entry point is `src/index.ts`:
 - `inject = ['tools', 'sessions']` expresses the required DSH services;
 - `session/created`, `session/event`, and `session/disposed` feed the adapter and Session providers;
 - optional `agents` and `subagents` injections observe live lifecycle facts;
-- optional `webServer` injection registers exact same-origin state, settings, health, and action routes;
+- optional `webServer` injection registers exact same-origin state, settings, health, action, and OutcomeReceipt routes;
 - optional `settings` injection registers the `dsh-deepcanary` namespace through the DSH Settings `installSection` API used by alpha.2 and alpha.3, with the composed configuration as its base and live user changes applied through the provider;
 - DSH Tools are registered with `defineTool`, explicit JSON output schemas, and text renderers.
 
 The browser client is a DSH alpha.3 `dsh.client` module. Its `./client` export is built as a lazy-CJS factory for the client-module loader, then contributes the sidebar entry through `sidebar.footer.action`, the floating Inbox through `shell.overlay`, and the settings card through `settings.plugin.item`. The state route remains the source of truth; no permanent body injection is needed. The Inbox renders the decision trace in a bilingual details section so policy reasoning remains available without opening another page.
 
-The Web protocol is versioned independently from the persisted file format. State and action responses expose `schemaVersion` and a monotonic `revision`; state reads use an ETag and may return `304 Not Modified`. Actions require a client-generated `requestId`, and identical replays return the original receipt without applying the mutation twice. `GET /dsh-deepcanary/explain?id=...` returns one public trace projection, while `POST /dsh-deepcanary/dry-run` returns a read-only current/candidate comparison. Inbox entries move through explicit `open`, `seen`, `acknowledged`, `snoozed`, `muted`, `recovered`, and `expired` states so a transient host recovery cannot create a second alert for the same root cause.
+The Web protocol is versioned independently from the persisted file format. State and action responses expose `schemaVersion` and a monotonic `revision`; state reads use an ETag and may return `304 Not Modified`. Actions require a client-generated `requestId`, and identical replays return the original receipt without applying the mutation twice. `GET /dsh-deepcanary/explain?id=...` returns one public trace projection, while `POST /dsh-deepcanary/dry-run` returns a read-only current/candidate comparison. `POST /dsh-deepcanary/outcome` records one bounded OutcomeReceipt, and `GET /dsh-deepcanary/outcomes` returns filtered receipts for one source and trial. Inbox entries move through explicit `open`, `seen`, `acknowledged`, `snoozed`, `muted`, `recovered`, and `expired` states so a transient host recovery cannot create a second alert for the same root cause.
 
 ## Configuration and lifecycle
 
@@ -84,10 +85,12 @@ The service queues persistence writes, uses atomic replace for `inbox.json`, dis
 
 ## Persistence and privacy
 
-`MetadataStore` writes an atomic JSON file containing metadata only. Session and Workspace references are hashed before writing; evidence references are reduced to metadata codes. No transcript cache, prompt cache, credential store, raw model-judgment log, network client, or child process belongs to the plugin.
+`MetadataStore` writes an atomic `inbox.json` containing attention metadata only. `OutcomeStore` writes an independent atomic `outcomes.json` with validated, redacted decision-to-outcome records. Session and Workspace references are hashed before writing; evidence references are reduced to metadata codes. No transcript cache, prompt cache, credential store, raw model-judgment log, network client, or child process belongs to the plugin.
+
+Outcome input requires an explicit source and redacted trial identifier. The service derives event class, reason code, level, action, policy version, and evidence authority from the stored Inbox item; callers supply only bounded user and later-outcome fields. The store caps records, validates every enum, keeps source aggregates separable, and uses an atomic replace. `scripts/generate-outcome-report.mjs` reads one source at a time and writes aggregate counts without trial identifiers or raw content.
 
 The store is local by construction and writes only below the configured state directory. Public Web responses omit internal hashes and evidence references; the client uses `textContent` for dynamic values.
 
 ## Adding or changing a provider
 
-Add a provider only when its runtime fact has a clear event or health-probe source. Give it a consistent reason code, evidence authority, dedupe key, Bundle key where appropriate, and an AttentionGold case. Prefer structured DSH facts over content inspection. Any new user-facing behavior must update the shared types, Web API definition, tests, README files, compatibility audit, security notes, quality report procedure, and release receipt procedure together. AttentionGold v3 and the local trial protocol provide the replay and aggregate-evidence path for rule changes.
+Add a provider only when its runtime fact has a clear event or health-probe source. Give it a consistent reason code, evidence authority, dedupe key, Bundle key where appropriate, and an AttentionGold case. Prefer structured DSH facts over content inspection. Any new user-facing behavior must update the shared types, Web API definition, tests, README files, compatibility audit, security notes, quality report procedure, and release receipt procedure together. Outcome changes additionally update `benchmark/outcome-receipt.schema.json`, `benchmark/outcome-report.schema.json`, and the dogfood protocol. AttentionGold v3 and the local trial protocol provide the replay and aggregate-evidence path for rule changes.

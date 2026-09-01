@@ -11,7 +11,9 @@
 
 **Published version:** the public plugin tag is `v0.1.0-rc.2`, at commit `4ae7c2bb577d7a2b855f425a8e3fde7800a9feb2`. This version completed its release verification on the official DSH `dsh-v0.1.2-alpha.2` runtime. Use the “Published version” path below for regular installation.
 
-**Latest source:** `main` has completed local compatibility checks against the official DSH `dsh-v0.1.2-alpha.3` exact tag (commit `dd6322d604e00eec1ba5e0c8541159906a21094a`), and public CI has passed its Web UI browser acceptance check ([CI workflow](https://github.com/Oscar-Williams/dsh-deepcanary/actions/workflows/ci.yml)). A new public plugin tag has not been created yet. To validate the latest source, follow the “Validate the latest source” path below with an isolated test profile.
+**Local candidate:** the current implementation is candidate version `0.1.0-rc.3`, targeting the official DSH `dsh-v0.1.2-alpha.3` runtime (commit `dd6322d604e00eec1ba5e0c8541159906a21094a`). The candidate package has completed local Windows Web UI acceptance; its public tag, Release, and public CI result will be established together after the candidate receipt, dogfood, and device-level evidence are complete.
+
+**Compatibility reference:** an earlier public commit passed the alpha.3 Web UI browser acceptance check ([CI workflow](https://github.com/Oscar-Williams/dsh-deepcanary/actions/workflows/ci.yml)); that historical result is reference evidence, while `0.1.0-rc.3` is tested from the latest local package in an isolated profile.
 
 `v0.1.0-rc.1` and npm `0.1.1-rc.2` are retained only for historical reproduction. They are not the installation or testing baseline for this repository. Before testing, stop DSH, remove the older plugin from the profile, and install the intended version.
 
@@ -30,14 +32,14 @@ The governing rule is evidence before escalation. C3 requires Host or Runtime au
 
 ## Install and start
 
-The two paths below have different purposes: the published version is for regular use; the latest source is for testing or development.
+The two paths below have different purposes: the published version is for regular use; the local candidate is for testing or development.
 
 ### Requirements
 
 - Windows x64 or WSL2 Ubuntu;
 - Node.js `22.19+` (the release verification used Node.js `24.19.0`);
 - pnpm `11.7.0`;
-- an official DSH source runtime; use `dsh-v0.1.2-alpha.2` for the published version and `dsh-v0.1.2-alpha.3` when validating the latest source.
+- an official DSH source runtime; use `dsh-v0.1.2-alpha.2` for the published version and `dsh-v0.1.2-alpha.3` for the local candidate.
 
 ### Published version: v0.1.0-rc.2
 
@@ -73,9 +75,9 @@ To update an existing RC installation, rebuild only when using a local developme
 npx --yes pnpm@11.7.0 dsh plugin --profile web update dsh-deepcanary
 ```
 
-### Validate the latest source: official DSH alpha.3
+### Local candidate: 0.1.0-rc.3 on official DSH alpha.3
 
-Latest-source validation must use the official DSH `dsh-v0.1.2-alpha.3`. The commands below use a separate DSH directory and profile; replace `$pluginDir` and `$dshDir` with paths on your machine.
+Candidate validation uses the official DSH `dsh-v0.1.2-alpha.3` and a separate profile; replace `$pluginDir` and `$dshDir` with paths on your machine. The candidate is not public yet, so install the local tarball generated from the current worktree.
 
 ```powershell
 $pluginDir = 'C:\path\to\dsh-deepcanary'
@@ -106,7 +108,7 @@ npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
 
-`dsh --version` should print `0.1.2-alpha.3`, and `git rev-parse HEAD` should print `dd6322d604e00eec1ba5e0c8541159906a21094a`. The local tarball may still show package version `0.1.0-rc.2` until a new public candidate is created; it is only for isolated testing and does not recreate the historical RC.2 artifact. Before opening the Web UI, confirm that the profile loaded the current tarball and that the page shows only the sidebar entry, with no fixed legacy card on the right.
+`dsh --version` should print `0.1.2-alpha.3`, `git rev-parse HEAD` should print `dd6322d604e00eec1ba5e0c8541159906a21094a`, and the local tarball should show version `0.1.0-rc.3`. The bundle patch uses DSH's `dshHomePath('dsh-deepcanary')`, so setting `DSH_HOME` keeps plugin state inside the isolated DSH home. Before opening the Web UI, confirm that the profile loaded the current tarball and that the page shows only the sidebar entry, with no fixed legacy card on the right. Replace the local install with an immutable tag after the public candidate is created.
 
 ### Web UI interactions
 
@@ -128,8 +130,32 @@ The plugin registers these same-origin local WebServer routes:
 | `/dsh-deepcanary/explain?id=...` | read a privacy-safe explanation for one Inbox item |
 | `/dsh-deepcanary/dry-run` | compare current and candidate alert policy without side effects |
 | `/dsh-deepcanary/action` | acknowledge, mute, snooze, feedback, and navigation hint |
+| `/dsh-deepcanary/outcome` | record one redacted decision outcome for a local trial |
+| `/dsh-deepcanary/outcomes` | read filtered OutcomeReceipts without session content |
+| `DELETE /dsh-deepcanary/outcomes` | withdraw local outcome records by an explicit trial or time cutoff |
 
 The DSH model can use nine tools: `deepcanary_status`, `deepcanary_inbox`, `deepcanary_acknowledge`, `deepcanary_snooze`, `deepcanary_mute`, `deepcanary_feedback`, `deepcanary_explain`, `deepcanary_dry_run`, and `deepcanary_jump`.
+
+### Record one redacted outcome
+
+During a dogfood or controlled trial, record an outcome after an alert using the Inbox item's `id` with `/dsh-deepcanary/outcome`. `source` must be `real`, `controlled`, or `replay`; `trialId` must be a local identifier without a path or sensitive content:
+
+```json
+{
+  "id": "<Inbox item id>",
+  "source": "real",
+  "trialId": "manual-alpha3-01",
+  "opened": true,
+  "acknowledged": true,
+  "feedback": "useful",
+  "laterOutcome": "continued",
+  "recoveredBeforeOpen": false,
+  "latencyBucket": "under-1m",
+  "reviewFlags": []
+}
+```
+
+Read the result with `GET /dsh-deepcanary/outcomes?source=real&trialId=manual-alpha3-01`. The record is stored as `outcomes.json` in the local state directory. Keep real, controlled, and replay data in separate `trialId` values or isolated state directories; the field set is constrained by [`benchmark/outcome-receipt.schema.json`](benchmark/outcome-receipt.schema.json). To withdraw a trial or apply retention cleanup, use `DELETE /dsh-deepcanary/outcomes?source=real&trialId=manual-alpha3-01` or provide an explicit `before=<ISO date>` cutoff. Deletion requests must include a trial or time boundary.
 
 The settings card uses DSH's standard `settings.plugin.item` location and exposes notification level, automatic critical-panel wake-up, hourly interrupt budget, quiet hours, long-run threshold, subagent-pressure mode, adjacent-event bundling, and privacy-safe summaries. When `@deepseek-ai/dsh-settings` is mounted, updates use the `dsh-deepcanary` namespace and take effect live; without that provider, the plugin continues to use its composed bundle configuration.
 
@@ -148,7 +174,7 @@ Normal completion is always classified as `C1`. Adjacent signals with the same r
 
 ## Privacy and safety
 
-The default state file is `~/.dsh/dsh-deepcanary/inbox.json`. It stores timestamps, levels, reason codes, hashed Session/Workspace references, evidence summaries, Bundle metadata, and user feedback. Prompts, model output, tool arguments, credentials, raw tool results, and full conversation content remain in DSH and are not written to DeepCanary state.
+The default state directory follows the DSH home through `dshHomePath('dsh-deepcanary')`; when `DSH_HOME` is not set, this normally resolves to `~/.dsh/dsh-deepcanary`. `inbox.json` stores alert metadata and `outcomes.json` stores redacted outcome records. They contain timestamps, levels, reason codes, hashed Session/Workspace references, evidence summaries, Bundle metadata, user feedback, and enumerated outcomes. Prompts, model output, tool arguments, credentials, raw tool results, and full conversation content remain in DSH and are not written to DeepCanary state.
 
 Web routes are same-origin local routes with `no-store` responses. The client renders dynamic values with DOM `textContent` rather than `innerHTML`. The plugin exposes no shell, file-write, terminate, restart, approval, or rejection tool. Do not put the DSH WebServer behind an unauthenticated public reverse proxy.
 
@@ -171,11 +197,12 @@ The repository also provides local quality and reliability checks:
 ```powershell
 npm run quality:report
 npm run benchmark:attention
+npm run outcomes:report -- --input <path-to-outcomes.json> --source real
 ```
 
-The quality report stores aggregate results only. Raw trial data should remain in the isolated test directory; see [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md) for the fields and privacy boundary. The latest-source alpha.3 compatibility evidence and public-commit browser smoke are recorded in [`benchmark/alpha3-compatibility-receipt.json`](benchmark/alpha3-compatibility-receipt.json); it does not replace the public RC.2 receipt.
+The quality and Outcome reports store aggregate results only. Raw trial data should remain in the isolated test directory; see [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md) for the fields and privacy boundary. Outcome reports use [`benchmark/outcome-report.schema.json`](benchmark/outcome-report.schema.json) and accept one `source` per aggregate. The current RC3 candidate's installation, test results, and release follow-ups are recorded in [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json); an earlier alpha.3 compatibility record remains in [`benchmark/alpha3-compatibility-receipt.json`](benchmark/alpha3-compatibility-receipt.json).
 
-The latest source freezes 20 AttentionGold v3 classification scenarios plus duplicate-event, shared-root Bundle, recovery-recurrence, and parallel-session scenarios; the public RC.2 receipt still records the historical v2 set of 15 classification scenarios. RC.2 evidence for the upstream runtime, Windows/WSL, public-tag installation, Web, settings, unload/restart, and distribution integrity is recorded in [`benchmark/release-receipt.json`](benchmark/release-receipt.json), whose status is `PASS`. The receipt is intentionally excluded from the npm runtime package so its SHA-256 can be verified without a circular dependency. See [`docs/release-checklist.md`](docs/release-checklist.md) for the reproducible release procedure.
+The current source freezes 20 AttentionGold v3 classification scenarios plus duplicate-event, shared-root Bundle, recovery-recurrence, and parallel-session scenarios; the public RC.2 receipt still records the historical v2 set of 15 classification scenarios. RC.2 evidence for the upstream runtime, Windows/WSL, public-tag installation, Web, settings, unload/restart, and distribution integrity is recorded in [`benchmark/release-receipt.json`](benchmark/release-receipt.json), whose status is `PASS`. Both that historical receipt and the current RC3 candidate receipt are intentionally excluded from the npm runtime package so their SHA-256 checks remain independent of the package contents. See [`docs/release-checklist.md`](docs/release-checklist.md) for the reproducible release procedure.
 
 ## Documentation
 
@@ -185,6 +212,7 @@ The latest source freezes 20 AttentionGold v3 classification scenarios plus dupl
 - [`docs/compatibility.md`](docs/compatibility.md) — DSH versions, operating systems, Node.js, and known limitations;
 - [`docs/security.md`](docs/security.md) — stored data, available actions, and security considerations;
 - [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md) — privacy-safe trials, quality evaluation, and local performance checks;
+- [`benchmark/outcome-receipt.schema.json`](benchmark/outcome-receipt.schema.json) and [`benchmark/outcome-report.schema.json`](benchmark/outcome-report.schema.json) — public field constraints for outcome records and aggregate reports;
 - [`docs/release-checklist.md`](docs/release-checklist.md) — the step-by-step pre-release verification checklist.
 
 ## Support and contributing

@@ -1,6 +1,6 @@
 # RC release checklist
 
-This checklist records the historical `dsh-deepcanary` `v0.1.0-rc.2` release and the procedure for the next release candidate. The RC.2 receipt is pinned to the exact official `dsh-v0.1.2-alpha.2` tag; the latest-source checks use immutable DSH `dsh-v0.1.2-alpha.3` at commit `dd6322d604e00eec1ba5e0c8541159906a21094a`. An older npm runtime must not silently become either test baseline. The public `v0.1.0-rc.1` remains a historical artifact.
+This checklist records the historical `dsh-deepcanary` `v0.1.0-rc.2` release and the procedure for the next release candidate. The RC.2 receipt is pinned to the exact official `dsh-v0.1.2-alpha.2` tag; the current RC3 checks use immutable DSH `dsh-v0.1.2-alpha.3` at commit `dd6322d604e00eec1ba5e0c8541159906a21094a`. An older npm runtime must not silently become either test baseline. The public `v0.1.0-rc.1` remains a historical artifact.
 
 ## Next release candidate: official DSH alpha.3
 
@@ -15,11 +15,11 @@ npx --yes pnpm@11.7.0 dsh --version
 npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 ```
 
-The version must be `0.1.2-alpha.3` and the checkout must resolve to `dd6322d604e00eec1ba5e0c8541159906a21094a`. Install the current plugin build into isolated `web` and `headless` profiles, then record the plugin package version, health route, nine model-visible tools, settings namespace, client-module boot graph, unload/reload result, and model smoke result. Keep the alpha.3 result in a separate receipt; do not append it to the historical RC.2 receipt.
+The version must be `0.1.2-alpha.3` and the checkout must resolve to `dd6322d604e00eec1ba5e0c8541159906a21094a`. The current local candidate is plugin `0.1.0-rc.3`. Install it into isolated `web` and `headless` profiles, then record the plugin package version, health and OutcomeReceipt routes, nine model-visible tools, settings namespace, client-module boot graph, unload/reload result, and model smoke result. Keep the alpha.3 result in a separate receipt; do not append it to the historical RC.2 receipt.
 
-The next release candidate also runs `npm run quality:report` and `npm run benchmark:attention`. These commands provide the frozen replay and local resource baseline; real-user outcome fields remain pending until a sanitized trial supplies them. The completed alpha.3 local compatibility result is recorded separately in [`benchmark/alpha3-compatibility-receipt.json`](../benchmark/alpha3-compatibility-receipt.json); it is excluded from the npm package and does not replace the historical RC.2 receipt.
+The next release candidate also runs `npm run quality:report` and `npm run benchmark:attention`. These commands provide the frozen replay and local resource baseline. A sanitized trial records OutcomeReceipts through `/dsh-deepcanary/outcome` and produces a source-filtered report with `npm run outcomes:report`; the public schemas are [`benchmark/outcome-receipt.schema.json`](../benchmark/outcome-receipt.schema.json) and [`benchmark/outcome-report.schema.json`](../benchmark/outcome-report.schema.json). The current RC3 candidate record is [`benchmark/release-candidate-receipt.json`](../benchmark/release-candidate-receipt.json); the earlier alpha.3 compatibility record remains separate and does not replace the historical RC.2 receipt.
 
-The repository CI workflow also starts the pinned alpha.3 Web profile in an isolated home and exercises the panel through Playwright CLI. Run [33462556363](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33462556363) passed on public commit `35a66c3`. This automated check covers first-run dismissal, mount semantics, close and Escape behavior, focus return, narrow-viewport bounds, forced-colors rendering, and the live status region; it does not replace physical touch or real Screen Reader evaluation.
+The repository CI workflow also starts the pinned alpha.3 Web profile in an isolated home and exercises the panel through Playwright CLI. Run [33462556363](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33462556363) passed on public commit `35a66c3`; the current RC3 workflow adds the live OutcomeReceipt route check, pointer resize, keyboard bounds, and outside-click lifecycle checks and needs a new run after synchronization. Automated checks do not replace physical touch or real Screen Reader evaluation.
 
 ## 1. Source and documentation
 
@@ -90,6 +90,8 @@ Verify from the running local Web host:
 - browser permission denial still leaves the Web Inbox and model tools available.
 - a live-model smoke task returns the expected fixed marker without workspace file access;
 - the standard `settings.plugin.item` card is visible under DSH Settings > Plugins and the overlay contains only the settings location hint.
+- a redacted OutcomeReceipt can be recorded and read back through `/dsh-deepcanary/outcome` and `/dsh-deepcanary/outcomes` without storing session content;
+- an explicit trial or time cutoff can withdraw OutcomeReceipts through `DELETE /dsh-deepcanary/outcomes`;
 
 ## 5. Windows and WSL gates
 

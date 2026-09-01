@@ -4,6 +4,8 @@ All notable changes to `dsh-deepcanary` are recorded here.
 
 ## Unreleased
 
+The next local release candidate is `0.1.0-rc.3`. It targets the official DSH `dsh-v0.1.2-alpha.3`; the public tag and Release remain pending until the candidate receipt, dogfood, and device-level evidence are complete. The current candidate record is [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json).
+
 ### Added
 
 - a privacy-safe `PolicyDecisionTrace` carried from deterministic judgment through Inbox persistence, Web state, model explanation, and the bilingual client details view;
@@ -11,10 +13,12 @@ All notable changes to `dsh-deepcanary` are recorded here.
 - AttentionGold v3 cases for heuristic-versus-authoritative host facts, low-hint Human Needed signals, recovery, recurrence, parallel sessions, and presentation metadata;
 - a local trial protocol, aggregate quality-report schema/generator, and high-throughput bounded-state benchmark;
 - a browser-notification return path that focuses DSH, opens the selected alert, and positions the target item in the visible Inbox range;
+- a privacy-safe OutcomeReceipt store with explicit real/controlled/replay provenance, bounded outcome fields, and source-filtered local reports;
+- `/dsh-deepcanary/outcome` and `/dsh-deepcanary/outcomes` routes plus public receipt/report schemas for dogfood review;
 
 ### Compatibility
 
-- prepared the latest source against the official immutable DSH `dsh-v0.1.2-alpha.3` tag at commit `dd6322d604e00eec1ba5e0c8541159906a21094a`.
+- prepared the current RC3 candidate against the official immutable DSH `dsh-v0.1.2-alpha.3` tag at commit `dd6322d604e00eec1ba5e0c8541159906a21094a`.
 - added a public-commit Playwright smoke for the alpha.3 Web profile, covering onboarding, mount semantics, panel lifecycle, responsive bounds, forced colors, and live status semantics.
 - The public `v0.1.0-rc.2` release remains the historical alpha.2 distribution until a new release candidate has its own receipt and artifact checks.
 

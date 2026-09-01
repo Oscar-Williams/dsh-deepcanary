@@ -6,7 +6,7 @@ DeepCanary is a local observer. It receives structured DSH runtime facts, normal
 
 ## Stored data
 
-The default state file is `~/.dsh/dsh-deepcanary/inbox.json`. It contains:
+The bundle stores state below the DSH home with `dshHomePath('dsh-deepcanary')`; when `DSH_HOME` is not set, this normally resolves to `~/.dsh/dsh-deepcanary`. The files are `inbox.json` and `outcomes.json`; the second file contains only redacted decision-to-outcome records. The Inbox file contains:
 
 - schema version, item ID, timestamp, level, action, status, reason code, and bounded feedback;
 - hashed Session and Workspace references;
@@ -16,11 +16,13 @@ The default state file is `~/.dsh/dsh-deepcanary/inbox.json`. It contains:
 
 It does not contain prompts, assistant output, tool arguments, raw tool results, environment variables, API keys, credentials, arbitrary file contents, or a session transcript. The provider contract rejects the use of raw conversation content as an input to the local state path; new providers must use structured facts and short summaries.
 
+Outcome records add an explicit source (`real`, `controlled`, or `replay`), a bounded trial identifier, event class, policy version, derived attention fields, user-action booleans, feedback, later outcome, latency bucket, and allowlisted review flags. The service derives the attention fields from the matching Inbox item and rejects unknown fields, path-shaped trial identifiers, unsupported enum values, and mixed provenance within one receipt. The OutcomeStore caps records and replaces `outcomes.json` atomically.
+
 Persistence uses an atomic temporary file and rename within the configured state directory. The plugin does not create files elsewhere.
 
 ## Public interfaces and actions
 
-The Web routes are registered on DSH's local same-origin WebServer and send `cache-control: no-store`. The action endpoint accepts only `acknowledge`, `snooze`, `mute`, `feedback`, and `jump`. Model-visible tools expose the same bounded operations. `jump` returns a URL hint; it does not navigate, open, mutate, or stop a session by itself.
+The Web routes are registered on DSH's local same-origin WebServer and send `cache-control: no-store`. The action endpoint accepts only `acknowledge`, `snooze`, `mute`, `feedback`, and `jump`. The OutcomeReceipt endpoints accept bounded metadata and return redacted records; `GET /dsh-deepcanary/outcomes` can filter by one source and trial, while `DELETE /dsh-deepcanary/outcomes` requires an explicit `trialId` or `before` cutoff for local withdrawal and retention cleanup. Model-visible tools continue to expose the bounded read and action operations. `jump` returns a URL hint; it does not navigate, open, mutate, or stop a session by itself.
 
 `deepcanary_explain` returns the same privacy-safe trace for one Inbox item. `deepcanary_dry_run` and `POST /dsh-deepcanary/dry-run` accept only bounded structured signal fields and an allowlisted notification-policy candidate. Dry-run never writes state, consumes an interrupt budget, sends a notification, or mutates a DSH Session.
 

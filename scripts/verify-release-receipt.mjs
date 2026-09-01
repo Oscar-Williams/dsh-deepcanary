@@ -5,8 +5,8 @@ import { fileURLToPath } from 'node:url'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const packageJson = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'))
-const receipt = JSON.parse(await readFile(path.join(root, 'benchmark', 'release-receipt.json'), 'utf8'))
-const gold = JSON.parse(await readFile(path.join(root, 'benchmark', 'attention-gold.json'), 'utf8'))
+const receipt = JSON.parse(await readFile(path.join(root, 'benchmark', 'release-candidate-receipt.json'), 'utf8'))
+const gold = JSON.parse(await readFile(path.join(root, 'benchmark', 'attention-gold-v3.json'), 'utf8'))
 
 const receiptStatus = receipt.status
 if (receiptStatus !== 'CANDIDATE' && receiptStatus !== 'PASS') throw new Error('release receipt status must be CANDIDATE or PASS')
@@ -31,6 +31,7 @@ if (receiptStatus === 'CANDIDATE' && receipt.gates?.publicTagInstall !== false) 
 }
 if (receipt.attentionGate !== 'PASS') throw new Error('attentionGate must be PASS')
 if (typeof receipt.artifactSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(receipt.artifactSha256)) throw new Error('artifactSha256 is missing or malformed')
+if (typeof receipt.pluginCommit !== 'string' || receipt.pluginCommit.length === 0) throw new Error('pluginCommit is missing')
 
 const expectedTarball = `dsh-deepcanary-${packageJson.version}.tgz`
 const candidates = (await readdir(root)).filter(name => name === expectedTarball)

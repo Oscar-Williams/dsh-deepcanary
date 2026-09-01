@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { DeepCanaryService } from './service.js'
-import { ATTENTION_PROTOCOL_VERSION } from './types.js'
+import { ATTENTION_PROTOCOL_VERSION, OUTCOME_RECEIPT_SCHEMA_VERSION } from './types.js'
+import type { OutcomeSource } from './types.js'
 
 const basePath = '/dsh-deepcanary'
 
@@ -80,6 +81,89 @@ async function dryRunHandler(req: IncomingMessage, res: ServerResponse, service:
   }
 }
 
+function sourceParam(value: string | null): OutcomeSource | undefined {
+  if (value === null) return undefined
+  if (value === 'real' || value === 'controlled' || value === 'replay') return value
+  throw new TypeError('source must be real, controlled, or replay')
+}
+
+function outcomeListHandler(req: IncomingMessage, res: ServerResponse, service: DeepCanaryService): void {
+  if (req.method === 'DELETE') {
+    void outcomeDeleteHandler(req, res, service)
+    return
+  }
+  if (req.method !== 'GET') {
+    sendJson(res, 405, { error: 'GET required', schemaVersion: ATTENTION_PROTOCOL_VERSION })
+    return
+  }
+  try {
+    const url = new URL(req.url ?? '/', 'http://127.0.0.1')
+    const limit = url.searchParams.get('limit')
+    const parsedLimit = limit === null ? 100 : Number(limit)
+    if (!Number.isFinite(parsedLimit) || parsedLimit < 1) throw new TypeError('limit must be a positive number')
+    const trialId = url.searchParams.get('trialId') ?? undefined
+    if (trialId !== undefined && !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(trialId)) throw new TypeError('trialId has an invalid format')
+    const source = sourceParam(url.searchParams.get('source'))
+    const receipts = service.outcomes(parsedLimit, source, trialId)
+    sendJson(res, 200, {
+      schemaVersion: ATTENTION_PROTOCOL_VERSION,
+      outcomeSchemaVersion: OUTCOME_RECEIPT_SCHEMA_VERSION,
+      count: receipts.length,
+      receipts,
+    })
+  } catch (error: unknown) {
+    sendJson(res, 400, { error: error instanceof Error ? error.message : 'invalid outcome query', schemaVersion: ATTENTION_PROTOCOL_VERSION })
+  }
+}
+
+async function outcomeDeleteHandler(req: IncomingMessage, res: ServerResponse, service: DeepCanaryService): Promise<void> {
+  try {
+    const url = new URL(req.url ?? '/', 'http://127.0.0.1')
+    const trialId = url.searchParams.get('trialId') ?? undefined
+    if (trialId !== undefined && !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(trialId)) throw new TypeError('trialId has an invalid format')
+    const source = sourceParam(url.searchParams.get('source'))
+    const before = url.searchParams.get('before') ?? undefined
+    const removed = await service.deleteOutcomes({
+      ...(source === undefined ? {} : { source }),
+      ...(trialId === undefined ? {} : { trialId }),
+      ...(before === undefined ? {} : { before }),
+    })
+    sendJson(res, 200, {
+      schemaVersion: ATTENTION_PROTOCOL_VERSION,
+      outcomeSchemaVersion: OUTCOME_RECEIPT_SCHEMA_VERSION,
+      removed,
+      remaining: service.outcomes(2_000).length,
+    })
+  } catch (error: unknown) {
+    sendJson(res, 400, {
+      error: error instanceof Error ? error.message : 'invalid outcome deletion',
+      schemaVersion: ATTENTION_PROTOCOL_VERSION,
+      outcomeSchemaVersion: OUTCOME_RECEIPT_SCHEMA_VERSION,
+    })
+  }
+}
+
+async function outcomeRecordHandler(req: IncomingMessage, res: ServerResponse, service: DeepCanaryService): Promise<void> {
+  if (req.method !== 'POST') {
+    sendJson(res, 405, { error: 'POST required', schemaVersion: ATTENTION_PROTOCOL_VERSION })
+    return
+  }
+  try {
+    const payload = JSON.parse(await readBody(req)) as Record<string, unknown>
+    const id = typeof payload.id === 'string' ? payload.id : ''
+    const input = { ...payload }
+    delete input.id
+    const receipt = await service.recordOutcome(id, input)
+    if (receipt === undefined) {
+      sendJson(res, 404, { id, found: false, schemaVersion: ATTENTION_PROTOCOL_VERSION, outcomeSchemaVersion: OUTCOME_RECEIPT_SCHEMA_VERSION })
+      return
+    }
+    sendJson(res, 200, { schemaVersion: ATTENTION_PROTOCOL_VERSION, outcomeSchemaVersion: OUTCOME_RECEIPT_SCHEMA_VERSION, receipt })
+  } catch (error: unknown) {
+    sendJson(res, 400, { error: error instanceof Error ? error.message : 'invalid outcome payload', schemaVersion: ATTENTION_PROTOCOL_VERSION })
+  }
+}
+
 export function installWebRoutes(ctx: unknown, service: DeepCanaryService): void {
   const context = ctx as {
     inject?: (services: string[], callback: (ctx: any) => unknown) => unknown
@@ -126,6 +210,8 @@ export function installWebRoutes(ctx: unknown, service: DeepCanaryService): void
       server.register({ kind: 'exact', path: `${basePath}/action`, handler: (req, res) => actionHandler(req, res, service) }),
       server.register({ kind: 'exact', path: `${basePath}/explain`, handler: (req, res) => explainHandler(req, res, service) }),
       server.register({ kind: 'exact', path: `${basePath}/dry-run`, handler: (req, res) => dryRunHandler(req, res, service) }),
+      server.register({ kind: 'exact', path: `${basePath}/outcomes`, handler: (req, res) => outcomeListHandler(req, res, service) }),
+      server.register({ kind: 'exact', path: `${basePath}/outcome`, handler: (req, res) => outcomeRecordHandler(req, res, service) }),
     ]
 
     webCtx.on?.('dispose', () => { for (const dispose of disposers) dispose() })

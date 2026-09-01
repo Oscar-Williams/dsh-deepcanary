@@ -2,9 +2,10 @@ import type { Context } from '@deepseek-ai/cordis';
 import type { DeepCanaryConfigInput } from './config.js';
 import { ContextDshAdapter } from './adapters/dsh.js';
 import { MetadataStore } from './persistence.js';
-import type { CanarySignal, DeepCanaryConfig, DryRunRequest, DryRunResult, InboxItem, PublicInboxItem, PublicSettings, PublicSnapshot, RuntimeStatus } from './types.js';
+import { OutcomeStore } from './outcome.js';
+import type { CanarySignal, DeepCanaryConfig, DryRunRequest, DryRunResult, InboxItem, PublicInboxItem, PublicSettings, PublicSnapshot, OutcomeReceipt, OutcomeDeleteFilter, OutcomeReceiptInput, RuntimeStatus } from './types.js';
 declare const PLUGIN_NAME = "dsh-deepcanary";
-declare const PLUGIN_VERSION = "0.1.0-rc.2";
+declare const PLUGIN_VERSION = "0.1.0-rc.3";
 interface ActionReceipt {
     status: number;
     body: Record<string, unknown>;
@@ -13,6 +14,7 @@ interface ActionReceipt {
 export declare class DeepCanaryService {
     config: DeepCanaryConfig;
     readonly store: MetadataStore;
+    readonly outcomeStore: OutcomeStore;
     readonly workspace: import("./types.js").WorkspaceIdentity;
     readonly adapter: ContextDshAdapter;
     readonly ready: Promise<void>;
@@ -41,6 +43,8 @@ export declare class DeepCanaryService {
     private started;
     private revision;
     private readonly actionReceipts;
+    private readonly outcomeReceipts;
+    private outcomeSaveChain;
     constructor(ctx: Context, input?: DeepCanaryConfigInput);
     start(): void;
     setRegisteredTools(names: readonly string[]): void;
@@ -50,6 +54,11 @@ export declare class DeepCanaryService {
     settings(): PublicSettings;
     updateSettings(input: Record<string, unknown>): Promise<PublicSettings>;
     inbox(limit?: number): PublicInboxItem[];
+    /** Record one redacted decision outcome for a local, controlled, or replay trial. */
+    recordOutcome(id: string, input: unknown): Promise<OutcomeReceipt | undefined>;
+    outcomes(limit?: number, source?: OutcomeReceiptInput['source'], trialId?: string): OutcomeReceipt[];
+    /** Permanently remove only records selected by an explicit trial or retention cutoff. */
+    deleteOutcomes(filter: OutcomeDeleteFilter): Promise<number>;
     seen(id: string): boolean;
     acknowledge(id: string): boolean;
     snooze(id: string, minutes?: number): boolean;
@@ -92,6 +101,8 @@ export declare class DeepCanaryService {
     private find;
     private bumpRevision;
     private queueSave;
+    private updateExistingOutcome;
+    private queueOutcomeSave;
 }
 export { PLUGIN_NAME, PLUGIN_VERSION };
 //# sourceMappingURL=service.d.ts.map

@@ -1,6 +1,6 @@
 # DSH interfaces used by DeepCanary
 
-This document records the DSH interfaces used by `dsh-deepcanary`. The historical RC.2 audit targets the official `dsh-v0.1.2-alpha.2` source tag at commit `0a53fb55bea101816fa226bb964ae2bed71c343b`; the latest-source compatibility audit targets immutable `dsh-v0.1.2-alpha.3` at commit `dd6322d604e00eec1ba5e0c8541159906a21094a`.
+This document records the DSH interfaces used by `dsh-deepcanary`. The historical RC.2 audit targets the official `dsh-v0.1.2-alpha.2` source tag at commit `0a53fb55bea101816fa226bb964ae2bed71c343b`; the current RC3 candidate audit targets immutable `dsh-v0.1.2-alpha.3` at commit `dd6322d604e00eec1ba5e0c8541159906a21094a`.
 
 ## Services and lifecycle events
 
@@ -10,7 +10,7 @@ This document records the DSH interfaces used by `dsh-deepcanary`. The historica
 | `@deepseek-ai/dsh-tools` | Model-visible tools and JSON results | yes for model tools | Web and local service still expose their non-tool interfaces |
 | `@deepseek-ai/dsh-agent` | `agent/error` facts | no | Session event and Web status remain available |
 | `@deepseek-ai/dsh-subagent` | `subagent/start` and `subagent/end` pressure facts | no | Subagent pressure provider remains inactive |
-| `@deepseek-ai/dsh-host-webserver` | exact local state/settings/health/action routes | no | Model tools and local persistence remain available |
+| `@deepseek-ai/dsh-host-webserver` | exact local state/settings/health/action/OutcomeReceipt routes | no | Model tools and local persistence remain available |
 | `@deepseek-ai/dsh-settings` | live namespace registration and user updates | no | Bundle-composed configuration remains authoritative |
 
 `ContextDshAdapter` owns the DSH event wiring:
@@ -66,8 +66,10 @@ When `webServer` is available, the plugin registers exact routes under `/dsh-dee
 - `GET /explain?id=...`;
 - `POST /dry-run`;
 - `POST /action`;
+- `POST /outcome`;
+- `GET /outcomes`;
 
-Route disposers belong to the WebServer injection context, so unload does not leave duplicate routes. Responses are same-origin local responses with `cache-control: no-store`.
+Route disposers belong to the WebServer injection context, so unload does not leave duplicate routes. Responses are same-origin local responses with `cache-control: no-store`. Outcome input uses an explicit `source` and bounded `trialId`; the service derives decision fields from the matching Inbox item and keeps source filters available for local reports.
 
 ## Browser client
 

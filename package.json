@@ -1,6 +1,6 @@
 {
   "name": "dsh-deepcanary",
-  "version": "0.1.0-rc.2",
+  "version": "0.1.0-rc.3",
   "description": "Local attention supervision for DeepSeek Harness: evidence-first signals, quiet notifications, and an actionable inbox.",
   "type": "module",
   "repository": {
@@ -32,6 +32,8 @@
     "benchmark/attention-gold.json",
     "benchmark/attention-gold-v3.json",
     "benchmark/attention-quality-report.schema.json",
+    "benchmark/outcome-receipt.schema.json",
+    "benchmark/outcome-report.schema.json",
     "LICENSE"
   ],
   "keywords": [
@@ -71,6 +73,7 @@
     "verify:release-receipt": "node ./scripts/verify-release-receipt.mjs",
     "quality:report": "npm run build && node ./scripts/generate-attention-quality-report.mjs",
     "benchmark:attention": "npm run build && node ./scripts/benchmark-attention.mjs",
+    "outcomes:report": "npm run build && node ./scripts/generate-outcome-report.mjs",
     "clean": "node ./scripts/clean.mjs"
   },
   "peerDependencies": {

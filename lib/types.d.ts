@@ -225,4 +225,57 @@ export interface PublicSnapshot {
     settings: PublicSettings;
     inbox: PublicInboxItem[];
 }
+/** Version of the privacy-safe outcome record written by DeepCanary. */
+export declare const OUTCOME_RECEIPT_SCHEMA_VERSION: 1;
+/** Provenance of an outcome record; reports must keep these sources separate. */
+export type OutcomeSource = 'real' | 'controlled' | 'replay';
+export type OutcomeEventClass = 'human-needed' | 'host-health' | 'stuck-progress' | 'subagent-pressure' | 'context-pressure' | 'completion';
+export type OutcomeFeedback = 'unrated' | 'useful' | 'not-useful';
+export type OutcomeLaterOutcome = 'unknown' | 'continued' | 'completed' | 'failed' | 'aborted' | 'recovered' | 'user-stopped';
+export type OutcomeLatencyBucket = 'unknown' | 'not-opened' | 'under-1m' | '1-5m' | '5-15m' | 'over-15m';
+export type OutcomeReviewFlag = 'missed-human-needed' | 'false-stall' | 'wrong-level' | 'duplicate-final-interrupt' | 'provider-error' | 'sink-error' | 'dropped-event';
+/** A redacted, append-and-update record connecting one decision to its observed outcome. */
+export interface OutcomeReceipt {
+    schemaVersion: typeof OUTCOME_RECEIPT_SCHEMA_VERSION;
+    receiptId: string;
+    attentionRef: string;
+    trialId: string;
+    source: OutcomeSource;
+    policyVersion: string;
+    eventClass: OutcomeEventClass;
+    reasonCode: ReasonCode;
+    level: AttentionLevel;
+    action: AttentionAction;
+    sourceAuthority: EvidenceAuthority;
+    opened: boolean;
+    acknowledged: boolean;
+    snoozed: boolean;
+    muted: boolean;
+    feedback: OutcomeFeedback;
+    laterOutcome: OutcomeLaterOutcome;
+    recoveredBeforeOpen: boolean;
+    latencyBucket: OutcomeLatencyBucket;
+    reviewFlags: OutcomeReviewFlag[];
+    recordedAt: string;
+}
+/** User-supplied, bounded fields accepted when recording an outcome. */
+export interface OutcomeReceiptInput {
+    source: OutcomeSource;
+    trialId: string;
+    opened?: boolean;
+    acknowledged?: boolean;
+    snoozed?: boolean;
+    muted?: boolean;
+    feedback?: OutcomeFeedback;
+    laterOutcome?: OutcomeLaterOutcome;
+    recoveredBeforeOpen?: boolean;
+    latencyBucket?: OutcomeLatencyBucket;
+    reviewFlags?: OutcomeReviewFlag[];
+}
+/** Explicit selector for local outcome withdrawal or retention cleanup. */
+export interface OutcomeDeleteFilter {
+    source?: OutcomeSource;
+    trialId?: string;
+    before?: string;
+}
 //# sourceMappingURL=types.d.ts.map
