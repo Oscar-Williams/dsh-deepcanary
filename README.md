@@ -6,7 +6,7 @@
 
 ## 当前开发线（未发布）
 
-当前 `main` 包含下一版候选能力：可追溯的 Policy Explain、只读 Dry-run、AttentionGold v3、脱敏 dogfood protocol，以及覆盖多 Session、恢复样例和资源采样的高吞吐有界状态基准。该开发线已切换到官方 DSH `dsh-v0.1.2-alpha.3` exact tag（commit `dd6322d604e00eec1ba5e0c8541159906a21094a`）进行本地兼容性验证；本地 WebUI 还覆盖了 ARIA 语义、模拟触控、强制高对比度与多视口布局验收。它尚未替代公开 `v0.1.0-rc.2` 的安装说明与 alpha.2 历史收据。
+当前 `main` 包含下一版候选能力：可追溯的 Policy Explain、只读 Dry-run、AttentionGold v3、脱敏 dogfood protocol，以及覆盖多 Session、恢复样例和资源采样的高吞吐有界状态基准。该开发线已切换到官方 DSH `dsh-v0.1.2-alpha.3` exact tag（commit `dd6322d604e00eec1ba5e0c8541159906a21094a`）进行本地兼容性验证；本地 WebUI 还覆盖了 ARIA 语义、模拟触控、强制高对比度与多视口布局验收，公开 commit `a369dc4` 的 GitHub Actions alpha.3 浏览器 smoke 已通过。它尚未替代公开 `v0.1.0-rc.2` 的安装说明与 alpha.2 历史收据。
 
 需要复现已发布版本时，请严格使用下方 RC.2 安装路径。需要验证当前代码时，请参照 [`docs/compatibility.md`](docs/compatibility.md) 的 alpha.3 当前兼容性路径，并使用隔离测试 profile。
 
@@ -93,6 +93,7 @@ npx --yes pnpm@11.7.0 dsh web --no-open
 
 - **隐藏**：插件启动后不渲染 Inbox 面板；关闭按钮、`Esc` 或面板外点击都会隐藏它，外部 DSH 页面仍可操作。
 - **唤起**：点击侧栏底部的 DeepCanary 入口即可重新打开；打开后焦点落到关闭按钮，关闭后返回入口。
+- **通知回跳**：浏览器已授予通知权限时，点击 C2/C3 通知会聚焦 DSH、打开对应提醒，并将目标条目滚动到面板可见区域。
 - **缩放**：面板右侧和底部提供可聚焦的调整手柄，支持鼠标拖动以及方向键、`Home`、`End`；尺寸会在浏览器允许时保存在本地。
 - **双语**：面板文案、原因说明、建议、证据类型、操作按钮和设置字段注册到 DSH locale，切换 DSH 的中文/English 后实时更新。
 
@@ -155,7 +156,7 @@ npm run quality:report
 npm run benchmark:attention
 ```
 
-质量报告只保存聚合结果；原始 dogfood 数据应留在隔离测试目录，具体字段和隐私边界见 [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md)。当前 alpha.3 本地兼容性证据见 [`benchmark/alpha3-compatibility-receipt.json`](benchmark/alpha3-compatibility-receipt.json)，该收据描述当前工作树与隔离 profile，不替代公开 RC.2 收据。
+质量报告只保存聚合结果；原始 dogfood 数据应留在隔离测试目录，具体字段和隐私边界见 [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md)。当前 alpha.3 本地兼容性证据与公开 commit 的浏览器 smoke 见 [`benchmark/alpha3-compatibility-receipt.json`](benchmark/alpha3-compatibility-receipt.json)，该收据描述当前开发线，不替代公开 RC.2 收据。
 
 当前开发线的 AttentionGold v3 固定覆盖 20 个分类场景，以及重复、共享根因 Bundle、恢复复发和多 Session 场景；公开 RC.2 收据仍记录历史 v2 的 15 个分类场景。RC.2 的官方运行时、Windows/WSL、公开 tag 安装、Web、设置、卸载重启和分发完整性证据记录在仓库内的 [`benchmark/release-receipt.json`](benchmark/release-receipt.json)，收据状态为 `PASS`。该文件不进入 npm 运行包，以避免与发布包 SHA-256 形成循环依赖。可复现检查步骤见 [`docs/release-checklist.md`](docs/release-checklist.md)。
 

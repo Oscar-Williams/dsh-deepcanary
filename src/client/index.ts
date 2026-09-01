@@ -5,6 +5,7 @@ import type {
 } from 'react'
 import type { SettingsScope, SettingsScopeSnapshot } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { SettingsPluginItemOwnerProps } from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
+import { handleNotificationClick, positionSelectedAttention } from './attention-navigation.js'
 
 type Translate = (key: string, params?: Record<string, unknown>) => string
 
@@ -853,9 +854,7 @@ function notify(snapshot: ClientSnapshot, t: Translate, controller: Controller):
       tag: item.id,
     })
     notification.onclick = () => {
-      window.focus()
-      controller.open(item.id)
-      notification.close()
+      handleNotificationClick(notification, item.id, controller.open, () => { window.focus() })
     }
     seen.add(item.id)
   }
@@ -1263,9 +1262,19 @@ function DeepCanaryOverlay(props: { t: Translate; controller: Controller }): Rea
   const state = useController(props.controller)
   const panelRef = useRef<HTMLElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
+  const positionedId = useRef<string | undefined>(undefined)
   useLayoutEffect(() => {
     if (state.open) closeRef.current?.focus()
   }, [state.open])
+  useEffect(() => {
+    if (!state.open || state.selectedId === undefined) {
+      positionedId.current = undefined
+      return
+    }
+    if (positionedId.current === state.selectedId) return
+    const elements = panelRef.current?.querySelectorAll<HTMLElement>('[data-deepcanary-item]') ?? []
+    if (positionSelectedAttention(elements, state.selectedId)) positionedId.current = state.selectedId
+  }, [state.open, state.selectedId, state.snapshot])
   useEffect(() => {
     if (!state.open) return
     const onKeyDown = (event: globalThis.KeyboardEvent): void => {

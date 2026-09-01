@@ -8,7 +8,7 @@ DeepCanary maintains separate historical and current lanes so a released result 
 2. **Current upstream lane** — the exact official `dsh-v0.1.2-alpha.3` source tag and the local plugin worktree used for the next release candidate.
 3. **Public distribution lane** — the package layout, built `lib/`, bundle patch, immutable Git tag, and peer ranges consumed by DSH.
 
-The current lane is the required baseline for new development and compatibility tests. The public RC.2 lane remains available for comparison and does not imply alpha.3 support for that historical tag. The completed local alpha.3 result is recorded in [`benchmark/alpha3-compatibility-receipt.json`](../benchmark/alpha3-compatibility-receipt.json); it describes the current worktree and is not a public release receipt.
+The current lane is the required baseline for new development and compatibility tests. The public RC.2 lane remains available for comparison and does not imply alpha.3 support for that historical tag. The completed local alpha.3 result and passing public-commit browser smoke are recorded in [`benchmark/alpha3-compatibility-receipt.json`](../benchmark/alpha3-compatibility-receipt.json); the receipt describes the current development lane and is not a public release receipt.
 
 | Component | RC.2 historical | Current compatibility lane | Notes |
 | --- | --- | --- | --- |
@@ -47,7 +47,7 @@ This RC deliberately keeps the Web path independent of a native toast dependency
 
 The Web UI requires the DSH client-module surface used by alpha.2 and alpha.3: the plugin manifest must expose `dsh.client` and `./client`, and the host must provide the `sidebar.footer.action`, `shell.overlay`, and `settings.plugin.item` slots. A profile that only installs the historical `v0.1.0-rc.1` package cannot verify the current four interaction gates or the standard settings card.
 
-For the current alpha.3 lane, install the local built package into the isolated test profile, then verify `dsh --profile web --dump-config`, the DeepCanary health route, the nine registered tools, and the client-module boot graph. The Windows source checkout and the WSL2 official npm runtime have both completed this local compatibility path. Public RC.2 installation commands remain tied to alpha.2 and are retained for historical reproduction.
+For the current alpha.3 lane, install the local built package into the isolated test profile, then verify `dsh --profile web --dump-config`, the DeepCanary health route, the nine registered tools, and the client-module boot graph. The Windows source checkout and the WSL2 official npm runtime have both completed this local compatibility path. Public GitHub Actions run [33454434211](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33454434211) additionally installs the pinned alpha.3 runtime and exercises the WebUI smoke in an isolated Linux profile. Public RC.2 installation commands remain tied to alpha.2 and are retained for historical reproduction.
 
 ## Known limitations
 
@@ -55,6 +55,6 @@ For the current alpha.3 lane, install the local built package into the isolated 
 - The jump action returns a local DSH navigation hint; the host decides whether the target session URL is available.
 - Liveness is conservative: session heartbeat silence produces a suspected-stall C2; a C3 host failure requires a failed local HTTP probe.
 - Native Windows Toast is not a hard dependency in this RC. Browser and Web fallback behavior is the supported cross-platform path.
-- The alpha.3 local WebUI lane covers emulated touch input, forced-colors rendering, semantic roles, and six viewport sizes. Physical touch hardware, real Screen Reader output, and browser-notification click positioning remain device-level follow-up checks.
+- The alpha.3 local and public-CI WebUI lanes cover emulated touch input, forced-colors rendering, semantic roles, six viewport sizes, and the notification return handler with target-item positioning. Physical touch hardware, real Screen Reader output, and OS-level notification delivery remain device-level follow-up checks.
 - Model-assisted judgment, Done Verification, Watcher Swarm, tray persistence, and organization policy are intentionally deferred to later release lines; deterministic policy is complete for this RC's declared surface.
 - If a future DSH release changes an event payload, Settings scope, Tool contract, or WebServer API, update this matrix and `docs/dsh-surface-audit.md` before changing the provider, then rerun the full release receipt.

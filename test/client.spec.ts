@@ -1,5 +1,30 @@
 import { readFile } from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
+import { handleNotificationClick, positionSelectedAttention } from '../src/client/attention-navigation.js'
+
+describe('DeepCanary attention navigation', () => {
+  it('returns a notification click to the selected alert in order', () => {
+    const order: string[] = []
+    handleNotificationClick(
+      { close: () => { order.push('close') } },
+      'alert-2',
+      id => { order.push(`open:${id}`) },
+      () => { order.push('focus') },
+    )
+    expect(order).toEqual(['focus', 'open:alert-2', 'close'])
+  })
+
+  it('positions only the matching alert with nearest alignment', () => {
+    const calls: Array<{ id: string; options: unknown }> = []
+    const elements = ['alert-1', 'alert-2'].map(id => ({
+      dataset: { deepcanaryItem: id },
+      scrollIntoView: (options?: unknown) => { calls.push({ id, options }) },
+    }))
+    expect(positionSelectedAttention(elements, 'alert-2')).toBe(true)
+    expect(positionSelectedAttention(elements, 'missing')).toBe(false)
+    expect(calls).toEqual([{ id: 'alert-2', options: { block: 'nearest', inline: 'nearest' } }])
+  })
+})
 
 describe('DeepCanary DSH client surface', () => {
   it('declares the DSH client module and all four interaction gates', async () => {
@@ -36,6 +61,8 @@ describe('DeepCanary DSH client surface', () => {
     expect(source).toContain('namespace: SETTINGS_NS')
     expect(source).toContain('key: SETTINGS_NS')
     expect(source).toContain('requestId: makeRequestId()')
+    expect(source).toContain('positionSelectedAttention')
+    expect(source).toContain('handleNotificationClick')
     expect(source).toContain('visibilitychange')
     expect(source).not.toContain('function SettingsForm')
   })

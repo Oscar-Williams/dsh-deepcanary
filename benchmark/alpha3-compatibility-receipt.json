@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "receiptType": "development-compatibility",
   "status": "PASS",
-  "scope": "current worktree and isolated local acceptance profiles",
+  "scope": "current worktree, isolated local acceptance profiles, and public CI commit",
   "plugin": "dsh-deepcanary",
   "pluginVersion": "0.1.0-rc.2",
   "runtime": {
@@ -40,7 +40,8 @@
     "webAccessibilitySemantics": true,
     "webTouchDeviceEmulation": true,
     "webForcedColors": true,
-    "webViewportMatrix": true
+    "webViewportMatrix": true,
+    "playwrightCISmoke": true
   },
   "evidence": {
     "tests": {
@@ -85,6 +86,13 @@
       "pointerResize": true,
       "bilingualSurface": true,
       "notificationPermissionAllowedBranch": true,
+      "notificationClickPositioning": {
+        "permission": "granted (Chromium API-compatible test double)",
+        "panelOpened": true,
+        "targetSelected": true,
+        "targetScrolledIntoView": true,
+        "notificationClosed": true
+      },
       "accessibilitySemantics": {
         "dialogName": "DeepCanary",
         "regionName": "DeepCanary pending alerts",
@@ -127,16 +135,30 @@
     "wslModelSmoke": {
       "status": "NOT_RUN",
       "reason": "The isolated WSL profile intentionally contains no API credential; the Windows alpha.3 headless smoke passed."
+    },
+    "playwrightCI": {
+      "status": "PASS",
+      "runId": 33454434211,
+      "commit": "a369dc4f7da11ea4dba6a394d94c77049d09ec40",
+      "runtime": "dsh-v0.1.2-alpha.3",
+      "browser": "Chromium via Playwright CLI",
+      "coverage": [
+        "first-run onboarding dismissal",
+        "mount semantics",
+        "close and Escape behavior",
+        "focus return",
+        "narrow viewport bounds",
+        "forced-colors rendering",
+        "live status region"
+      ]
     }
   },
   "pendingForPublicRelease": [
     "immutable plugin tag and public-tag installation for this candidate",
     "artifact-specific release receipt after the candidate version is cut",
-    "browser notification click positioning",
     "physical touch-device and screen-reader checks",
-    "Playwright CI run on a public commit",
     "WSL model smoke when an isolated WSL credential is explicitly provisioned"
   ],
   "verifiedAt": "2026-09-01",
-  "note": "This receipt records the alpha.3 development compatibility lane, including semantic WebUI checks, emulated iPhone touch input, forced-colors rendering, and a six-size viewport matrix. Physical touch hardware and a real screen reader remain device-level follow-up. benchmark/release-receipt.json remains the historical public RC.2 receipt and is not relabeled. No prompt, transcript, credential, raw model output, or private design material is included."
+  "note": "This receipt records the alpha.3 development compatibility lane, including semantic WebUI checks, emulated iPhone touch input, forced-colors rendering, a six-size viewport matrix, notification click return and positioning, and a passing public-commit Playwright smoke. Physical touch hardware and a real screen reader remain device-level follow-up; OS-level notification delivery remains outside headless browser evidence. benchmark/release-receipt.json remains the historical public RC.2 receipt and is not relabeled. No prompt, transcript, credential, raw model output, or private design material is included."
 }

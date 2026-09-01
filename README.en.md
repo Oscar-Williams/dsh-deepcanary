@@ -6,7 +6,7 @@
 
 ## Current development line (unreleased)
 
-The current `main` branch contains the next candidate's Policy Explain, read-only Dry-run, AttentionGold v3, privacy-safe dogfood protocol, and a bounded high-throughput benchmark covering multiple sessions, recovery samples, and resource measurements. This development line is being checked locally against the official DSH `dsh-v0.1.2-alpha.3` exact tag (commit `dd6322d604e00eec1ba5e0c8541159906a21094a`); the local WebUI pass also covers ARIA semantics, emulated touch input, forced colors, and a multi-viewport layout matrix. It has not replaced the public `v0.1.0-rc.2` installation instructions or its historical alpha.2 receipt.
+The current `main` branch contains the next candidate's Policy Explain, read-only Dry-run, AttentionGold v3, privacy-safe dogfood protocol, and a bounded high-throughput benchmark covering multiple sessions, recovery samples, and resource measurements. This development line is being checked locally against the official DSH `dsh-v0.1.2-alpha.3` exact tag (commit `dd6322d604e00eec1ba5e0c8541159906a21094a`); the local WebUI pass also covers ARIA semantics, emulated touch input, forced colors, and a multi-viewport layout matrix, while the public commit `a369dc4` passes the alpha.3 GitHub Actions browser smoke. It has not replaced the public `v0.1.0-rc.2` installation instructions or its historical alpha.2 receipt.
 
 To reproduce the published release, follow the RC.2 installation path below. To validate the current source, use the alpha.3 development lane in [`docs/compatibility.md`](docs/compatibility.md) with an isolated test profile.
 
@@ -93,6 +93,7 @@ The existing local runtime directory is named `dsh-runtime-alpha1`, but the vers
 
 - **Hide:** the Inbox panel is not rendered at startup; the close button, `Esc`, and an outside click hide it without blocking the DSH page.
 - **Wake:** click the DeepCanary entry at the bottom of the sidebar to reopen it; focus moves to the close button and returns to the entry after closing.
+- **Notification return:** when browser notification permission is granted, clicking a C2/C3 notification focuses DSH, opens the corresponding alert, and scrolls the target item into the visible panel range.
 - **Resize:** the right and bottom handles support pointer dragging and keyboard arrows, `Home`, and `End`; the size is persisted when browser storage is available.
 - **Bilingual display:** panel copy, reasons, suggestions, evidence labels, actions, and settings fields are registered with DSH locale and update when DSH switches between Chinese and English.
 
@@ -153,7 +154,7 @@ npm run quality:report
 npm run benchmark:attention
 ```
 
-The quality report stores aggregate results only. Raw dogfood data should remain in the isolated test directory; see [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md) for the fields and privacy boundary. The current alpha.3 local compatibility evidence is recorded in [`benchmark/alpha3-compatibility-receipt.json`](benchmark/alpha3-compatibility-receipt.json); it describes the current worktree and isolated profiles and does not replace the public RC.2 receipt.
+The quality report stores aggregate results only. Raw dogfood data should remain in the isolated test directory; see [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md) for the fields and privacy boundary. The current alpha.3 local compatibility evidence and public-commit browser smoke are recorded in [`benchmark/alpha3-compatibility-receipt.json`](benchmark/alpha3-compatibility-receipt.json); it describes the current development lane and does not replace the public RC.2 receipt.
 
 The current development line freezes 20 AttentionGold v3 classification scenarios plus duplicate-event, shared-root Bundle, recovery-recurrence, and parallel-session scenarios; the public RC.2 receipt still records the historical v2 set of 15 classification scenarios. RC.2 evidence for the upstream runtime, Windows/WSL, public-tag installation, Web, settings, unload/restart, and distribution integrity is recorded in [`benchmark/release-receipt.json`](benchmark/release-receipt.json), whose status is `PASS`. The receipt is intentionally excluded from the npm runtime package so its SHA-256 can be verified without a circular dependency. See [`docs/release-checklist.md`](docs/release-checklist.md) for the reproducible release procedure.
 
