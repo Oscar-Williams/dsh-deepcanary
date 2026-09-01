@@ -187,6 +187,10 @@ The latest source freezes 20 AttentionGold v3 classification scenarios plus dupl
 - [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md) — privacy-safe trials, quality evaluation, and local performance checks;
 - [`docs/release-checklist.md`](docs/release-checklist.md) — the step-by-step pre-release verification checklist.
 
+## Support and contributing
+
+Reproducible issues, test improvements, and documentation fixes are welcome. For Web UI or compatibility reports, include the exact DSH tag and commit, the plugin tag or commit, operating system, Node.js version, reproduction steps, and redacted logs. Never include API keys, prompts, session content, workspace paths, or raw tool results. See [`CONTRIBUTING.md`](CONTRIBUTING.md) before submitting code, tests, or documentation changes.
+
 ## License
 
 MIT

@@ -189,6 +189,10 @@ npm run benchmark:attention
 - [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md)：如何进行脱敏试用、质量评估和本地性能测试；
 - [`docs/release-checklist.md`](docs/release-checklist.md)：发布前逐项执行的验证清单。
 
+## 反馈与贡献
+
+欢迎提交可复现的问题、测试改进和文档修订。反馈 Web UI 或兼容性问题时，请附上 DSH 的准确版本标签与 commit、插件 tag 或 commit、操作系统、Node.js 版本、复现步骤和脱敏后的日志；请不要提交 API key、Prompt、会话内容、工作区路径或原始工具结果。代码、测试和文档贡献请先阅读 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
+
 ## 许可证
 
 MIT
