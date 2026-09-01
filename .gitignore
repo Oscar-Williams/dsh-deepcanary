@@ -7,6 +7,7 @@ output/playwright/
 output/attention-quality-report.json
 output/attention-benchmark.json
 output/dogfood/
+.ci-dsh-*
 .DS_Store
 .dsh-deepcanary-test/
 设计思路(不提交)/

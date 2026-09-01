@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      DSH_HOME: ${{ runner.temp }}/dsh-deepcanary-home
+      DSH_HOME: ${{ github.workspace }}/.ci-dsh-deepcanary-home
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -149,7 +149,7 @@ jobs:
         shell: bash
         run: |
           if test -f "$RUNNER_TEMP/dsh-web.log"; then
-            sed -E 's/(token=)[^&[:space:]]*/\1[REDACTED]/g' "$RUNNER_TEMP/dsh-web.log" > "$RUNNER_TEMP/dsh-web-redacted.log"
+            sed -E 's/(token=)[^&[:space:]]*/\1[REDACTED]/g' "$RUNNER_TEMP/dsh-web.log" > "$GITHUB_WORKSPACE/.ci-dsh-web-redacted.log"
           fi
       - name: Upload redacted browser smoke log
         if: always()
@@ -157,6 +157,6 @@ jobs:
         with:
           name: alpha3-web-smoke-log
           path: |
-            ${{ runner.temp }}/dsh-web-redacted.log
+            ${{ github.workspace }}/.ci-dsh-web-redacted.log
             output/playwright/ci-alpha3-forced-colors.png
           if-no-files-found: ignore
