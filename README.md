@@ -11,7 +11,7 @@
 
 ## 版本与兼容性
 
-**当前发布版本**：公开插件 tag 为 [`v0.1.0-rc.3`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.3)，npm 包为 `dsh-deepcanary@0.1.0-rc.3`。本版本面向官方 DSH [`dsh-v0.1.2-alpha.3`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.3)，Windows、WSL2、Node.js 22/24、WebUI 交互和模型烟测均已完成验证；发布提交和包摘要见 [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json)。
+**当前发布版本**：公开插件 tag 为 [`v0.1.0-rc.3`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.3)，npm 包为 [`dsh-deepcanary@0.1.0-rc.3`](https://www.npmjs.com/package/dsh-deepcanary/v/0.1.0-rc.3)，可通过 `next` 预发布通道获取。本版本面向官方 DSH [`dsh-v0.1.2-alpha.3`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.3)，Windows、WSL2、Node.js 22/24、WebUI 交互和模型烟测均已完成验证；发布提交和包摘要见 [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json)。
 
 RC3 保持为预发布版本，适合日常试用、反馈和插件集成验证。物理触摸设备、真实屏幕阅读器和允许通知权限后的操作系统级通知属于发布后的补充验证项；浏览器自动化、键盘操作、窄视口、强制颜色和通知拒绝分支已有自动化证据。
 
@@ -62,6 +62,8 @@ git rev-parse HEAD
 
 ```powershell
 Set-Location .\dsh-runtime-alpha3
+# 验收时固定使用官方 npm registry，避免镜像同步延迟
+$env:npm_config_registry = 'https://registry.npmjs.org/'
 npx --yes pnpm@11.7.0 dsh plugin --profile web add dsh-deepcanary@0.1.0-rc.3
 npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open

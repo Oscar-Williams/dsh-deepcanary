@@ -17,9 +17,9 @@
 | 插件如何接收 DSH 活动并生成提醒 | [`architecture.md`](architecture.md) |
 | 插件使用的 DSH 接口与版本依据 | [`dsh-surface-audit.md`](dsh-surface-audit.md) |
 | 脱敏试用、质量评估和本地性能测试 | [`dogfood-protocol.md`](dogfood-protocol.md) |
-| 发布前的完整验证步骤 | [`release-checklist.md`](release-checklist.md) |
+| 发布与验收的完整步骤 | [`release-checklist.md`](release-checklist.md) |
 | 参与代码、测试和文档贡献 | [`../CONTRIBUTING.md`](../CONTRIBUTING.md) |
 
-结果记录的公开字段约束见 [`../benchmark/outcome-receipt.schema.json`](../benchmark/outcome-receipt.schema.json)，汇总报告约束见 [`../benchmark/outcome-report.schema.json`](../benchmark/outcome-report.schema.json)。当前 RC3 候选的本地验收记录见 [`../benchmark/release-candidate-receipt.json`](../benchmark/release-candidate-receipt.json)，历史 RC2 发布记录见 [`../benchmark/release-receipt.json`](../benchmark/release-receipt.json)。
+结果记录的公开字段约束见 [`../benchmark/outcome-receipt.schema.json`](../benchmark/outcome-receipt.schema.json)，汇总报告约束见 [`../benchmark/outcome-report.schema.json`](../benchmark/outcome-report.schema.json)。公开 RC3 的验收与发布回执见 [`../benchmark/release-candidate-receipt.json`](../benchmark/release-candidate-receipt.json)，历史 RC2 发布记录见 [`../benchmark/release-receipt.json`](../benchmark/release-receipt.json)。
 
 设计指南保存在仓库外的本地“设计思路(不提交)”目录，不属于安装包和公开仓库内容。

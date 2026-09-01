@@ -67,6 +67,8 @@ The client-module revision was reviewed, the design guide was completed locally,
 
 ```powershell
 npx --yes pnpm@11.7.0 dsh plugin --profile web remove dsh-deepcanary
+# 验收时固定使用官方 npm registry，避免镜像同步延迟
+$env:npm_config_registry = 'https://registry.npmjs.org/'
 npx --yes pnpm@11.7.0 dsh plugin --profile web add dsh-deepcanary@0.1.0-rc.3
 npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open

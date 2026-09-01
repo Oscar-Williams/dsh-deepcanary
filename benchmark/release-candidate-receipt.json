@@ -91,6 +91,16 @@
       "runtime": "dsh-v0.1.2-alpha.3",
       "package": "dsh-deepcanary@0.1.0-rc.3",
       "credential": "not provisioned"
+    },
+    "npmInstall": {
+      "status": "PASS",
+      "registry": "https://registry.npmjs.org/",
+      "package": "dsh-deepcanary@0.1.0-rc.3",
+      "profiles": [
+        "isolated Windows alpha.3 Web profile",
+        "isolated Windows alpha.3 headless profile"
+      ],
+      "webHealth": "HTTP 200; plugin ready; nine tools"
     }
   },
   "publication": {

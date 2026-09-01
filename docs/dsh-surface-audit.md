@@ -1,6 +1,6 @@
 # DSH interfaces used by DeepCanary
 
-This document records the DSH interfaces used by `dsh-deepcanary`. The historical RC.2 audit targets the official `dsh-v0.1.2-alpha.2` source tag at commit `0a53fb55bea101816fa226bb964ae2bed71c343b`; the current RC3 candidate audit targets immutable `dsh-v0.1.2-alpha.3` at commit `dd6322d604e00eec1ba5e0c8541159906a21094a`.
+This document records the DSH interfaces used by `dsh-deepcanary`. The historical RC.2 audit targets the official `dsh-v0.1.2-alpha.2` source tag at commit `0a53fb55bea101816fa226bb964ae2bed71c343b`; the public RC3 audit targets immutable `dsh-v0.1.2-alpha.3` at commit `dd6322d604e00eec1ba5e0c8541159906a21094a`.
 
 ## Services and lifecycle events
 

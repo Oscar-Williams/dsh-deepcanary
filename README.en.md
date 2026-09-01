@@ -11,7 +11,7 @@
 
 ## Versions and compatibility
 
-**Current release:** the public plugin tag is [`v0.1.0-rc.3`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.3), and the npm package is `dsh-deepcanary@0.1.0-rc.3`. It targets the official DSH [`dsh-v0.1.2-alpha.3`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.3) and has been verified on Windows, WSL2, Node.js 22/24, the Web UI interaction surface, and the model smoke path; the release commit and artifact digest are recorded in [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json).
+**Current release:** the public plugin tag is [`v0.1.0-rc.3`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.3), and the npm package is [`dsh-deepcanary@0.1.0-rc.3`](https://www.npmjs.com/package/dsh-deepcanary/v/0.1.0-rc.3), available through the `next` prerelease channel. It targets the official DSH [`dsh-v0.1.2-alpha.3`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.3) and has been verified on Windows, WSL2, Node.js 22/24, the Web UI interaction surface, and the model smoke path; the release commit and artifact digest are recorded in [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json).
 
 RC3 remains a pre-release for daily trial use, feedback, and plugin integration testing. Physical touch hardware, a real screen reader, and operating-system notification delivery after granting permission are post-release supplemental checks; browser automation, keyboard interaction, narrow viewports, forced colors, and the notification-denied branch already have automated evidence.
 
@@ -62,6 +62,8 @@ Use the exact prerelease published on npm for the normal installation path; use 
 
 ```powershell
 Set-Location .\dsh-runtime-alpha3
+# Pin the official npm registry for release verification to avoid mirror lag.
+$env:npm_config_registry = 'https://registry.npmjs.org/'
 npx --yes pnpm@11.7.0 dsh plugin --profile web add dsh-deepcanary@0.1.0-rc.3
 npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
