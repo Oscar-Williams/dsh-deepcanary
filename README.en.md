@@ -3,15 +3,17 @@
 [![CI](https://github.com/Oscar-Williams/dsh-deepcanary/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Oscar-Williams/dsh-deepcanary/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f.svg)](LICENSE)
 
+![DeepCanary panel in the DSH Web UI](assets/deepcanary-panel-en.png)
+
 > A quiet layer for the moments that genuinely need your attention.
 
 `dsh-deepcanary` is a local attention-supervision plugin for [DeepSeek Harness (DSH)](https://github.com/deepseek-ai/deepseek-harness). It reads structured facts from Sessions, Tools, Agents, Subagents, and the Host, then applies deterministic policy to decide what can stay quiet, what belongs in the Inbox, and what deserves a user-facing reminder.
 
 ## Versions and compatibility
 
-**Published version:** the public plugin tag is `v0.1.0-rc.2`, at commit `4ae7c2bb577d7a2b855f425a8e3fde7800a9feb2`. This version completed its release verification on the official DSH `dsh-v0.1.2-alpha.2` runtime. Use the “Published version” path below for regular installation.
+**Published version:** the public plugin tag is [`v0.1.0-rc.2`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.2), at commit `4ae7c2bb577d7a2b855f425a8e3fde7800a9feb2`. This version completed its release verification on the official DSH `dsh-v0.1.2-alpha.2` runtime. Use the “Published version” path below for regular installation.
 
-**Local candidate:** the current implementation is candidate version `0.1.0-rc.3`, targeting the official DSH `dsh-v0.1.2-alpha.3` runtime (commit `dd6322d604e00eec1ba5e0c8541159906a21094a`). The candidate package has completed local Windows Web UI and isolated WSL2 profile compatibility acceptance; its public tag, Release, and public CI result will be established together after the candidate receipt, dogfood, and device-level evidence are complete.
+**Local candidate:** the current implementation is candidate version `0.1.0-rc.3`, targeting the official DSH `dsh-v0.1.2-alpha.3` runtime (commit `dd6322d604e00eec1ba5e0c8541159906a21094a`). The candidate package has completed local Windows Web UI and isolated WSL2 profile compatibility acceptance. It remains a local candidate: no public RC3 tag or Release has been created, and dogfood plus device-level evidence remain required before a formal release.
 
 **Compatibility reference:** an earlier public commit passed the alpha.3 Web UI browser acceptance check ([CI workflow](https://github.com/Oscar-Williams/dsh-deepcanary/actions/workflows/ci.yml)); that historical result is reference evidence, while `0.1.0-rc.3` is tested from the current local package in an isolated profile.
 
@@ -75,9 +77,19 @@ To update an existing RC installation, rebuild only when using a local developme
 npx --yes pnpm@11.7.0 dsh plugin --profile web update dsh-deepcanary
 ```
 
+### Uninstall and rollback
+
+Remove the plugin from the target DSH profile:
+
+```powershell
+npx --yes pnpm@11.7.0 dsh plugin --profile web remove dsh-deepcanary
+```
+
+To return to the published version, rerun the RC.2 installation command above. For local candidate testing, rerun the local-tarball installation command. Restart `dsh web` after replacing the package, then use `dsh plugin --profile web list` to confirm that the profile contains only the intended version.
+
 ### Local candidate: 0.1.0-rc.3 on official DSH alpha.3
 
-Candidate validation uses the official DSH `dsh-v0.1.2-alpha.3` and a separate profile; replace `$pluginDir` and `$dshDir` with paths on your machine. The candidate is not public yet, so install the local tarball generated from the current worktree.
+Candidate validation uses the official DSH `dsh-v0.1.2-alpha.3` and a separate profile; replace `$pluginDir` and `$dshDir` with paths on your machine. No public RC3 tag exists yet, so install the local tarball generated from the current worktree.
 
 ```powershell
 $pluginDir = 'C:\path\to\dsh-deepcanary'
@@ -178,12 +190,19 @@ The default state directory follows the DSH home through `dshHomePath('dsh-deepc
 
 Web routes are same-origin local routes with `no-store` responses. The client renders dynamic values with DOM `textContent` rather than `innerHTML`. The plugin exposes no shell, file-write, terminate, restart, approval, or rejection tool. Do not put the DSH WebServer behind an unauthenticated public reverse proxy.
 
+## Troubleshooting
+
+- **The sidebar entry or panel is missing:** stop any existing `dsh web`, then run `dsh plugin --profile web list` and `dsh --profile web --dump-config` in the same profile to confirm the intended version and the `dsh-deepcanary` bundle. Reinstall the intended package and restart the Web UI.
+- **An old card still covers the right side:** this usually comes from an older profile or the legacy page-injection plugin. Remove the old `dsh-deepcanary` entry from the test profile, reinstall the current package, and confirm that only the sidebar entry is visible at startup.
+- **The Web UI cannot connect or the port is busy:** stop the older DSH process and run `dsh web --no-open` again. Keep the local URL and one-time token in the terminal; do not publish them through a public proxy.
+- **A model call is needed:** configure the API key in DSH itself. DeepCanary does not read or store credentials. Health checks, the panel, and offline tests remain available without an API key.
+
 ## Verification and release baseline
 
 The repository tracks built `lib/` output because DSH installs a public Git tag without depending on this repository's TypeScript toolchain. For local checks:
 
 ```powershell
-npm install
+npm ci
 npm run typecheck
 npm run typecheck:tests
 npm test

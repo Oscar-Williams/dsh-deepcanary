@@ -29,6 +29,8 @@
     "README.en.md",
     "CHANGELOG.md",
     "docs",
+    "assets",
+    "screenshots.json",
     "benchmark/attention-gold.json",
     "benchmark/attention-gold-v3.json",
     "benchmark/attention-quality-report.schema.json",

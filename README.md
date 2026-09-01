@@ -3,15 +3,17 @@
 [![CI](https://github.com/Oscar-Williams/dsh-deepcanary/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Oscar-Williams/dsh-deepcanary/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f.svg)](LICENSE)
 
+![DSH Web UI 中的 DeepCanary 面板](assets/deepcanary-panel-zh.png)
+
 > 让 DSH 在真正需要你判断时提醒你。
 
 `dsh-deepcanary` 是面向 [DeepSeek Harness（DSH）](https://github.com/deepseek-ai/deepseek-harness) 的本地注意力监督插件。它读取 Session、Tool、Agent、Subagent 和 Host 的结构化运行时事实，经过确定性策略判断哪些事件应当保持安静、进入 Inbox，或提醒用户处理。
 
 ## 版本与兼容性
 
-**已发布版本**：公开插件 tag 为 `v0.1.0-rc.2`，对应提交 `4ae7c2bb577d7a2b855f425a8e3fde7800a9feb2`。该版本已在官方 DSH `dsh-v0.1.2-alpha.2` 上完成发布验证，日常安装请使用下面的“已发布版本”路径。
+**已发布版本**：公开插件 tag 为 [`v0.1.0-rc.2`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.2)，对应提交 `4ae7c2bb577d7a2b855f425a8e3fde7800a9feb2`。该版本已在官方 DSH `dsh-v0.1.2-alpha.2` 上完成发布验证，日常安装请使用下面的“已发布版本”路径。
 
-**本地候选版本**：当前实现的候选版本为 `0.1.0-rc.3`，目标运行时为官方 DSH `dsh-v0.1.2-alpha.3`（commit `dd6322d604e00eec1ba5e0c8541159906a21094a`）。候选包已完成本机 Windows WebUI 与 WSL2 隔离 profile 的兼容性验证，公开 tag、Release 和公共 CI 结果将在候选收据、dogfood 与设备级证据齐备后统一建立。
+**本地候选版本**：当前实现的候选版本为 `0.1.0-rc.3`，目标运行时为官方 DSH `dsh-v0.1.2-alpha.3`（commit `dd6322d604e00eec1ba5e0c8541159906a21094a`）。候选包已完成本机 Windows WebUI 与 WSL2 隔离 profile 的兼容性验证；目前仍作为本地候选使用，尚未建立公开 RC3 tag 和 Release，dogfood 与设备级证据是正式发布前的必要条件。
 
 **兼容性参考**：此前公开提交已通过 alpha.3 Web UI 浏览器验收（[CI 工作流](https://github.com/Oscar-Williams/dsh-deepcanary/actions/workflows/ci.yml)）；该历史结果用于参考，当前 `0.1.0-rc.3` 以本地隔离 profile 和当前构建包为测试对象。
 
@@ -75,9 +77,19 @@ npx --yes pnpm@11.7.0 dsh web --no-open
 npx --yes pnpm@11.7.0 dsh plugin --profile web update dsh-deepcanary
 ```
 
+### 卸载与回滚
+
+在目标 DSH profile 中移除插件：
+
+```powershell
+npx --yes pnpm@11.7.0 dsh plugin --profile web remove dsh-deepcanary
+```
+
+需要恢复到已发布版本时，重新执行上面的 RC.2 安装命令；测试本地候选时，重新执行本地压缩包安装命令。完成替换后重启 `dsh web`，并用 `dsh plugin --profile web list` 确认 profile 中只保留目标版本。
+
 ### 本地候选版本：0.1.0-rc.3（官方 DSH alpha.3）
 
-本地候选验证使用官方 DSH `dsh-v0.1.2-alpha.3` 和独立测试配置；请将 `$pluginDir`、`$dshDir` 改为本机路径。候选版本仍未建立公开 tag，安装来源应为当前工作树生成的本地压缩包。
+本地候选验证使用官方 DSH `dsh-v0.1.2-alpha.3` 和独立测试配置；请将 `$pluginDir`、`$dshDir` 改为本机路径。尚未建立公开 RC3 tag，安装来源应为当前工作树生成的本地压缩包。
 
 ```powershell
 $pluginDir = 'C:\path\to\dsh-deepcanary'
@@ -180,12 +192,19 @@ dogfood 或受控试验可以在产生提醒后，使用 Inbox 条目的 `id` �
 
 Web 接口使用同源本地 WebServer 和 `no-store` 响应；客户端通过 DOM `textContent` 渲染动态字段，不拼接 `innerHTML`。插件不提供 shell、文件写入、终止、重启、批准或拒绝工具。不要把 DSH WebServer 暴露到未经认证的公网反向代理后面。
 
+## 常见问题
+
+- **侧栏入口或面板没有出现**：先停止已有的 `dsh web`，在相同 profile 执行 `dsh plugin --profile web list` 和 `dsh --profile web --dump-config`，确认目标版本与 `dsh-deepcanary` bundle 都已加载；随后重新安装目标包并启动 Web UI。
+- **页面右侧仍有旧卡片**：这通常来自旧 profile 或旧版页面注入插件。移除测试 profile 中的旧 `dsh-deepcanary` 条目，使用当前版本重新安装，并确认页面只保留侧栏入口。
+- **Web UI 无法连接或端口被占用**：关闭旧的 DSH 进程后重新运行 `dsh web --no-open`；保留终端显示的本机访问地址和一次性 token，不要把地址发布到公网。
+- **需要模型调用**：在 DSH 自己的设置中配置 API key；DeepCanary 不读取或保存凭据。无 API key 时，健康检查、面板和离线测试仍可运行。
+
 ## 验证与发布基线
 
 本仓库提交构建后的 `lib/`，因为 DSH 从公开 Git tag 安装时不应依赖本仓库的 TypeScript 工具链。开发检查：
 
 ```powershell
-npm install
+npm ci
 npm run typecheck
 npm run typecheck:tests
 npm test

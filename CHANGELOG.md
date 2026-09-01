@@ -15,6 +15,7 @@ The next local release candidate is `0.1.0-rc.3`. It targets the official DSH `d
 - a browser-notification return path that focuses DSH, opens the selected alert, and positions the target item in the visible Inbox range;
 - a privacy-safe OutcomeReceipt store with explicit real/controlled/replay provenance, bounded outcome fields, and source-filtered local reports;
 - `/dsh-deepcanary/outcome` and `/dsh-deepcanary/outcomes` routes plus public receipt/report schemas for dogfood review;
+- bilingual installation, rollback, and troubleshooting guidance, plus privacy-safe Web UI screenshots and an ecosystem screenshot manifest.
 
 ### Compatibility
 

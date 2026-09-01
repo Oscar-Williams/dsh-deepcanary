@@ -14,7 +14,7 @@ The implementation must preserve these boundaries:
 
 ## Commands
 
-    npm install
+    npm ci
     npm run typecheck
     npm run typecheck:tests
     npm test
