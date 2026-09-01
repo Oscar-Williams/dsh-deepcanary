@@ -19,7 +19,7 @@ The version must be `0.1.2-alpha.3` and the checkout must resolve to `dd6322d604
 
 The current candidate also runs `npm run quality:report` and `npm run benchmark:attention`. These commands provide the frozen replay and local resource baseline; real-user outcome fields remain pending until a sanitized dogfood run supplies them. The completed alpha.3 local compatibility result is recorded separately in [`benchmark/alpha3-compatibility-receipt.json`](../benchmark/alpha3-compatibility-receipt.json); it is excluded from the npm package and does not replace the historical RC.2 receipt.
 
-The repository CI workflow also starts the pinned alpha.3 Web profile in an isolated home and exercises the panel through Playwright CLI. Run [33454434211](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33454434211) passed on public commit `a369dc4`. This automated check covers first-run dismissal, mount semantics, close and Escape behavior, focus return, narrow-viewport bounds, forced-colors rendering, and the live status region; it does not replace physical touch or real Screen Reader evaluation.
+The repository CI workflow also starts the pinned alpha.3 Web profile in an isolated home and exercises the panel through Playwright CLI. Run [33455401831](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33455401831) passed on public commit `7600c13`. This automated check covers first-run dismissal, mount semantics, close and Escape behavior, focus return, narrow-viewport bounds, forced-colors rendering, and the live status region; it does not replace physical touch or real Screen Reader evaluation.
 
 ## 1. Source and documentation
 

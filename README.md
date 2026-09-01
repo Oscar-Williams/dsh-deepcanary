@@ -6,7 +6,7 @@
 
 ## 当前开发线（未发布）
 
-当前 `main` 包含下一版候选能力：可追溯的 Policy Explain、只读 Dry-run、AttentionGold v3、脱敏 dogfood protocol，以及覆盖多 Session、恢复样例和资源采样的高吞吐有界状态基准。该开发线已切换到官方 DSH `dsh-v0.1.2-alpha.3` exact tag（commit `dd6322d604e00eec1ba5e0c8541159906a21094a`）进行本地兼容性验证；本地 WebUI 还覆盖了 ARIA 语义、模拟触控、强制高对比度与多视口布局验收，公开 commit `a369dc4` 的 GitHub Actions alpha.3 浏览器 smoke 已通过。它尚未替代公开 `v0.1.0-rc.2` 的安装说明与 alpha.2 历史收据。
+当前 `main` 包含下一版候选能力：可追溯的 Policy Explain、只读 Dry-run、AttentionGold v3、脱敏 dogfood protocol，以及覆盖多 Session、恢复样例和资源采样的高吞吐有界状态基准。该开发线已切换到官方 DSH `dsh-v0.1.2-alpha.3` exact tag（commit `dd6322d604e00eec1ba5e0c8541159906a21094a`）进行本地兼容性验证；本地 WebUI 还覆盖了 ARIA 语义、模拟触控、强制高对比度与多视口布局验收，公开 commit `7600c13` 的 GitHub Actions alpha.3 浏览器 smoke 已通过。它尚未替代公开 `v0.1.0-rc.2` 的安装说明与 alpha.2 历史收据。
 
 需要复现已发布版本时，请严格使用下方 RC.2 安装路径。需要验证当前代码时，请参照 [`docs/compatibility.md`](docs/compatibility.md) 的 alpha.3 当前兼容性路径，并使用隔离测试 profile。
 

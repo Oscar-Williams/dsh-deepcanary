@@ -138,8 +138,8 @@
     },
     "playwrightCI": {
       "status": "PASS",
-      "runId": 33454434211,
-      "commit": "a369dc4f7da11ea4dba6a394d94c77049d09ec40",
+      "runId": 33455401831,
+      "commit": "7600c130deafb12924efa496515e83d226fa4a63",
       "runtime": "dsh-v0.1.2-alpha.3",
       "browser": "Chromium via Playwright CLI",
       "coverage": [

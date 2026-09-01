@@ -6,7 +6,7 @@
 
 ## Current development line (unreleased)
 
-The current `main` branch contains the next candidate's Policy Explain, read-only Dry-run, AttentionGold v3, privacy-safe dogfood protocol, and a bounded high-throughput benchmark covering multiple sessions, recovery samples, and resource measurements. This development line is being checked locally against the official DSH `dsh-v0.1.2-alpha.3` exact tag (commit `dd6322d604e00eec1ba5e0c8541159906a21094a`); the local WebUI pass also covers ARIA semantics, emulated touch input, forced colors, and a multi-viewport layout matrix, while the public commit `a369dc4` passes the alpha.3 GitHub Actions browser smoke. It has not replaced the public `v0.1.0-rc.2` installation instructions or its historical alpha.2 receipt.
+The current `main` branch contains the next candidate's Policy Explain, read-only Dry-run, AttentionGold v3, privacy-safe dogfood protocol, and a bounded high-throughput benchmark covering multiple sessions, recovery samples, and resource measurements. This development line is being checked locally against the official DSH `dsh-v0.1.2-alpha.3` exact tag (commit `dd6322d604e00eec1ba5e0c8541159906a21094a`); the local WebUI pass also covers ARIA semantics, emulated touch input, forced colors, and a multi-viewport layout matrix, while the public commit `7600c13` passes the alpha.3 GitHub Actions browser smoke. It has not replaced the public `v0.1.0-rc.2` installation instructions or its historical alpha.2 receipt.
 
 To reproduce the published release, follow the RC.2 installation path below. To validate the current source, use the alpha.3 development lane in [`docs/compatibility.md`](docs/compatibility.md) with an isolated test profile.
 
