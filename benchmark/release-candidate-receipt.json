@@ -74,11 +74,11 @@
       "notificationPermissionDeniedBranch": true
     },
     "publicCI": {
-      "status": "PENDING",
-      "runId": null,
-      "headSha": null,
-      "url": null,
-      "coverage": "Windows and Ubuntu checks on Node 22 and 24 plus alpha.4 WebUI smoke"
+      "status": "PASS",
+      "runId": 33556784218,
+      "headSha": "b9cbee544b2679767366fb510ef1aede7fbc14db",
+      "url": "https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33556784218",
+      "coverage": "Windows and Ubuntu checks on Node 22 and 24 plus alpha.4 WebUI smoke; all five jobs passed"
     },
     "modelSmokeTest": {
       "status": "PASS",
@@ -134,6 +134,6 @@
     "OS-level notification delivery with permission allowed"
   ],
   "artifactSha256": "3595fdf52344707ac8fdfa3a1de95b4a257ce31b08a71b98a23911cc2fc6820b",
-  "verifiedAt": "2026-09-02T04:39:30+08:00",
-  "note": "This receipt records the RC4 release candidate against the official DSH alpha.4 tag at its pinned commit. The Windows Edge WebUI, WSL WebUI, local tarball, and authorized fixed-marker model smoke checks were run against alpha.4; the public npm package remains intentionally unpublished and the public-tag gate remains pending. The historical alpha.3 compatibility record and RC2 release receipt remain separate. Device-level touch, real screen-reader, and permission-allowed operating-system notification checks remain supplemental follow-up items. Credentials, raw prompts, transcripts, model output, workspace contents, and private design material are excluded."
+  "verifiedAt": "2026-09-02T04:47:09+08:00",
+  "note": "This receipt records the RC4 release candidate against the official DSH alpha.4 tag at its pinned commit. The Windows Edge WebUI, WSL WebUI, local tarball, authorized fixed-marker model smoke checks, and the five-job public CI run were completed against alpha.4; the public npm package remains intentionally unpublished and the public-tag gate remains pending. The historical alpha.3 compatibility record and RC2 release receipt remain separate. Device-level touch, real screen-reader, and permission-allowed operating-system notification checks remain supplemental follow-up items. Credentials, raw prompts, transcripts, model output, workspace contents, and private design material are excluded."
 }
