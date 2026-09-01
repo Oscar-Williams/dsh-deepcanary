@@ -19,14 +19,14 @@ The version must be `0.1.2-alpha.3` and the checkout must resolve to `dd6322d604
 
 RC3 also runs `npm run quality:report` and `npm run benchmark:attention`. These commands provide the frozen replay and local resource baseline. A sanitized trial records OutcomeReceipts through `/dsh-deepcanary/outcome` and produces a source-filtered report with `npm run outcomes:report`; the public schemas are [`benchmark/outcome-receipt.schema.json`](../benchmark/outcome-receipt.schema.json) and [`benchmark/outcome-report.schema.json`](../benchmark/outcome-report.schema.json). The RC3 public receipt is [`benchmark/release-candidate-receipt.json`](../benchmark/release-candidate-receipt.json); the earlier alpha.3 compatibility record remains separate and does not replace the historical RC2 receipt.
 
-The repository CI workflow also starts the pinned alpha.3 Web profile in an isolated home and exercises the panel through Playwright CLI. Run [33475665562](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33475665562) passed on the synchronized public candidate documentation and package state; it includes the live OutcomeReceipt route check, pointer resize, keyboard bounds, and outside-click lifecycle checks. Automated checks do not replace physical touch or real Screen Reader evaluation.
+The repository CI workflow also starts the pinned alpha.3 Web profile in an isolated home and exercises the panel through Playwright CLI. Run [33481882712](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33481882712) passed on the public RC3 revision; it includes the live OutcomeReceipt route check, pointer resize, keyboard bounds, and outside-click lifecycle checks. Automated checks do not replace physical touch or real Screen Reader evaluation.
 
 ## 1. Source and documentation
 
-- [ ] Confirm `package.json`, `package-lock.json`, `CHANGELOG.md`, README files, compatibility matrix, surface audit, and release receipt use the same plugin version and DSH tag.
-- [ ] Confirm `设计思路(不提交)/` is ignored and no design guide is tracked or present in the package artifact.
-- [ ] Confirm the public README uses the immutable GitHub tag only after the new tag exists, and labels the historical tag separately until then.
-- [ ] Review the diff for secrets, local paths, credentials, raw prompts, and unrelated changes.
+- [x] Confirm `package.json`, `package-lock.json`, `CHANGELOG.md`, README files, compatibility matrix, surface audit, and release receipt use the same plugin version and DSH tag.
+- [x] Confirm `设计思路(不提交)/` is ignored and no design guide is tracked or present in the package artifact.
+- [x] Confirm the public README uses the immutable GitHub tag and labels the historical tag separately.
+- [x] Review the diff for secrets, local paths, credentials, raw prompts, and unrelated changes.
 
 ## 2. Plugin gates
 
@@ -72,7 +72,7 @@ npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
 
-The completed `benchmark/release-candidate-receipt.json` uses `status: "PASS"`; `publicTagInstall` is true only because both isolated profiles were reinstalled from the immutable `v0.1.0-rc.3` tag and the public-tag Web/model checks were repeated. The historical `benchmark/release-receipt.json` continues to document RC2.
+The completed `benchmark/release-candidate-receipt.json` uses `status: "PASS"`; `publicTagInstall` is true because both isolated profiles were reinstalled from the immutable `v0.1.0-rc.3` tag and the public-tag Web installation checks passed. The model smoke evidence remains recorded for the authorized alpha.3 headless profile. The historical `benchmark/release-receipt.json` continues to document RC2.
 
 Verify from the running local Web host:
 
@@ -113,7 +113,8 @@ Run the same public-tag install path on Windows x64 and WSL2 Ubuntu. Freeze evid
 - [x] Confirm `benchmark/release-receipt.json` remains tracked in the repository as release evidence and is not included in the npm runtime package; this keeps the artifact digest independently verifiable.
 - [x] Update `benchmark/release-receipt.json` only with gates that actually passed on the exact runtime and artifact.
 - [x] Commit and push `main` after the design guide was complete and synchronization was authorized.
-- [x] Create and push the immutable `v0.1.0-rc.2` tag for this revision.
-- [x] Install from the public tag in fresh isolated `web` and `headless` profiles and repeat the Web/model checks.
-- [ ] Create a separate GitHub Release entry with release notes and the artifact digest.
+- [x] Create and push the immutable `v0.1.0-rc.3` tag for this revision.
+- [x] Install from the public tag in fresh isolated `web` and `headless` profiles and repeat the Web installation checks; keep the authorized-profile model smoke evidence separate.
+- [x] Publish `dsh-deepcanary@0.1.0-rc.3` to the official npm registry under the `next` channel and verify its dist-tags and integrity metadata.
+- [x] Create a separate GitHub Release entry with release notes and the artifact digest.
 - [x] Verify the GitHub repository retains the `dsh` topic and that the README installation URL resolves to the published tag.
