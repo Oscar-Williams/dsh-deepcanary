@@ -7,7 +7,7 @@ import type { DeepCanaryConfigInput } from './config.js'
 import { ContextDshAdapter } from './adapters/dsh.js'
 import type { Disposable } from './adapters/dsh.js'
 import { getWorkspaceIdentity } from './adapters/windows.js'
-import { hashMetadata, MetadataStore } from './persistence.js'
+import { hashMetadata, MetadataStore, SuppressionStore } from './persistence.js'
 import { buildOutcomeReceipt, MAX_OUTCOME_RECEIPTS, normalizeOutcomeDeleteFilter, normalizeOutcomeInput, OutcomeStore } from './outcome.js'
 import {
   signalFromAgentError,
@@ -28,6 +28,7 @@ import type {
   DryRunResult,
   DryRunSignalInput,
   EvidenceAuthority,
+  FeedbackValue,
   InboxItem,
   PolicyDecisionTrace,
   PublicInboxItem,
@@ -38,12 +39,14 @@ import type {
   OutcomeDeleteFilter,
   OutcomeReceiptInput,
   RuntimeStatus,
+  SuppressibleReasonCode,
 } from './types.js'
-import { ATTENTION_PROTOCOL_VERSION as PROTOCOL_VERSION } from './types.js'
+import { ATTENTION_PROTOCOL_VERSION as PROTOCOL_VERSION, SUPPRESSIBLE_REASON_CODES } from './types.js'
 
 const PLUGIN_NAME = 'dsh-deepcanary'
-const PLUGIN_VERSION = '0.1.0-rc.3'
+const PLUGIN_VERSION = '0.1.0-rc.4'
 const SETTINGS_NAMESPACE = 'dsh-deepcanary'
+const DEFAULT_MUTE_MINUTES = 60
 
 interface LiveSession {
   id: string
@@ -122,6 +125,7 @@ function cloneOutcome(receipt: OutcomeReceipt): OutcomeReceipt {
 export class DeepCanaryService {
   config: DeepCanaryConfig
   readonly store: MetadataStore
+  readonly suppressionStore: SuppressionStore
   readonly outcomeStore: OutcomeStore
   readonly workspace = getWorkspaceIdentity()
   readonly adapter: ContextDshAdapter
@@ -130,6 +134,7 @@ export class DeepCanaryService {
   private readonly ctx: ContextLike
   private readonly sessions = new Map<string, LiveSession>()
   private readonly items: InboxItem[] = []
+  private readonly suppressedReasons = new Set<SuppressibleReasonCode>()
   private readonly dedupe: DedupeLedger
   private readonly budget: InterruptBudget
   private readonly pressureSeen = new Set<number>()
@@ -154,12 +159,14 @@ export class DeepCanaryService {
   private readonly actionReceipts = new Map<string, ActionReceipt>()
   private readonly outcomeReceipts = new Map<string, OutcomeReceipt>()
   private outcomeSaveChain = Promise.resolve()
+  private suppressionSaveChain = Promise.resolve()
 
   constructor(ctx: Context, input?: DeepCanaryConfigInput) {
     this.ctx = ctx as unknown as ContextLike
     this.adapter = new ContextDshAdapter(ctx)
     this.config = normalizeConfig(input)
     this.store = new MetadataStore(this.config.stateDir)
+    this.suppressionStore = new SuppressionStore(this.config.stateDir)
     this.outcomeStore = new OutcomeStore(this.config.stateDir)
     this.dedupe = new DedupeLedger(this.config.dedupeWindowMinutes * 60 * 1000)
     this.budget = new InterruptBudget(this.config.maxInterruptsPerHour)
@@ -238,6 +245,9 @@ export class DeepCanaryService {
     this.normalizeLifecycle(now)
     let verdict = this.safeVerdict(judgeSignal(signal))
     if (verdict.level === 'C0') return undefined
+    // Persistent type suppression applies only to low-risk informational classes.
+    // Human-needed, host, and failure signals can never be hidden by this preference.
+    if (verdict.level === 'C1' && this.suppressedReasons.has(verdict.reasonCode as SuppressibleReasonCode)) return undefined
     const dedupeKey = signal.dedupeKey ?? `${signal.kind}:${signal.sessionId ?? 'host'}`
     if (!this.dedupe.accept(dedupeKey, now)) return undefined
 
@@ -251,22 +261,21 @@ export class DeepCanaryService {
     const bundleKey = signal.bundleKey ? hashMetadata(signal.bundleKey) : undefined
     const existing = bundleKey ? this.findBundle(bundleKey, now) : undefined
     if (existing) {
-      const bundledVerdict = applyDeliveryPolicy(verdict, this.config, now, { budgetAvailable: this.budget.canInterrupt(now) })
-      this.mergeBundle(existing, bundledVerdict, signal, now)
+      // A bundle represents one user-facing attention item. Repeated signals
+      // at the same or lower level enrich that item without spending another
+      // interrupt. Policy is re-applied only when the bundle genuinely rises
+      // to a higher attention level.
+      const escalates = levelValue[verdict.level] > levelValue[existing.level]
+      const bundledVerdict = escalates
+        ? this.applyPolicy(verdict, now, existing.action === 'INTERRUPT')
+        : verdict
+      this.mergeBundle(existing, bundledVerdict, signal)
       this.bumpRevision()
       this.queueSave()
       return existing
     }
 
-    let policyVerdict = applyDeliveryPolicy(verdict, this.config, now, { budgetAvailable: this.budget.canInterrupt(now) })
-    if (policyVerdict.action === 'INTERRUPT') {
-      if (this.budget.consume(now)) {
-        policyVerdict = applyDeliveryPolicy(verdict, this.config, now, { budgetAvailable: true, budgetConsumed: true })
-      } else {
-        policyVerdict = applyDeliveryPolicy(verdict, this.config, now, { budgetAvailable: false })
-      }
-    }
-    verdict = policyVerdict
+    verdict = this.applyPolicy(verdict, now)
 
     const item: InboxItem = {
       ...verdict,
@@ -324,6 +333,19 @@ export class DeepCanaryService {
         nativeToast: this.workspace.nativeToast === 'available',
         windowsInterop: this.workspace.windowsInterop,
         destructiveActions: false,
+      },
+      delivery: {
+        interruptBudget: {
+          limit: this.budget.limit(),
+          used: this.budget.used(now),
+          remaining: this.budget.remaining(now),
+        },
+        quietHours: {
+          ...this.config.quietHours,
+          active: this.isQuietHours(now),
+        },
+        dedupeWindowMinutes: this.config.dedupeWindowMinutes,
+        bundleWindowSeconds: this.config.bundleWindowSeconds,
       },
     }
   }
@@ -421,6 +443,7 @@ export class DeepCanaryService {
     item.status = 'acknowledged'
     item.acknowledgedAt = nowIso()
     delete item.snoozedUntil
+    delete item.mutedUntil
     this.bumpRevision()
     this.queueSave()
     this.updateExistingOutcome(item, { opened: true, acknowledged: true })
@@ -433,6 +456,7 @@ export class DeepCanaryService {
     const bounded = Number.isFinite(minutes) ? Math.max(1, Math.min(24 * 60, Math.trunc(minutes))) : 30
     item.status = 'snoozed'
     item.snoozedUntil = new Date(Date.now() + bounded * 60 * 1000).toISOString()
+    delete item.mutedUntil
     this.bumpRevision()
     this.queueSave()
     this.updateExistingOutcome(item, { opened: true, snoozed: true })
@@ -442,20 +466,65 @@ export class DeepCanaryService {
   mute(id: string): boolean {
     const item = this.find(id)
     if (!item || item.status === 'muted' || item.status === 'recovered' || item.status === 'expired') return false
-    item.status = 'muted'
+    const now = Date.now()
+    const currentMute = item.mutedUntil === undefined ? Number.NaN : Date.parse(item.mutedUntil)
+    if (Number.isFinite(currentMute) && currentMute > now) return false
+    if (item.status === 'snoozed') item.status = 'open'
     delete item.snoozedUntil
+    item.mutedUntil = new Date(now + DEFAULT_MUTE_MINUTES * 60 * 1000).toISOString()
     this.bumpRevision()
     this.queueSave()
     this.updateExistingOutcome(item, { opened: true, muted: true })
     return true
   }
 
-  feedback(id: string, useful: boolean, note?: string): boolean {
+  /** End a temporary mute immediately while retaining the Inbox item. */
+  unmute(id: string): boolean {
+    const item = this.find(id)
+    if (!item || item.status === 'recovered' || item.status === 'expired') return false
+    const until = item.mutedUntil === undefined ? Number.NaN : Date.parse(item.mutedUntil)
+    if (item.status !== 'muted' && (!Number.isFinite(until) || until <= Date.now())) return false
+    if (item.status === 'muted') item.status = 'open'
+    delete item.mutedUntil
+    this.bumpRevision()
+    this.queueSave()
+    this.updateExistingOutcome(item, { opened: true, muted: false })
+    return true
+  }
+
+  /** Persistently silence the current low-risk event class for future signals. */
+  suppress(id: string): { updated: boolean; reasonCode?: SuppressibleReasonCode } {
+    const item = this.find(id)
+    if (!item || item.level !== 'C1' || !isSuppressibleReasonCode(item.reasonCode)) return { updated: false }
+    this.suppressedReasons.add(item.reasonCode)
+    // The current item is handled immediately; future C1 items of this class
+    // are filtered at ingestion. Higher-level events remain eligible.
+    item.status = 'acknowledged'
+    item.acknowledgedAt = nowIso()
+    delete item.snoozedUntil
+    delete item.mutedUntil
+    this.bumpRevision()
+    this.queueSave()
+    this.queueSuppressionSave()
+    this.updateExistingOutcome(item, { opened: true, muted: true })
+    return { updated: true, reasonCode: item.reasonCode }
+  }
+
+  /** Restore notifications for a previously silenced low-risk event class. */
+  unsuppress(reasonCode: string): boolean {
+    if (!isSuppressibleReasonCode(reasonCode) || !this.suppressedReasons.delete(reasonCode)) return false
+    this.bumpRevision()
+    this.queueSuppressionSave()
+    return true
+  }
+
+  feedback(id: string, useful: boolean, note?: string, value?: FeedbackValue): boolean {
     const item = this.find(id)
     if (!item) return false
     const safeNote = safeFeedbackNote(note)
     item.feedback = {
       useful: Boolean(useful),
+      value: value ?? (useful ? 'useful' : 'not-relevant'),
       ...(safeNote === undefined ? {} : { note: safeNote }),
       at: nowIso(),
     }
@@ -508,24 +577,31 @@ export class DeepCanaryService {
       sessionId: item.sessionId,
       url: `/?session=${encodeURIComponent(item.sessionId)}`,
       available: true,
-      note: 'The URL is a local DSH navigation hint; the host decides whether the session route is available.',
+      note: 'The URL is a local DSH navigation hint; the host decides whether the live or historical session route is available.',
     }
   }
 
   /** Apply one browser action exactly once for its request id. */
   async performAction(requestId: string, id: string, action: string, payload: Record<string, unknown> = {}): Promise<ActionReceipt> {
+    await this.ready
     if (typeof requestId !== 'string' || requestId.length === 0 || requestId.length > 128 || /[\u0000-\u001f]/.test(requestId)) {
       return { status: 400, body: { error: 'requestId must be a printable string of 1-128 characters' }, fingerprint: '' }
     }
-    const knownActions = new Set(['seen', 'acknowledge', 'snooze', 'mute', 'feedback', 'jump', 'retry'])
+    const knownActions = new Set(['seen', 'acknowledge', 'snooze', 'mute', 'unmute', 'suppress', 'unsuppress', 'feedback', 'jump', 'retry'])
     if (!knownActions.has(action)) {
       return { status: 400, body: { error: 'unsupported action', schemaVersion: PROTOCOL_VERSION }, fingerprint: '' }
     }
-    if (action !== 'retry' && (typeof id !== 'string' || id.length === 0 || id.length > 256)) {
+    if (action !== 'retry' && action !== 'unsuppress' && (typeof id !== 'string' || id.length === 0 || id.length > 256)) {
       return { status: 400, body: { error: 'id is required', schemaVersion: PROTOCOL_VERSION }, fingerprint: '' }
+    }
+    if (action === 'unsuppress' && typeof payload.reasonCode !== 'string' && (typeof id !== 'string' || id.length === 0)) {
+      return { status: 400, body: { error: 'reasonCode is required', schemaVersion: PROTOCOL_VERSION }, fingerprint: '' }
     }
     if (action === 'feedback' && typeof payload.useful !== 'boolean') {
       return { status: 400, body: { error: 'feedback.useful must be boolean', schemaVersion: PROTOCOL_VERSION }, fingerprint: '' }
+    }
+    if (action === 'feedback' && payload.value !== undefined && !isFeedbackValue(payload.value)) {
+      return { status: 400, body: { error: 'feedback.value is unsupported', schemaVersion: PROTOCOL_VERSION }, fingerprint: '' }
     }
     if (action === 'snooze' && payload.minutes !== undefined && (typeof payload.minutes !== 'number' || !Number.isFinite(payload.minutes))) {
       return { status: 400, body: { error: 'snooze.minutes must be a finite number', schemaVersion: PROTOCOL_VERSION }, fingerprint: '' }
@@ -536,7 +612,9 @@ export class DeepCanaryService {
       action,
       minutes: payload.minutes,
       useful: payload.useful,
+      value: payload.value,
       note: payload.note,
+      reasonCode: payload.reasonCode,
     })
     const previous = this.actionReceipts.get(requestId)
     if (previous !== undefined) {
@@ -552,25 +630,59 @@ export class DeepCanaryService {
 
     let status = 200
     let body: Record<string, unknown>
+    let result: Record<string, unknown> | undefined
     if (action === 'retry') {
       await this.probeHost()
-      body = { schemaVersion: PROTOCOL_VERSION, requestId, revision: this.revision, updated: this.hostProbePort !== undefined }
+      const updated = this.hostProbePort !== undefined
+      result = { kind: updated ? 'host-probe-complete' : 'host-probe-unavailable' }
+      body = { schemaVersion: PROTOCOL_VERSION, requestId, revision: this.revision, updated, result }
+    } else if (action === 'unsuppress') {
+      const reasonCode = typeof payload.reasonCode === 'string' ? payload.reasonCode : id
+      const updated = this.unsuppress(reasonCode)
+      result = { kind: updated ? 'suppression-restored' : 'suppression-not-found', ...(isSuppressibleReasonCode(reasonCode) ? { reasonCode } : {}) }
+      body = { schemaVersion: PROTOCOL_VERSION, requestId, revision: this.revision, updated, result }
     } else if (this.find(id) === undefined) {
       status = 404
       body = { error: 'inbox item not found', schemaVersion: PROTOCOL_VERSION, requestId, revision: this.revision, updated: false }
     } else if (action === 'jump') {
       body = { schemaVersion: PROTOCOL_VERSION, requestId, revision: this.revision, result: this.jump(id) }
     } else {
-      const updated = action === 'seen'
-        ? this.seen(id)
-        : action === 'acknowledge'
-          ? this.acknowledge(id)
-          : action === 'snooze'
-            ? this.snooze(id, typeof payload.minutes === 'number' ? payload.minutes : 30)
-            : action === 'mute'
-              ? this.mute(id)
-              : this.feedback(id, payload.useful === true, typeof payload.note === 'string' ? payload.note : undefined)
-      body = { schemaVersion: PROTOCOL_VERSION, requestId, revision: this.revision, updated }
+      let updated: boolean
+      let updatedItem: PublicInboxItem | undefined
+      if (action === 'seen') updated = this.seen(id)
+      else if (action === 'acknowledge') updated = this.acknowledge(id)
+      else if (action === 'snooze') updated = this.snooze(id, typeof payload.minutes === 'number' ? payload.minutes : 30)
+      else if (action === 'mute') updated = this.mute(id)
+      else if (action === 'unmute') updated = this.unmute(id)
+      else if (action === 'suppress') {
+        const suppression = this.suppress(id)
+        updated = suppression.updated
+        result = { kind: updated ? 'suppressed' : 'suppression-rejected', ...(suppression.reasonCode === undefined ? {} : { reasonCode: suppression.reasonCode }) }
+      } else {
+        updated = this.feedback(
+          id,
+          payload.useful === true,
+          typeof payload.note === 'string' ? payload.note : undefined,
+          isFeedbackValue(payload.value) ? payload.value : undefined,
+        )
+        result = {
+          kind: updated ? 'feedback-recorded' : 'feedback-rejected',
+          useful: payload.useful === true,
+          value: isFeedbackValue(payload.value) ? payload.value : payload.useful === true ? 'useful' : 'not-relevant',
+        }
+      }
+      if (result === undefined) {
+        result = { kind: updated ? `${action}-complete` : `${action}-not-applied` }
+      }
+      if (updated) updatedItem = this.find(id) ? this.toPublic(this.find(id) as InboxItem) : undefined
+      body = {
+        schemaVersion: PROTOCOL_VERSION,
+        requestId,
+        revision: this.revision,
+        updated,
+        result,
+        ...(updatedItem === undefined ? {} : { item: updatedItem }),
+      }
     }
 
     const receipt: ActionReceipt = { status, body, fingerprint }
@@ -620,6 +732,7 @@ export class DeepCanaryService {
     await this.ready.catch(() => undefined)
     await this.saveChain
     await this.outcomeSaveChain
+    await this.suppressionSaveChain
   }
 
   private async hydrate(): Promise<void> {
@@ -635,6 +748,13 @@ export class DeepCanaryService {
       for (const receipt of restoredOutcomes.slice(-MAX_OUTCOME_RECEIPTS)) this.outcomeReceipts.set(receipt.attentionRef, receipt)
     } catch (error: unknown) {
       this.logger.warn?.(`${PLUGIN_NAME}: outcome records could not be loaded; starting with an empty outcome set`, error)
+    }
+    try {
+      const restoredSuppressions = await this.suppressionStore.load()
+      this.suppressedReasons.clear()
+      for (const reasonCode of restoredSuppressions) this.suppressedReasons.add(reasonCode)
+    } catch (error: unknown) {
+      this.logger.warn?.(`${PLUGIN_NAME}: notification suppression preferences could not be loaded; starting with no suppressed types`, error)
     }
     this.hydrated = true
   }
@@ -659,11 +779,14 @@ export class DeepCanaryService {
       sameToolFailures: 0,
     })
     const sessionRef = hashMetadata(id)
+    let linkedHistoricalItem = false
     for (const item of this.items) {
       if (item.sessionId === undefined && item.sessionRef === sessionRef) {
         item.sessionId = id
+        linkedHistoricalItem = true
       }
     }
+    if (linkedHistoricalItem) this.queueSave()
     this.bumpRevision()
   }
 
@@ -777,36 +900,45 @@ export class DeepCanaryService {
     })
   }
 
-  private mergeBundle(item: InboxItem, verdict: AttentionVerdict, signal: CanarySignal, now: number): void {
-    const previousLevel = item.level
+  /** Apply delivery policy and reserve one C2 budget unit only for a new interrupt. */
+  private applyPolicy(verdict: AttentionVerdict, now: number, budgetConsumed = false): AttentionVerdict {
+    const first = applyDeliveryPolicy(verdict, this.config, now, {
+      budgetAvailable: budgetConsumed || this.budget.canInterrupt(now),
+      ...(budgetConsumed ? { budgetConsumed: true } : {}),
+    })
+    if (budgetConsumed || first.action !== 'INTERRUPT') return first
+    if (!this.budget.consume(now)) {
+      return applyDeliveryPolicy(verdict, this.config, now, { budgetAvailable: false })
+    }
+    return applyDeliveryPolicy(verdict, this.config, now, { budgetAvailable: true, budgetConsumed: true })
+  }
+
+  private mergeBundle(item: InboxItem, verdict: AttentionVerdict, signal: CanarySignal): void {
+    const incomingIsHigher = levelValue[verdict.level] > levelValue[item.level]
+    const sameReason = verdict.reasonCode === item.reasonCode
     item.bundleCount += 1
     item.reasonCodes = [...new Set([...item.reasonCodes, verdict.reasonCode])]
-    item.messageKey = verdict.messageKey
-    if (verdict.messageParams !== undefined) item.messageParams = { ...verdict.messageParams }
-    if (verdict.suggestionKey !== undefined) item.suggestionKey = verdict.suggestionKey
+    // Keep the root cause copy stable while retaining the secondary reason
+    // codes and evidence in the bundle. A repeated root-cause signal may
+    // refresh its parameters; a lower-priority signal cannot replace it.
+    if (incomingIsHigher || sameReason) {
+      item.messageKey = verdict.messageKey
+      if (verdict.messageParams !== undefined) item.messageParams = { ...verdict.messageParams }
+      if (verdict.suggestionKey !== undefined) item.suggestionKey = verdict.suggestionKey
+      if (verdict.suggestedAction !== undefined) item.suggestedAction = verdict.suggestedAction
+    }
     item.policyVersion = verdict.policyVersion
     item.evidence = [...item.evidence, ...verdict.evidence]
       .filter((candidate, index, all) => all.findIndex(value => value.type === candidate.type && value.authority === candidate.authority && value.ref === candidate.ref) === index)
       .slice(-8)
-    if (verdict.why !== item.why) item.why = `${item.why} Related signal: ${verdict.why}`.slice(0, 500)
-    if (verdict.suggestedAction !== undefined) item.suggestedAction = verdict.suggestedAction
-    if (levelValue[verdict.level] > levelValue[item.level]) {
+    if (verdict.why !== item.why && !item.why.includes(verdict.why)) item.why = `${item.why} Related signal: ${verdict.why}`.slice(0, 500)
+    if (incomingIsHigher) {
       item.level = verdict.level
       item.reasonCode = verdict.reasonCode
-      if (verdict.level === 'C3') item.action = 'ESCALATE'
-      else if (verdict.level === 'C2' && item.action !== 'DIGEST') item.action = this.budget.consume(now) ? 'INTERRUPT' : 'DIGEST'
-    } else if (previousLevel === 'C1' && verdict.level === 'C1' && item.action === 'INBOX') {
-      item.action = 'INBOX'
-    }
-    if (this.isQuietHours(now) && item.action === 'INTERRUPT') {
-      item.action = 'DIGEST'
-      if (item.decisionTrace !== undefined) {
-        item.decisionTrace = {
-          ...item.decisionTrace,
-          appliedScopes: [...new Set([...item.decisionTrace.appliedScopes, 'quiet-hours'])],
-          suppressedBy: [...new Set([...item.decisionTrace.suppressedBy, 'quiet-hours'])],
-        }
-      }
+      item.action = verdict.action
+      // A level escalation reopens delivery. This preserves the safety floor
+      // when an item was temporarily muted before the higher-level evidence.
+      delete item.mutedUntil
     }
     item.confidence = Math.max(item.confidence, verdict.confidence)
     item.occurredAt = signal.occurredAt
@@ -918,6 +1050,7 @@ export class DeepCanaryService {
       privacySafeSummary: this.config.privacySafeSummary,
       healthPollSeconds: this.config.healthPollSeconds,
       maxInboxItems: this.config.maxInboxItems,
+      suppressedReasonCodes: [...this.suppressedReasons],
     }
   }
 
@@ -968,6 +1101,8 @@ export class DeepCanaryService {
       ...(item.acknowledgedAt ? { acknowledgedAt: item.acknowledgedAt } : {}),
       ...(item.recoveredAt ? { recoveredAt: item.recoveredAt } : {}),
       ...(item.expiredAt ? { expiredAt: item.expiredAt } : {}),
+      ...(item.mutedUntil ? { mutedUntil: item.mutedUntil } : {}),
+      ...(item.feedback ? { feedback: { useful: item.feedback.useful, ...(item.feedback.value === undefined ? {} : { value: item.feedback.value }), at: item.feedback.at } } : {}),
       bundleCount: item.bundleCount,
       reasonCodes: [...item.reasonCodes],
     }
@@ -983,12 +1118,21 @@ export class DeepCanaryService {
   private normalizeLifecycle(now: number): void {
     let changed = false
     for (const item of this.items) {
-      if (item.status !== 'snoozed' || item.snoozedUntil === undefined) continue
-      const until = Date.parse(item.snoozedUntil)
-      if (!Number.isFinite(until) || until > now) continue
-      item.status = 'open'
-      delete item.snoozedUntil
-      changed = true
+      if (item.status === 'snoozed' && item.snoozedUntil !== undefined) {
+        const until = Date.parse(item.snoozedUntil)
+        if (Number.isFinite(until) && until <= now) {
+          item.status = 'open'
+          delete item.snoozedUntil
+          changed = true
+        }
+      }
+      if (item.mutedUntil !== undefined) {
+        const until = Date.parse(item.mutedUntil)
+        if (!Number.isFinite(until) || until <= now) {
+          delete item.mutedUntil
+          changed = true
+        }
+      }
     }
     if (changed) {
       this.bumpRevision()
@@ -1029,6 +1173,14 @@ export class DeepCanaryService {
       .then(() => this.outcomeStore.save(snapshot))
       .catch(error => this.logger.warn?.(`${PLUGIN_NAME}: outcome records could not be saved`, error))
     return this.outcomeSaveChain
+  }
+
+  private queueSuppressionSave(): Promise<void> {
+    const snapshot = [...this.suppressedReasons]
+    this.suppressionSaveChain = this.suppressionSaveChain
+      .then(() => this.suppressionStore.save(snapshot))
+      .catch(error => this.logger.warn?.(`${PLUGIN_NAME}: notification suppression preferences could not be saved`, error))
+    return this.suppressionSaveChain
   }
 }
 
@@ -1156,6 +1308,17 @@ function publicDecisionTrace(trace: PolicyDecisionTrace): PolicyDecisionTrace {
     ...(trace.bundledWith === undefined ? {} : { bundledWith: { eventCount: trace.bundledWith.eventCount, reasonCodes: [...trace.bundledWith.reasonCodes] } }),
     authoritySummary: { strongest: trace.authoritySummary.strongest, counts: { ...trace.authoritySummary.counts } },
   }
+}
+
+function isSuppressibleReasonCode(value: string): value is SuppressibleReasonCode {
+  return SUPPRESSIBLE_REASON_CODES.includes(value as SuppressibleReasonCode)
+}
+
+function isFeedbackValue(value: unknown): value is FeedbackValue {
+  return value === 'useful'
+    || value === 'not-relevant'
+    || value === 'wrong-level'
+    || value === 'already-resolved'
 }
 
 function asRecord(value: unknown): Record<string, any> {

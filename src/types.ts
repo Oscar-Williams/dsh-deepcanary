@@ -15,6 +15,15 @@ export type ReasonCode =
   | 'COMPLETION_SUSPICIOUS'
   | 'HOST_STALL_RECOVERED'
 
+/** Low-risk event classes that a user may silence persistently from the Inbox. */
+export type SuppressibleReasonCode = 'TASK_COMPLETED' | 'COMPACTION_OCCURRED' | 'SUBAGENT_PRESSURE'
+
+export const SUPPRESSIBLE_REASON_CODES: readonly SuppressibleReasonCode[] = [
+  'TASK_COMPLETED',
+  'COMPACTION_OCCURRED',
+  'SUBAGENT_PRESSURE',
+]
+
 /** Version of the browser-facing state/action contract. */
 export const ATTENTION_PROTOCOL_VERSION = 2
 
@@ -23,6 +32,8 @@ export const ATTENTION_POLICY_VERSION = 'attention-policy.v1'
 
 /** Values safe to expose as interpolation parameters in localized copy. */
 export type MessageParams = Record<string, string | number | boolean>
+
+export type FeedbackValue = 'useful' | 'not-relevant' | 'wrong-level' | 'already-resolved'
 
 export type AttentionLevel = 'C0' | 'C1' | 'C2' | 'C3'
 export type AttentionAction = 'IGNORE' | 'INBOX' | 'DIGEST' | 'INTERRUPT' | 'ESCALATE'
@@ -115,8 +126,11 @@ export interface InboxItem extends AttentionVerdict {
   acknowledgedAt?: string
   recoveredAt?: string
   expiredAt?: string
+  /** Temporary delivery suppression; the Inbox item remains available while it is active. */
+  mutedUntil?: string
   feedback?: {
     useful: boolean
+    value?: FeedbackValue
     note?: string
     at: string
   }
@@ -168,6 +182,18 @@ export interface PublicSettings {
   privacySafeSummary: boolean
   healthPollSeconds: number
   maxInboxItems: number
+  suppressedReasonCodes: SuppressibleReasonCode[]
+}
+
+export interface DeliveryStatus {
+  interruptBudget: {
+    limit: number
+    used: number
+    remaining: number
+  }
+  quietHours: QuietHours & { active: boolean }
+  dedupeWindowMinutes: number
+  bundleWindowSeconds: number
 }
 
 export interface RuntimeStatus {
@@ -192,6 +218,7 @@ export interface RuntimeStatus {
     windowsInterop: 'available' | 'unavailable' | 'unknown'
     destructiveActions: false
   }
+  delivery: DeliveryStatus
 }
 
 export interface PublicInboxItem {
@@ -215,6 +242,8 @@ export interface PublicInboxItem {
   acknowledgedAt?: string
   recoveredAt?: string
   expiredAt?: string
+  mutedUntil?: string
+  feedback?: { useful: boolean; value?: FeedbackValue; at: string }
   bundleCount: number
   reasonCodes: ReasonCode[]
 }

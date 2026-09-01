@@ -17,6 +17,8 @@ export declare class InterruptBudget {
     canInterrupt(now?: number): boolean;
     consume(now?: number): boolean;
     remaining(now?: number): number;
+    used(now?: number): number;
+    limit(): number;
     private prune;
 }
 //# sourceMappingURL=dedupe.d.ts.map

@@ -1,27 +1,27 @@
 # RC release checklist
 
-This checklist prepares the public `dsh-deepcanary` `v0.1.0-rc.4` prerelease and preserves the historical RC2 procedure for reproduction. RC4 is pinned to the exact official `dsh-v0.1.2-alpha.3` tag at commit `dd6322d604e00eec1ba5e0c8541159906a21094a`; RC2 remains tied to `dsh-v0.1.2-alpha.2`. An older DSH npm runtime must not silently become either test baseline. The public `v0.1.0-rc.1` remains a historical artifact.
+This checklist prepares the `dsh-deepcanary` `v0.1.0-rc.4` prerelease and preserves the historical RC2 procedure for reproduction. RC4 is pinned to the exact official `dsh-v0.1.2-alpha.4` tag at commit `4e84901e6471b79ec0338099867ebb4606d12bb5`; RC2 remains tied to `dsh-v0.1.2-alpha.2`. An older DSH npm runtime belongs to historical diagnosis. The public `v0.1.0-rc.1` remains a historical artifact.
 
-RC4 public npm publication and GitHub Release remain pending until the npm account withdrawal window ends; mark public install, tag, Release, and npm dist-tag items only after each external check passes.
+RC4 npm publication is currently paused. The local tarball and the exact alpha.4 source checkout provide the active acceptance path; mark public install, tag, Release, and npm dist-tag items only after each external check passes.
 
-## RC4 release: official DSH alpha.3
+## RC4 release: official DSH alpha.4
 
 Run the following from a clean or verified checkout before evaluating a new plugin tag:
 
 ```powershell
 git fetch --tags https://github.com/deepseek-ai/deepseek-harness.git
-git switch --detach dsh-v0.1.2-alpha.3
+git switch --detach dsh-v0.1.2-alpha.4
 npx --yes pnpm@11.7.0 install --frozen-lockfile
 npx --yes pnpm@11.7.0 run build
 npx --yes pnpm@11.7.0 dsh --version
 npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 ```
 
-The version must be `0.1.2-alpha.3` and the checkout must resolve to `dd6322d604e00eec1ba5e0c8541159906a21094a`. Install the published plugin `dsh-deepcanary@0.1.0-rc.4` or its immutable `v0.1.0-rc.4` tag into isolated `web` and `headless` profiles, then record the plugin package version, health and OutcomeReceipt routes, nine model-visible tools, settings namespace, client-module boot graph, unload/reload result, and model smoke result. Keep the alpha.3 result in a separate receipt; do not append it to the historical RC.2 receipt.
+The version must be `0.1.2-alpha.4` and the checkout must resolve to `4e84901e6471b79ec0338099867ebb4606d12bb5`. Install the locally generated RC4 tarball into isolated `web` and `headless` profiles, then record the plugin package version, health and OutcomeReceipt routes, nine model-visible tools, settings namespace, client-module boot graph, unload/reload result, and model smoke result. Repeat with the immutable GitHub tag or npm package after its public operation succeeds. Keep the alpha.4 result in the active RC4 receipt and preserve alpha.3 evidence in its historical receipt.
 
 RC4 also runs `npm run quality:report` and `npm run benchmark:attention`. These commands provide the frozen replay and local resource baseline. A sanitized trial records OutcomeReceipts through `/dsh-deepcanary/outcome` and produces a source-filtered report with `npm run outcomes:report`; the public schemas are [`benchmark/outcome-receipt.schema.json`](../benchmark/outcome-receipt.schema.json) and [`benchmark/outcome-report.schema.json`](../benchmark/outcome-report.schema.json). The RC4 public receipt is [`benchmark/release-candidate-receipt.json`](../benchmark/release-candidate-receipt.json); the earlier alpha.3 compatibility record remains separate and does not replace the historical RC2 receipt.
 
-The repository CI workflow also starts the pinned alpha.3 Web profile in an isolated home and exercises the panel through Playwright CLI. Run [33481882712](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33481882712) passed on the preceding public RC3 revision and supplies the inherited compatibility baseline; a new RC4 run will be recorded after the candidate commit is pushed. Automated checks do not replace physical touch or real Screen Reader evaluation.
+The repository CI workflow starts the pinned alpha.4 Web profile in an isolated home and exercises the panel through Playwright CLI. Run [33481882712](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33481882712) passed on the preceding public RC3 revision and supplies the inherited compatibility baseline; a new RC4 run will be recorded after the candidate commit is pushed. Automated checks cover the computer interaction surface; physical touch and real Screen Reader evaluation remain separate device checks.
 
 ## 1. Source and documentation
 
@@ -44,7 +44,7 @@ npm run verify:distribution
 npm pack --dry-run
 ```
 
-The AttentionGold gate must pass offline. It must cover normal completion, approval, question, repeated failure, host unreachable, host stall, no-progress, Subagent pressure, compaction, context pressure, healthy long-running work, background completion, user viewing DSH, suspicious completion, recovered stall, duplicate events, and a shared-root Decision Bundle. The privacy gate must confirm that raw Session/Workspace identifiers and conversation content are absent from persisted metadata.
+The AttentionGold gate must pass offline. It must cover normal completion, approval, question, repeated failure, host unreachable, host stall, no-progress, Subagent pressure, compaction, context pressure, healthy long-running work, background completion, user viewing DSH, suspicious completion, recovered stall, duplicate events, and a shared-root Decision Bundle. The privacy gate must confirm that Session/Workspace references and conversation content remain absent from persisted metadata. A bounded opaque local DSH session handle may be present solely for native `sessions.open` navigation.
 
 ## 3. Historical DSH alpha.2 gates
 
@@ -65,7 +65,7 @@ For the live-model smoke gate, use the same DSH home in which the API credential
 
 ## 4. Public distribution and Web E2E
 
-The client-module revision was reviewed locally and the RC4 candidate is ready for the npm publication window. Create the immutable public tag and GitHub Release after npm accepts the new version.
+The client-module revision is verified locally and the RC4 candidate is ready for repository synchronization. npm publication remains paused; create a public tag or GitHub Release only after the repository commit and artifact evidence are complete.
 
 ```powershell
 npx --yes pnpm@11.7.0 dsh plugin --profile web remove dsh-deepcanary
@@ -76,7 +76,7 @@ npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
 
-The completed `benchmark/release-candidate-receipt.json` uses `status: "PASS"`; `publicTagInstall` is true because both isolated profiles were reinstalled from the immutable `v0.1.0-rc.4` tag and the public-tag Web installation checks passed. The model smoke evidence remains recorded for the authorized alpha.3 headless profile. The historical `benchmark/release-receipt.json` continues to document RC2.
+The active `benchmark/release-candidate-receipt.json` uses `status: "CANDIDATE"` while the public tag, public npm package, and corresponding installation evidence are pending. Set `status: "PASS"` only after the exact public artifact and all claimed gates have been verified. The model smoke evidence is labeled by its exact runtime profile. The historical `benchmark/release-receipt.json` continues to document RC2.
 
 Verify from the running local Web host:
 
@@ -119,6 +119,6 @@ Run the same public-tag install path on Windows x64 and WSL2 Ubuntu. Freeze evid
 - [ ] Commit and push `main` after the design guide was complete and synchronization was authorized.
 - [ ] Create and push the immutable `v0.1.0-rc.4` tag for this revision.
 - [ ] Install from the public tag in fresh isolated `web` and `headless` profiles and repeat the Web installation checks; keep the authorized-profile model smoke evidence separate.
-- [ ] Publish `dsh-deepcanary@0.1.0-rc.4` to the official npm registry under the `next` channel and verify its dist-tags and integrity metadata.
+- [ ] Publish `dsh-deepcanary@0.1.0-rc.4` to the official npm registry under the `next` channel and verify its dist-tags and integrity metadata when npm publication is authorized.
 - [ ] Create a separate GitHub Release entry with release notes and the artifact digest.
 - [ ] Verify the GitHub repository retains the `dsh` topic and that the README installation URL resolves to the published tag.

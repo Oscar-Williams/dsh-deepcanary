@@ -28,7 +28,7 @@ The plugin observes DSH interfaces; it does not reimplement the agent loop. Sess
 
 `PolicyDecisionTrace` records stable rule identifiers, applied scopes, suppression causes, evidence-authority counts, final delivery action, Bundle aggregation, and recovery correlation. It contains no prompt, transcript, tool payload, credential, or raw event reference. `deepcanary_explain` and the Web explain route expose this projection for user decisions and support diagnosis.
 
-`src/adapters/dsh.ts` owns the DSH-facing adapter. `ContextDshAdapter` translates the alpha.3 Context events into a small lifecycle interface and keeps session snapshots in memory. Providers do not depend on Web UI or persistence details.
+`src/adapters/dsh.ts` owns the DSH-facing adapter. `ContextDshAdapter` translates the alpha.4 Context events into a small lifecycle interface and keeps session snapshots in memory. Providers do not depend on Web UI or persistence details.
 
 ## Provider coverage
 
@@ -70,10 +70,10 @@ The entry point is `src/index.ts`:
 - `session/created`, `session/event`, and `session/disposed` feed the adapter and Session providers;
 - optional `agents` and `subagents` injections observe live lifecycle facts;
 - optional `webServer` injection registers exact same-origin state, settings, health, action, and OutcomeReceipt routes;
-- optional `settings` injection registers the `dsh-deepcanary` namespace through the DSH Settings `installSection` API used by alpha.2 and alpha.3, with the composed configuration as its base and live user changes applied through the provider;
+- optional `settings` injection registers the `dsh-deepcanary` namespace through the DSH Settings `installSection` API used by alpha.4, with the composed configuration as its base and live user changes applied through the provider;
 - DSH Tools are registered with `defineTool`, explicit JSON output schemas, and text renderers.
 
-The browser client is a DSH alpha.3 `dsh.client` module. Its `./client` export is built as a lazy-CJS factory for the client-module loader, then contributes the sidebar entry through `sidebar.footer.action`, the floating Inbox through `shell.overlay`, and the settings card through `settings.plugin.item`. The state route remains the source of truth; no permanent body injection is needed. The Inbox renders the decision trace in a bilingual details section so policy reasoning remains available without opening another page.
+The browser client is a DSH alpha.4 `dsh.client` module. Its `./client` export is built as a lazy-CJS factory for the client-module loader, then contributes the sidebar entry through `sidebar.footer.action`, the floating Inbox through `shell.overlay`, and the settings card through `settings.plugin.item`. The state route remains the source of truth; the overlay opens on demand. The Inbox renders the decision trace in a bilingual details section so policy reasoning remains available without opening another page.
 
 The Web protocol is versioned independently from the persisted file format. State and action responses expose `schemaVersion` and a monotonic `revision`; state reads use an ETag and may return `304 Not Modified`. Actions require a client-generated `requestId`, and identical replays return the original receipt without applying the mutation twice. `GET /dsh-deepcanary/explain?id=...` returns one public trace projection, while `POST /dsh-deepcanary/dry-run` returns a read-only current/candidate comparison. `POST /dsh-deepcanary/outcome` records one bounded OutcomeReceipt, and `GET /dsh-deepcanary/outcomes` returns filtered receipts for one source and trial. Inbox entries move through explicit `open`, `seen`, `acknowledged`, `snoozed`, `muted`, `recovered`, and `expired` states so a transient host recovery cannot create a second alert for the same root cause.
 
@@ -85,7 +85,7 @@ The service queues persistence writes, uses atomic replace for `inbox.json`, dis
 
 ## Persistence and privacy
 
-`MetadataStore` writes an atomic `inbox.json` containing attention metadata only. `OutcomeStore` writes an independent atomic `outcomes.json` with validated, redacted decision-to-outcome records. Session and Workspace references are hashed before writing; evidence references are reduced to metadata codes. No transcript cache, prompt cache, credential store, raw model-judgment log, network client, or child process belongs to the plugin.
+`MetadataStore` writes an atomic `inbox.json` containing attention metadata only. `OutcomeStore` writes an independent atomic `outcomes.json` with validated, redacted decision-to-outcome records. Session and Workspace references are hashed before writing; evidence references are reduced to metadata codes. When DSH provides a native session identity, the Inbox may retain a bounded opaque local session handle solely for `sessions.open` navigation. No transcript cache, prompt cache, credential store, raw model-judgment log, network client, or child process belongs to the plugin.
 
 Outcome input requires an explicit source and redacted trial identifier. The service derives event class, reason code, level, action, policy version, and evidence authority from the stored Inbox item; callers supply only bounded user and later-outcome fields. The store caps records, validates every enum, keeps source aggregates separable, and uses an atomic replace. `scripts/generate-outcome-report.mjs` reads one source at a time and writes aggregate counts without trial identifiers or raw content.
 

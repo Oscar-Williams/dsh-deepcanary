@@ -8,8 +8,8 @@ describe('DeepCanary attention navigation', () => {
     handleNotificationClick(
       { close: () => { order.push('close') } },
       'alert-2',
-      id => { order.push(`open:${id}`) },
       () => { order.push('focus') },
+      id => { order.push(`open:${id}`) },
     )
     expect(order).toEqual(['focus', 'open:alert-2', 'close'])
   })
@@ -23,6 +23,50 @@ describe('DeepCanary attention navigation', () => {
     expect(positionSelectedAttention(elements, 'alert-2')).toBe(true)
     expect(positionSelectedAttention(elements, 'missing')).toBe(false)
     expect(calls).toEqual([{ id: 'alert-2', options: { block: 'nearest', inline: 'nearest' } }])
+  })
+
+  it('keeps the Inbox visible when alpha4 rejects an older session id', () => {
+    const order: string[] = []
+    handleNotificationClick(
+      { close: () => { order.push('close') } },
+      'historical-alert',
+      () => { order.push('focus') },
+      id => { order.push(`open:${id}`) },
+      () => false,
+      url => { order.push(`navigate:${url}`) },
+      '/?session=historical-session',
+      'historical-session',
+    )
+    expect(order).toEqual(['focus', 'open:historical-alert', 'close'])
+  })
+
+  it('retains URL fallback for a host without the native Session API', () => {
+    const order: string[] = []
+    handleNotificationClick(
+      { close: () => { order.push('close') } },
+      'legacy-alert',
+      () => { order.push('focus') },
+      id => { order.push(`open:${id}`) },
+      undefined,
+      url => { order.push(`navigate:${url}`) },
+      '/?session=legacy-session',
+    )
+    expect(order).toEqual(['focus', 'open:legacy-alert', 'navigate:/?session=legacy-session', 'close'])
+  })
+
+  it('prefers the public DSH Session API for an existing historical target', () => {
+    const order: string[] = []
+    handleNotificationClick(
+      { close: () => { order.push('close') } },
+      'historical-alert',
+      () => { order.push('focus') },
+      id => { order.push(`open:${id}`) },
+      sessionId => { order.push(`session:${sessionId}`); return true },
+      url => { order.push(`navigate:${url}`) },
+      '/?session=historical-session',
+      'historical-session',
+    )
+    expect(order).toEqual(['focus', 'session:historical-session', 'open:historical-alert', 'close'])
   })
 })
 
@@ -39,6 +83,8 @@ describe('DeepCanary DSH client surface', () => {
     expect(manifest.dsh?.client?.inject).toEqual([
       '@deepseek-ai/dsh-client-locale',
       '@deepseek-ai/dsh-client-ui-layout',
+      '@deepseek-ai/dsh-api-session-controller',
+      '@deepseek-ai/dsh-client-ui-session',
       '@deepseek-ai/dsh-client-ui-sidebar',
       '@deepseek-ai/dsh-client-ui-renderer',
       '@deepseek-ai/dsh-client-ui-settings',
@@ -63,6 +109,14 @@ describe('DeepCanary DSH client surface', () => {
     expect(source).toContain('requestId: makeRequestId()')
     expect(source).toContain('positionSelectedAttention')
     expect(source).toContain('handleNotificationClick')
+    expect(source).toContain('notificationTitle')
+    expect(source).toContain("value.action === 'INTERRUPT' || value.action === 'ESCALATE'")
+    expect(source).toContain('ctx.sessions')
+    expect(source).toContain('item.moreActions')
+    expect(source).toContain('item.suppressType')
+    expect(source).toContain('item.feedbackMenu')
+    expect(source).toContain('item.noSessionLink')
+    expect(source).toContain('pointermove')
     expect(source).toContain('visibilitychange')
     expect(source).not.toContain('function SettingsForm')
   })

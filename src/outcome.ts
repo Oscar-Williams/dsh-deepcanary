@@ -197,7 +197,8 @@ export function buildOutcomeReceipt(item: InboxItem, input: OutcomeReceiptInput,
   const defaultOpened = previous?.opened ?? openedByStatus
   const defaultAcknowledged = previous?.acknowledged ?? item.acknowledgedAt !== undefined
   const defaultSnoozed = previous?.snoozed ?? item.status === 'snoozed'
-  const defaultMuted = previous?.muted ?? item.status === 'muted'
+  const mutedUntil = item.mutedUntil === undefined ? Number.NaN : Date.parse(item.mutedUntil)
+  const defaultMuted = previous?.muted ?? (item.status === 'muted' || (Number.isFinite(mutedUntil) && mutedUntil > Date.now()))
   const defaultRecoveredBeforeOpen = previous?.recoveredBeforeOpen ?? (item.status === 'recovered' && !openedByStatus)
   const defaultFeedback: OutcomeFeedback = previous?.feedback
     ?? (item.feedback === undefined ? 'unrated' : item.feedback.useful ? 'useful' : 'not-useful')

@@ -1,11 +1,15 @@
 /** Stable reason codes emitted by DeepCanary providers. */
 export type ReasonCode = 'HUMAN_APPROVAL_REQUIRED' | 'HUMAN_QUESTION_PENDING' | 'HOST_UNREACHABLE' | 'HOST_SUSPECTED_STALL' | 'TOOL_FAILURE_LOOP' | 'NO_MEANINGFUL_PROGRESS' | 'SUBAGENT_PRESSURE' | 'CONTEXT_PRESSURE' | 'COMPACTION_OCCURRED' | 'TASK_COMPLETED' | 'TASK_FAILED' | 'TASK_ABORTED' | 'COMPLETION_SUSPICIOUS' | 'HOST_STALL_RECOVERED';
+/** Low-risk event classes that a user may silence persistently from the Inbox. */
+export type SuppressibleReasonCode = 'TASK_COMPLETED' | 'COMPACTION_OCCURRED' | 'SUBAGENT_PRESSURE';
+export declare const SUPPRESSIBLE_REASON_CODES: readonly SuppressibleReasonCode[];
 /** Version of the browser-facing state/action contract. */
 export declare const ATTENTION_PROTOCOL_VERSION = 2;
 /** Version of the deterministic attention policy used to create verdicts. */
 export declare const ATTENTION_POLICY_VERSION = "attention-policy.v1";
 /** Values safe to expose as interpolation parameters in localized copy. */
 export type MessageParams = Record<string, string | number | boolean>;
+export type FeedbackValue = 'useful' | 'not-relevant' | 'wrong-level' | 'already-resolved';
 export type AttentionLevel = 'C0' | 'C1' | 'C2' | 'C3';
 export type AttentionAction = 'IGNORE' | 'INBOX' | 'DIGEST' | 'INTERRUPT' | 'ESCALATE';
 export type EvidenceType = 'session-event' | 'runtime-probe' | 'tool-history' | 'subagent-state' | 'http-probe' | 'process-probe' | 'user-policy' | 'model-judgment';
@@ -83,8 +87,11 @@ export interface InboxItem extends AttentionVerdict {
     acknowledgedAt?: string;
     recoveredAt?: string;
     expiredAt?: string;
+    /** Temporary delivery suppression; the Inbox item remains available while it is active. */
+    mutedUntil?: string;
     feedback?: {
         useful: boolean;
+        value?: FeedbackValue;
         note?: string;
         at: string;
     };
@@ -132,6 +139,19 @@ export interface PublicSettings {
     privacySafeSummary: boolean;
     healthPollSeconds: number;
     maxInboxItems: number;
+    suppressedReasonCodes: SuppressibleReasonCode[];
+}
+export interface DeliveryStatus {
+    interruptBudget: {
+        limit: number;
+        used: number;
+        remaining: number;
+    };
+    quietHours: QuietHours & {
+        active: boolean;
+    };
+    dedupeWindowMinutes: number;
+    bundleWindowSeconds: number;
 }
 export interface RuntimeStatus {
     plugin: {
@@ -155,6 +175,7 @@ export interface RuntimeStatus {
         windowsInterop: 'available' | 'unavailable' | 'unknown';
         destructiveActions: false;
     };
+    delivery: DeliveryStatus;
 }
 export interface PublicInboxItem {
     id: string;
@@ -177,6 +198,12 @@ export interface PublicInboxItem {
     acknowledgedAt?: string;
     recoveredAt?: string;
     expiredAt?: string;
+    mutedUntil?: string;
+    feedback?: {
+        useful: boolean;
+        value?: FeedbackValue;
+        at: string;
+    };
     bundleCount: number;
     reasonCodes: ReasonCode[];
 }

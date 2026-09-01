@@ -39,7 +39,7 @@ Record one redacted `OutcomeReceipt` for each reviewed attention decision. The s
 {
   "id": "<Inbox item id>",
   "source": "real",
-  "trialId": "manual-alpha3-01",
+  "trialId": "manual-alpha4-01",
   "opened": true,
   "acknowledged": true,
   "snoozed": false,
@@ -85,13 +85,13 @@ memoryOverhead
 
 `decisionLatency` is measured from the first delivered C2/C3 item to the first user action on that item. Store counts, levels, reason codes, time buckets, versions, and privacy-safe references. Keep real runs, controlled fixtures, and replay runs in separate aggregates.
 
-The local state directory stores receipts in `outcomes.json`. Read a filtered set through `GET /dsh-deepcanary/outcomes?source=real&trialId=manual-alpha3-01`. Generate a report after building the plugin:
+The local state directory stores receipts in `outcomes.json`. Read a filtered set through `GET /dsh-deepcanary/outcomes?source=real&trialId=manual-alpha4-01`. Generate a report after building the plugin:
 
 ```powershell
 npm run outcomes:report -- --input <path-to-outcomes.json> --source real
 ```
 
-The command writes `output/dogfood/outcome-report.json`, which is ignored by Git and follows [`../benchmark/outcome-report.schema.json`](../benchmark/outcome-report.schema.json). It rejects mixed-source aggregates unless `--source` selects one source explicitly. When a trial is withdrawn or its retention window expires, remove it with `DELETE /dsh-deepcanary/outcomes?source=real&trialId=manual-alpha3-01` or an explicit `before=<ISO date>` cutoff. The endpoint never accepts an unscoped deletion.
+The command writes `output/dogfood/outcome-report.json`, which is ignored by Git and follows [`../benchmark/outcome-report.schema.json`](../benchmark/outcome-report.schema.json). It rejects mixed-source aggregates unless `--source` selects one source explicitly. When a trial is withdrawn or its retention window expires, remove it with `DELETE /dsh-deepcanary/outcomes?source=real&trialId=manual-alpha4-01` or an explicit `before=<ISO date>` cutoff. The endpoint always requires an explicit trial or time boundary.
 
 ## Privacy boundary
 

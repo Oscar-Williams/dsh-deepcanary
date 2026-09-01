@@ -4,15 +4,18 @@ All notable changes to `dsh-deepcanary` are recorded here.
 
 ## 0.1.0-rc.4 — release candidate (2026-09-01)
 
-`0.1.0-rc.4` is the prepared release candidate for the official DSH `dsh-v0.1.2-alpha.3`. It will provide the next npm installation target after the previous `0.1.0-rc.3` registry entry was withdrawn during account maintenance and npm's protection window ends; the previous version cannot be reused under npm registry policy.
+`0.1.0-rc.4` is the release candidate for the official DSH `dsh-v0.1.2-alpha.4`. The npm publication remains paused while the package is validated through the local tarball and GitHub source path; the exact public npm command will be enabled only after an authorized publication decision.
 
-The runtime behavior and Web UI contract remain aligned with RC3. This release refreshes the package identity, public installation instructions, release evidence, and GitHub Release path so users have one installable version to follow.
+This release keeps the RC3 user experience while completing the alpha.4 compatibility update and strengthening the attention workflow. The local tarball, GitHub source path, release evidence, and Web UI behavior now describe one reproducible RC4 candidate.
 
 ### Changed
 
-- updated the npm package version, package-lock metadata, bilingual installation commands, compatibility references, and release checklist to `0.1.0-rc.4`;
+- updated the npm package version, package-lock metadata, bilingual installation commands, compatibility references, and release checklist to `0.1.0-rc.4` and official DSH alpha.4;
 - retained the public `v0.1.0-rc.3` tag as historical reference while directing new installations to the RC4 npm package and tag;
-- preserved the official DSH alpha.3 compatibility baseline and the deterministic attention, privacy, OutcomeReceipt, and Web UI behavior validated for RC3;
+- classified authoritative human approval/question boundaries separately from heuristic hints, preserving the C3 safety floor for host/runtime evidence;
+- retained a bounded local DSH session handle for native session reopening while keeping session/workspace references, evidence, and content privacy-safe;
+- made feedback, mute, restore, suppression, and historical-session states visible and actionable in the Inbox;
+- validated the official DSH alpha.4 compatibility surface, including its Session sequence changes and the unchanged `sessions.open` navigation contract;
 - refreshed the release-candidate receipt for the RC4 artifact, npm dist-tag, GitHub tag, and publication evidence.
 
 ## 0.1.0-rc.3 — 2026-09-01

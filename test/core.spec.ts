@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DedupeLedger, InterruptBudget } from '../src/core/dedupe.js'
 import { judgeSignal } from '../src/core/judge.js'
+import { applyDeliveryPolicy } from '../src/core/policy.js'
 import type { CanarySignal } from '../src/types.js'
 
 function signal(overrides: Partial<CanarySignal>): CanarySignal {
@@ -28,6 +29,48 @@ describe('attention judge', () => {
   it('requires authoritative evidence before assigning C3', () => {
     expect(judgeSignal(signal({ kind: 'HOST_UNREACHABLE', severityHint: 3, evidence: [{ type: 'model-judgment', authority: 'heuristic', ref: 'model', summary: 'heuristic only' }] }))).toMatchObject({ level: 'C2' })
     expect(judgeSignal(signal({ kind: 'HOST_UNREACHABLE', severityHint: 3 }))).toMatchObject({ level: 'C3', action: 'ESCALATE' })
+  })
+
+  it('keeps an authoritative escalation at C3 while the user is viewing DSH', () => {
+    expect(judgeSignal(signal({
+      kind: 'HUMAN_APPROVAL_REQUIRED',
+      severityHint: 3,
+      data: { userViewing: true },
+    }))).toMatchObject({ level: 'C3', action: 'ESCALATE' })
+  })
+
+  it('classifies authoritative approval and blocking question boundaries as C3', () => {
+    expect(judgeSignal(signal({ kind: 'HUMAN_APPROVAL_REQUIRED', severityHint: 2 }))).toMatchObject({
+      level: 'C2',
+      action: 'INTERRUPT',
+      decisionTrace: { matchedRules: ['reason.default-c2'] },
+    })
+    expect(judgeSignal(signal({ kind: 'HUMAN_APPROVAL_REQUIRED', severityHint: 3 }))).toMatchObject({
+      level: 'C3',
+      action: 'ESCALATE',
+      decisionTrace: { matchedRules: ['human.approval-authoritative-c3'] },
+    })
+    expect(judgeSignal(signal({ kind: 'HUMAN_QUESTION_PENDING', severityHint: 3 }))).toMatchObject({
+      level: 'C3',
+      action: 'ESCALATE',
+      decisionTrace: { matchedRules: ['human.question-blocking-c3'] },
+    })
+    expect(judgeSignal(signal({
+      kind: 'HUMAN_QUESTION_PENDING',
+      severityHint: 3,
+      evidence: [{ type: 'model-judgment', authority: 'heuristic', ref: 'model', summary: 'heuristic only' }],
+    }))).toMatchObject({ level: 'C2', action: 'INTERRUPT' })
+  })
+
+  it('keeps C3 delivery as the safety floor through quiet hours, level caps, and budget exhaustion', () => {
+    const verdict = judgeSignal(signal({ kind: 'HOST_UNREACHABLE', severityHint: 3 }))
+    const delivered = applyDeliveryPolicy(verdict, {
+      notificationLevel: 'C1',
+      quietHours: { enabled: true, start: '00:00', end: '00:00' },
+    }, Date.now(), { budgetAvailable: false })
+    expect(delivered).toMatchObject({ level: 'C3', action: 'ESCALATE' })
+    expect(delivered.decisionTrace?.suppressedBy).not.toContain('quiet-hours')
+    expect(delivered.decisionTrace?.suppressedBy).not.toContain('interrupt-budget')
   })
 
   it('emits a privacy-safe deterministic decision trace', () => {

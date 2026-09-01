@@ -1,11 +1,11 @@
 import type { Context } from '@deepseek-ai/cordis';
 import type { DeepCanaryConfigInput } from './config.js';
 import { ContextDshAdapter } from './adapters/dsh.js';
-import { MetadataStore } from './persistence.js';
+import { MetadataStore, SuppressionStore } from './persistence.js';
 import { OutcomeStore } from './outcome.js';
-import type { CanarySignal, DeepCanaryConfig, DryRunRequest, DryRunResult, InboxItem, PublicInboxItem, PublicSettings, PublicSnapshot, OutcomeReceipt, OutcomeDeleteFilter, OutcomeReceiptInput, RuntimeStatus } from './types.js';
+import type { CanarySignal, DeepCanaryConfig, DryRunRequest, DryRunResult, FeedbackValue, InboxItem, PublicInboxItem, PublicSettings, PublicSnapshot, OutcomeReceipt, OutcomeDeleteFilter, OutcomeReceiptInput, RuntimeStatus, SuppressibleReasonCode } from './types.js';
 declare const PLUGIN_NAME = "dsh-deepcanary";
-declare const PLUGIN_VERSION = "0.1.0-rc.3";
+declare const PLUGIN_VERSION = "0.1.0-rc.4";
 interface ActionReceipt {
     status: number;
     body: Record<string, unknown>;
@@ -14,6 +14,7 @@ interface ActionReceipt {
 export declare class DeepCanaryService {
     config: DeepCanaryConfig;
     readonly store: MetadataStore;
+    readonly suppressionStore: SuppressionStore;
     readonly outcomeStore: OutcomeStore;
     readonly workspace: import("./types.js").WorkspaceIdentity;
     readonly adapter: ContextDshAdapter;
@@ -21,6 +22,7 @@ export declare class DeepCanaryService {
     private readonly ctx;
     private readonly sessions;
     private readonly items;
+    private readonly suppressedReasons;
     private readonly dedupe;
     private readonly budget;
     private readonly pressureSeen;
@@ -45,6 +47,7 @@ export declare class DeepCanaryService {
     private readonly actionReceipts;
     private readonly outcomeReceipts;
     private outcomeSaveChain;
+    private suppressionSaveChain;
     constructor(ctx: Context, input?: DeepCanaryConfigInput);
     start(): void;
     setRegisteredTools(names: readonly string[]): void;
@@ -63,7 +66,16 @@ export declare class DeepCanaryService {
     acknowledge(id: string): boolean;
     snooze(id: string, minutes?: number): boolean;
     mute(id: string): boolean;
-    feedback(id: string, useful: boolean, note?: string): boolean;
+    /** End a temporary mute immediately while retaining the Inbox item. */
+    unmute(id: string): boolean;
+    /** Persistently silence the current low-risk event class for future signals. */
+    suppress(id: string): {
+        updated: boolean;
+        reasonCode?: SuppressibleReasonCode;
+    };
+    /** Restore notifications for a previously silenced low-risk event class. */
+    unsuppress(reasonCode: string): boolean;
+    feedback(id: string, useful: boolean, note?: string, value?: FeedbackValue): boolean;
     explain(id: string): PublicInboxItem | undefined;
     /** Preview current and candidate policy outcomes without touching state or DSH. */
     dryRun(input: DryRunRequest): Promise<DryRunResult>;
@@ -85,6 +97,8 @@ export declare class DeepCanaryService {
     private onSubagentDelta;
     private checkStalls;
     private findBundle;
+    /** Apply delivery policy and reserve one C2 budget unit only for a new interrupt. */
+    private applyPolicy;
     private mergeBundle;
     private recover;
     private expireSessionItems;
@@ -103,6 +117,7 @@ export declare class DeepCanaryService {
     private queueSave;
     private updateExistingOutcome;
     private queueOutcomeSave;
+    private queueSuppressionSave;
 }
 export { PLUGIN_NAME, PLUGIN_VERSION };
 //# sourceMappingURL=service.d.ts.map

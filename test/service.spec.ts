@@ -27,7 +27,7 @@ afterEach(async () => {
 })
 
 describe('DeepCanaryService', () => {
-  it('persists only metadata and never the session content', async () => {
+  it('persists only metadata and a local opaque session handle, never session content', async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-'))
     const service = new DeepCanaryService({ logger: {} } as never, { stateDir: directory, maxInboxItems: 50 })
     services.push(service)
@@ -37,7 +37,7 @@ describe('DeepCanaryService', () => {
     await service.dispose()
     const persisted = await readFile(service.store.file, 'utf8')
     expect(persisted).toContain('HUMAN_APPROVAL_REQUIRED')
-    expect(persisted).not.toContain('session-private-id')
+    expect(persisted).toContain('session-private-id')
     expect(persisted).not.toContain('workspace-private-id')
     await rm(directory, { recursive: true, force: true })
   })
@@ -71,6 +71,153 @@ describe('DeepCanaryService', () => {
     }
     expect(actions).toEqual(['INTERRUPT', 'INTERRUPT', 'INTERRUPT', 'DIGEST'])
     await service.dispose()
+    await rm(directory, { recursive: true, force: true })
+  })
+
+  it('charges one interrupt when a C1 bundle later escalates, and keeps policy caps budget-free', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-bundle-budget-'))
+    const service = new DeepCanaryService({ logger: {} } as never, { stateDir: directory, maxInterruptsPerHour: 1, maxInboxItems: 50 })
+    services.push(service)
+    await service.ready
+    const now = Date.now()
+    const first = await service.ingest({
+      ...testSignal(),
+      id: 'bundle-root',
+      kind: 'TASK_COMPLETED',
+      severityHint: 1,
+      dedupeKey: 'bundle-root',
+      bundleKey: 'same-root',
+      occurredAt: new Date(now).toISOString(),
+      evidence: [{ type: 'session-event', authority: 'runtime', ref: 'bundle-root', summary: 'normal completion' }],
+    })
+    expect(first).toMatchObject({ action: 'INBOX', bundleCount: 1 })
+    const escalated = await service.ingest({
+      ...testSignal(),
+      id: 'bundle-escalation',
+      kind: 'HUMAN_APPROVAL_REQUIRED',
+      dedupeKey: 'bundle-escalation',
+      bundleKey: 'same-root',
+      occurredAt: new Date(now + 1).toISOString(),
+    })
+    expect(escalated).toMatchObject({ level: 'C2', action: 'INTERRUPT', bundleCount: 2 })
+    expect(service.status().delivery.interruptBudget).toMatchObject({ used: 1, remaining: 0 })
+    const repeated = await service.ingest({
+      ...testSignal(),
+      id: 'bundle-repeat',
+      kind: 'HUMAN_APPROVAL_REQUIRED',
+      dedupeKey: 'bundle-repeat',
+      bundleKey: 'same-root',
+      occurredAt: new Date(now + 2).toISOString(),
+    })
+    expect(repeated).toMatchObject({ level: 'C2', action: 'INTERRUPT', bundleCount: 3 })
+    expect(service.status().delivery.interruptBudget).toMatchObject({ used: 1, remaining: 0 })
+
+    const quietDirectory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-bundle-quiet-'))
+    const quiet = new DeepCanaryService({ logger: {} } as never, {
+      stateDir: quietDirectory,
+      maxInterruptsPerHour: 1,
+      quietHours: { enabled: true, start: '00:00', end: '00:00' },
+      maxInboxItems: 50,
+    })
+    services.push(quiet)
+    await quiet.ready
+    await quiet.ingest({
+      ...testSignal(),
+      id: 'quiet-root',
+      kind: 'TASK_COMPLETED',
+      severityHint: 1,
+      dedupeKey: 'quiet-root',
+      bundleKey: 'quiet-same-root',
+      occurredAt: new Date(10_000).toISOString(),
+      evidence: [{ type: 'session-event', authority: 'runtime', ref: 'quiet-root', summary: 'normal completion' }],
+    })
+    const quietEscalation = await quiet.ingest({
+      ...testSignal(),
+      id: 'quiet-escalation',
+      kind: 'HUMAN_APPROVAL_REQUIRED',
+      dedupeKey: 'quiet-escalation',
+      bundleKey: 'quiet-same-root',
+      occurredAt: new Date(10_001).toISOString(),
+    })
+    expect(quietEscalation).toMatchObject({ level: 'C2', action: 'DIGEST', bundleCount: 2 })
+    expect(quiet.status().delivery.interruptBudget).toMatchObject({ used: 0, remaining: 1 })
+    await service.dispose()
+    await quiet.dispose()
+    await rm(directory, { recursive: true, force: true })
+    await rm(quietDirectory, { recursive: true, force: true })
+  })
+
+  it('returns action outcomes, exposes delivery policy state, and persists safe type suppression', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-suppression-'))
+    const service = new DeepCanaryService({ logger: {} } as never, { stateDir: directory, maxInboxItems: 50 })
+    services.push(service)
+    await service.ready
+    const testNow = Date.now()
+    const feedbackItem = await service.ingest({
+      ...testSignal(),
+      id: 'feedback-visible',
+      dedupeKey: 'feedback-visible',
+      occurredAt: new Date(testNow).toISOString(),
+    })
+    const feedback = await service.performAction('feedback-visible-request', feedbackItem?.id ?? '', 'feedback', { useful: true })
+    expect(feedback.body).toMatchObject({
+      updated: true,
+      result: { kind: 'feedback-recorded', useful: true, value: 'useful' },
+      item: { id: 'feedback-visible', feedback: { useful: true, value: 'useful' } },
+    })
+    expect(service.status().delivery.interruptBudget).toMatchObject({ limit: 3, used: 1, remaining: 2 })
+
+    const muted = await service.performAction('mute-visible-request', feedbackItem?.id ?? '', 'mute')
+    expect(muted.body).toMatchObject({ updated: true, item: { id: 'feedback-visible', status: 'open' } })
+    expect((muted.body.item as { mutedUntil?: string }).mutedUntil).toEqual(expect.any(String))
+    expect(service.snapshot().inbox.some(item => item.id === 'feedback-visible')).toBe(true)
+    const unmuted = await service.performAction('unmute-visible-request', feedbackItem?.id ?? '', 'unmute')
+    expect(unmuted.body).toMatchObject({ updated: true, result: { kind: 'unmute-complete' }, item: { id: 'feedback-visible' } })
+    expect((unmuted.body.item as { mutedUntil?: string }).mutedUntil).toBeUndefined()
+
+    const completion = await service.ingest({
+      ...testSignal(),
+      id: 'completion-to-suppress',
+      kind: 'TASK_COMPLETED',
+      dedupeKey: 'completion-to-suppress',
+      occurredAt: new Date(testNow + 1).toISOString(),
+      severityHint: 1,
+      evidence: [{ type: 'session-event', authority: 'runtime', ref: 'completion', summary: 'normal completion' }],
+    })
+    expect(completion?.level).toBe('C1')
+    const suppressed = await service.performAction('suppress-request', completion?.id ?? '', 'suppress')
+    expect(suppressed.body).toMatchObject({ updated: true, result: { kind: 'suppressed', reasonCode: 'TASK_COMPLETED' }, item: { status: 'acknowledged' } })
+    expect(service.settings().suppressedReasonCodes).toEqual(['TASK_COMPLETED'])
+    expect(await service.ingest({
+      ...testSignal(),
+      id: 'completion-after-suppression',
+      kind: 'TASK_COMPLETED',
+      dedupeKey: 'completion-after-suppression',
+      occurredAt: new Date(testNow + 2).toISOString(),
+      severityHint: 1,
+      evidence: [{ type: 'session-event', authority: 'runtime', ref: 'completion-2', summary: 'normal completion' }],
+    })).toBeUndefined()
+
+    const critical = await service.ingest({
+      ...testSignal(),
+      id: 'completion-critical',
+      kind: 'TASK_COMPLETED',
+      dedupeKey: 'completion-critical',
+      occurredAt: new Date(testNow + 3).toISOString(),
+      severityHint: 3,
+      evidence: [{ type: 'session-event', authority: 'runtime', ref: 'completion-critical', summary: 'completion requires review' }],
+    })
+    expect(critical?.level).toBe('C3')
+    await service.dispose()
+    expect(await readFile(service.suppressionStore.file, 'utf8')).toContain('TASK_COMPLETED')
+
+    const restored = new DeepCanaryService({ logger: {} } as never, { stateDir: directory, maxInboxItems: 50 })
+    services.push(restored)
+    await restored.ready
+    expect(restored.settings().suppressedReasonCodes).toEqual(['TASK_COMPLETED'])
+    const restoredAction = await restored.performAction('restore-suppression', 'TASK_COMPLETED', 'unsuppress', { reasonCode: 'TASK_COMPLETED' })
+    expect(restoredAction.body).toMatchObject({ updated: true, result: { kind: 'suppression-restored', reasonCode: 'TASK_COMPLETED' } })
+    expect(restored.settings().suppressedReasonCodes).toEqual([])
     await rm(directory, { recursive: true, force: true })
   })
 
@@ -134,7 +281,7 @@ describe('DeepCanaryService', () => {
     await rm(directory, { recursive: true, force: true })
   })
 
-  it('re-associates hashed session references after restart without persisting raw identifiers', async () => {
+  it('re-associates hashed session references when a matching live session returns', async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-restart-'))
     const first = new DeepCanaryService({ logger: {} } as never, { stateDir: directory, maxInboxItems: 50 })
     services.push(first)
@@ -155,6 +302,32 @@ describe('DeepCanaryService', () => {
     expect(second.jump(item?.id ?? '')).toMatchObject({ available: true, sessionId: 'session-private-id' })
     listeners.get('session/disposed')?.({ id: 'session-private-id' })
     expect(second.inbox(10)[0]).toMatchObject({ status: 'expired' })
+    await second.dispose()
+    expect(await readFile(second.store.file, 'utf8')).toContain('session-private-id')
+    await rm(directory, { recursive: true, force: true })
+  })
+
+  it('keeps an opaque session handle so a restored alert can reopen its DSH session', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-historical-jump-'))
+    const first = new DeepCanaryService({ logger: {} } as never, { stateDir: directory, maxInboxItems: 50 })
+    services.push(first)
+    await first.ready
+    const item = await first.ingest({
+      ...testSignal(),
+      id: 'historical-jump',
+      sessionId: 'stable-session-id',
+      dedupeKey: 'historical-jump',
+    })
+    expect(item).toBeDefined()
+    await first.dispose()
+
+    const second = new DeepCanaryService({ logger: {} } as never, { stateDir: directory, maxInboxItems: 50 })
+    services.push(second)
+    await second.ready
+    expect(second.inbox(10)[0]).toMatchObject({ id: 'historical-jump', sessionId: 'stable-session-id' })
+    expect(second.jump('historical-jump')).toMatchObject({ available: true, sessionId: 'stable-session-id' })
+    const persisted = await readFile(second.store.file, 'utf8')
+    expect(persisted).toContain('stable-session-id')
     await second.dispose()
     await rm(directory, { recursive: true, force: true })
   })

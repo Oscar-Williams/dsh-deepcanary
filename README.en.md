@@ -11,7 +11,7 @@
 
 ## Versions and compatibility
 
-**Current candidate:** `0.1.0-rc.4` has passed the local build, test, and distribution gates and is prepared for the npm `next` prerelease channel and GitHub `v0.1.0-rc.4` tag. npm is enforcing the 24-hour protection window after the package was unpublished; the public npm package and GitHub Release will be made available after the window ends and each external check passes. It targets the official DSH [`dsh-v0.1.2-alpha.3`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.3) and carries forward the RC3 baseline verified on Windows, WSL2, Node.js 22/24, the Web UI interaction surface, and the model smoke path; the RC4 candidate commit, artifact digest, and publication status are recorded in [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json).
+**Current candidate:** `0.1.0-rc.4` has passed the local build, test, and distribution gates. The current acceptance baseline is the official DSH [`dsh-v0.1.2-alpha.4`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.4). The npm package is currently unpublished, so local acceptance uses the generated tarball or the GitHub source path; the npm `next` command and public Release record become active after the corresponding external operation succeeds. RC4 carries forward the RC3 Windows, WSL2, Node.js 22/24, and Web UI foundations while adding alpha.4 compatibility, authoritative human-wait classification, native historical-session reopening, and explicit feedback and suppression behavior. The candidate commit, artifact digest, and publication status are recorded in [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json).
 
 RC4 remains a pre-release candidate for local trials, feedback, and plugin integration testing. Physical touch hardware, a real screen reader, and operating-system notification delivery after granting permission are post-release supplemental checks; browser automation, keyboard interaction, narrow viewports, forced colors, and the notification-denied branch already have automated evidence.
 
@@ -41,31 +41,31 @@ The two paths below have different purposes: the public RC4 will be for daily tr
 - Windows x64 or WSL2 Ubuntu;
 - Node.js `22.19+` (the release verification used Node.js `24.19.0`);
 - pnpm `11.7.0`;
-- an official DSH source runtime; RC4 uses `dsh-v0.1.2-alpha.3`.
+- an official DSH source runtime; RC4 uses `dsh-v0.1.2-alpha.4` at commit `4e84901e6471b79ec0338099867ebb4606d12bb5`.
 
 ### After public RC4 publication: v0.1.0-rc.4
 
-Until npm's protection window ends, the public installation commands below are reserved for post-publication verification; use the “Rebuild and verify RC4 from source” path for local acceptance.
+The npm command below applies after the package is visible in the official registry. For current local acceptance, use the “Rebuild and verify RC4 from source” path to generate a tarball; running the npm command before publication will return a missing-package result.
 
-#### 1. Prepare the official DSH alpha.3 runtime
+#### 1. Prepare the official DSH alpha.4 runtime
 
 ```powershell
-git clone --depth 1 --branch dsh-v0.1.2-alpha.3 https://github.com/deepseek-ai/deepseek-harness.git dsh-runtime-alpha3
-Set-Location .\dsh-runtime-alpha3
+git clone --depth 1 --branch dsh-v0.1.2-alpha.4 https://github.com/deepseek-ai/deepseek-harness.git dsh-runtime-alpha4
+Set-Location .\dsh-runtime-alpha4
 npx --yes pnpm@11.7.0 install
 npx --yes pnpm@11.7.0 run build
 npx --yes pnpm@11.7.0 dsh --version
 git rev-parse HEAD
 ```
 
-The version command should print `0.1.2-alpha.3`, and the commit command should print `dd6322d604e00eec1ba5e0c8541159906a21094a`. An existing checkout may still be named `dsh-runtime-alpha1`; its tag, commit, and `dsh --version` must still match the values above.
+The version command should print `0.1.2-alpha.4`, and the commit command should print `4e84901e6471b79ec0338099867ebb4606d12bb5`. An existing checkout may still be named `dsh-runtime-alpha1`; its tag, commit, and `dsh --version` should match these values before testing.
 
 #### 2. Install the plugin
 
 Use the exact prerelease published on npm for the normal installation path; use the matching immutable Git tag when you need to audit the source archive. Do not use a local source directory or a directory containing personal design notes as the daily installation source.
 
 ```powershell
-Set-Location .\dsh-runtime-alpha3
+Set-Location .\dsh-runtime-alpha4
 # Pin the official npm registry for release verification to avoid mirror lag.
 $env:npm_config_registry = 'https://registry.npmjs.org/'
 npx --yes pnpm@11.7.0 dsh plugin --profile web add dsh-deepcanary@0.1.0-rc.4
@@ -99,14 +99,14 @@ To reinstall the current published version, rerun the RC4 installation command a
 
 ### Rebuild and verify RC4 from source
 
-For source debugging or reproduction, use the official DSH `dsh-v0.1.2-alpha.3` and a separate profile; replace `$pluginDir` and `$dshDir` with paths on your machine. The generated tarball should have the RC4 candidate's version and file layout and can be compared with the public package after publication.
+For source debugging or reproduction, use the official DSH `dsh-v0.1.2-alpha.4` and a separate profile; replace `$pluginDir` and `$dshDir` with paths on your machine. The generated tarball is the current acceptance artifact and can be compared with the public package after publication.
 
 ```powershell
 $pluginDir = 'C:\path\to\dsh-deepcanary'
-$dshDir = 'C:\path\to\dsh-runtime-alpha3'
+$dshDir = 'C:\path\to\dsh-runtime-alpha4'
 $testHome = Join-Path $env:USERPROFILE '.dsh-deepcanary-test'
 
-git clone --depth 1 --branch dsh-v0.1.2-alpha.3 https://github.com/deepseek-ai/deepseek-harness.git $dshDir
+git clone --depth 1 --branch dsh-v0.1.2-alpha.4 https://github.com/deepseek-ai/deepseek-harness.git $dshDir
 Set-Location $dshDir
 npx --yes pnpm@11.7.0 install --frozen-lockfile
 npx --yes pnpm@11.7.0 run build
@@ -130,7 +130,7 @@ npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
 
-`dsh --version` should print `0.1.2-alpha.3`, `git rev-parse HEAD` should print `dd6322d604e00eec1ba5e0c8541159906a21094a`, and the local tarball should show version `0.1.0-rc.4`. The bundle patch uses DSH's `dshHomePath('dsh-deepcanary')`, so setting `DSH_HOME` keeps plugin state inside the isolated DSH home. Before opening the Web UI, confirm that the profile loaded the current tarball and that the page shows only the sidebar entry, with no fixed legacy card on the right.
+`dsh --version` should print `0.1.2-alpha.4`, `git rev-parse HEAD` should print `4e84901e6471b79ec0338099867ebb4606d12bb5`, and the local tarball should show version `0.1.0-rc.4`. The bundle patch uses DSH's `dshHomePath('dsh-deepcanary')`, so setting `DSH_HOME` keeps plugin state inside the isolated DSH home. Before opening the Web UI, confirm that the profile loaded the current tarball and that the page shows only the sidebar entry, with no fixed legacy card on the right.
 
 ### Web UI interactions
 
@@ -166,7 +166,7 @@ During a dogfood or controlled trial, record an outcome after an alert using the
 {
   "id": "<Inbox item id>",
   "source": "real",
-  "trialId": "manual-alpha3-01",
+  "trialId": "manual-alpha4-01",
   "opened": true,
   "acknowledged": true,
   "feedback": "useful",
@@ -177,11 +177,11 @@ During a dogfood or controlled trial, record an outcome after an alert using the
 }
 ```
 
-Read the result with `GET /dsh-deepcanary/outcomes?source=real&trialId=manual-alpha3-01`. The record is stored as `outcomes.json` in the local state directory. Keep real, controlled, and replay data in separate `trialId` values or isolated state directories; the field set is constrained by [`benchmark/outcome-receipt.schema.json`](benchmark/outcome-receipt.schema.json). To withdraw a trial or apply retention cleanup, use `DELETE /dsh-deepcanary/outcomes?source=real&trialId=manual-alpha3-01` or provide an explicit `before=<ISO date>` cutoff. Deletion requests must include a trial or time boundary.
+Read the result with `GET /dsh-deepcanary/outcomes?source=real&trialId=manual-alpha4-01`. The record is stored as `outcomes.json` in the local state directory. Keep real, controlled, and replay data in separate `trialId` values or isolated state directories; the field set is constrained by [`benchmark/outcome-receipt.schema.json`](benchmark/outcome-receipt.schema.json). To withdraw a trial or apply retention cleanup, use `DELETE /dsh-deepcanary/outcomes?source=real&trialId=manual-alpha4-01` or provide an explicit `before=<ISO date>` cutoff. Deletion requests must include a trial or time boundary.
 
 The settings card uses DSH's standard `settings.plugin.item` location and exposes notification level, automatic critical-panel wake-up, hourly interrupt budget, quiet hours, long-run threshold, subagent-pressure mode, adjacent-event bundling, and privacy-safe summaries. When `@deepseek-ai/dsh-settings` is mounted, updates use the `dsh-deepcanary` namespace and take effect live; without that provider, the plugin continues to use its composed bundle configuration.
 
-The client no longer registers a separate `/dsh-deepcanary/client.js` route or uses `webserver/index-inject`. The `dsh.client` manifest declaration and `./client` export are loaded by the DSH alpha.2/alpha.3 client-module loader; the entry contributes to `sidebar.footer.action`, the floating panel to `shell.overlay`, and the settings card to `settings.plugin.item`.
+The package manifest's `dsh.client` declaration and `./client` export are loaded by the DSH alpha.4 client-module loader; the entry contributes to `sidebar.footer.action`, the floating panel to `shell.overlay`, and the settings card to `settings.plugin.item`. Alpha.4's internal `SessionSeq` changes do not affect the `sessions.open(SessionId)` navigation API used by DeepCanary.
 
 ## Attention policy
 
@@ -196,7 +196,7 @@ Normal completion is always classified as `C1`. Adjacent signals with the same r
 
 ## Privacy and safety
 
-The default state directory follows the DSH home through `dshHomePath('dsh-deepcanary')`; when `DSH_HOME` is not set, this normally resolves to `~/.dsh/dsh-deepcanary`. `inbox.json` stores alert metadata and `outcomes.json` stores redacted outcome records. They contain timestamps, levels, reason codes, hashed Session/Workspace references, evidence summaries, Bundle metadata, user feedback, and enumerated outcomes. Prompts, model output, tool arguments, credentials, raw tool results, and full conversation content remain in DSH and are not written to DeepCanary state.
+The default state directory follows the DSH home through `dshHomePath('dsh-deepcanary')`; when `DSH_HOME` is not set, this normally resolves to `~/.dsh/dsh-deepcanary`. `inbox.json` stores alert metadata and `outcomes.json` stores redacted outcome records. They contain timestamps, levels, reason codes, hashed Session/Workspace references, evidence summaries, Bundle metadata, user feedback, and enumerated outcomes. When DSH provides a session entry point, `inbox.json` may also retain a bounded opaque local session handle so the native `sessions.open` API can reopen that thread. Prompts, model output, tool arguments, credentials, raw tool results, and full conversation content remain in DSH and are not written to DeepCanary state.
 
 Web routes are same-origin local routes with `no-store` responses. The client renders dynamic values with DOM `textContent` rather than `innerHTML`. The plugin exposes no shell, file-write, terminate, restart, approval, or rejection tool. Do not put the DSH WebServer behind an unauthenticated public reverse proxy.
 
@@ -204,7 +204,7 @@ Web routes are same-origin local routes with `no-store` responses. The client re
 
 - **The sidebar entry or panel is missing:** stop any existing `dsh web`, then run `dsh plugin --profile web list` and `dsh --profile web --dump-config` in the same profile to confirm the intended version and the `dsh-deepcanary` bundle. Reinstall the intended package and restart the Web UI.
 - **An old card still covers the right side:** this usually comes from an older profile or the legacy page-injection plugin. Remove the old `dsh-deepcanary` entry from the test profile, reinstall the current package, and confirm that only the sidebar entry is visible at startup.
-- **The Web UI cannot connect or the port is busy:** stop the older DSH process and run `dsh web --no-open` again. Keep the local URL and one-time token in the terminal; do not publish them through a public proxy.
+- **The Web UI shows “Connecting” or “Connection error”:** first request `http://127.0.0.1:<port>/dsh-deepcanary/health`. HTTP 200 with `"ok": true` confirms that the plugin service is healthy; then compare `dsh --profile web --dump-config`, the DSH process port, and the browser URL. A short-lived state change can be resolved with a page refresh. For a persistent failure, stop the older DSH process and run `dsh web --no-open` again. Keep the local URL and one-time token in the terminal.
 - **A model call is needed:** configure the API key in DSH itself. DeepCanary does not read or store credentials. Health checks, the panel, and offline tests remain available without an API key.
 
 ## Verification and release baseline

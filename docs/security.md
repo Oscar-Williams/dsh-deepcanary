@@ -10,6 +10,7 @@ The bundle stores state below the DSH home with `dshHomePath('dsh-deepcanary')`;
 
 - schema version, item ID, timestamp, level, action, status, reason code, and bounded feedback;
 - hashed Session and Workspace references;
+- a bounded opaque DSH session handle may be retained locally for native `sessions.open` navigation when the host provides it; it contains no session content and is never sent to external telemetry;
 - hashed evidence references plus provider-written type, authority, and bounded summary;
 - Decision Bundle hash, count, and reason-code set;
 - bounded `PolicyDecisionTrace` fields: policy version, stable rule IDs, scopes, suppression markers, authority counts, final decision, and recovery rule.
@@ -22,7 +23,7 @@ Persistence uses an atomic temporary file and rename within the configured state
 
 ## Public interfaces and actions
 
-The Web routes are registered on DSH's local same-origin WebServer and send `cache-control: no-store`. The action endpoint accepts only `acknowledge`, `snooze`, `mute`, `feedback`, and `jump`. The OutcomeReceipt endpoints accept bounded metadata and return redacted records; `GET /dsh-deepcanary/outcomes` can filter by one source and trial, while `DELETE /dsh-deepcanary/outcomes` requires an explicit `trialId` or `before` cutoff for local withdrawal and retention cleanup. Model-visible tools continue to expose the bounded read and action operations. `jump` returns a URL hint; it does not navigate, open, mutate, or stop a session by itself.
+The Web routes are registered on DSH's local same-origin WebServer and send `cache-control: no-store`. The action endpoint accepts `seen`, `acknowledge`, `snooze`, `mute`, `unmute`, `feedback`, `suppress`, `unsuppress`, `retry`, and `jump`. The OutcomeReceipt endpoints accept bounded metadata and return redacted records; `GET /dsh-deepcanary/outcomes` can filter by one source and trial, while `DELETE /dsh-deepcanary/outcomes` requires an explicit `trialId` or `before` cutoff for local withdrawal and retention cleanup. Model-visible tools continue to expose the bounded read and action operations. `jump` uses the native DSH session-open path when an opaque local session handle is available; an older item without that handle remains in Inbox with a clear unavailable-link state.
 
 `deepcanary_explain` returns the same privacy-safe trace for one Inbox item. `deepcanary_dry_run` and `POST /dsh-deepcanary/dry-run` accept only bounded structured signal fields and an allowlisted notification-policy candidate. Dry-run never writes state, consumes an interrupt budget, sends a notification, or mutates a DSH Session.
 

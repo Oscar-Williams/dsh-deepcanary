@@ -37,6 +37,8 @@ function isQuietHours(config: Pick<DeepCanaryConfig, 'quietHours'>, timestamp: n
   if (!config.quietHours.enabled) return false
   const time = new Date(timestamp).toTimeString().slice(0, 5)
   const { start, end } = config.quietHours
+  // Equal endpoints describe a full-day quiet window. The explicit enabled
+  // flag provides the separate way to turn quiet hours off.
   if (start === end) return true
   return start < end ? time >= start && time < end : time >= start || time < end
 }
@@ -68,7 +70,9 @@ export function applyDeliveryPolicy(
     appliedScopes.add('quiet-hours')
     suppressedBy.add('quiet-hours')
   }
-  if (levelValue(verdict.level) > levelValue(config.notificationLevel) && action !== 'INBOX') {
+  // C3 is the safety floor for authoritative, high-impact conditions. The
+  // ordinary notification-level preference only caps C1/C2 delivery.
+  if (verdict.level !== 'C3' && levelValue(verdict.level) > levelValue(config.notificationLevel) && action !== 'INBOX') {
     action = 'INBOX'
     appliedScopes.add('notification-level')
     suppressedBy.add('notification-level')

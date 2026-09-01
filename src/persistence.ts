@@ -3,7 +3,8 @@ import { createHash } from 'node:crypto'
 import os from 'node:os'
 import path from 'node:path'
 import { ATTENTION_POLICY_VERSION } from './types.js'
-import type { AttentionAction, AttentionLevel, EvidenceAuthority, EvidenceType, InboxItem, InboxStatus, MessageParams, PolicyDecisionTrace, ReasonCode } from './types.js'
+import { SUPPRESSIBLE_REASON_CODES } from './types.js'
+import type { AttentionAction, AttentionLevel, EvidenceAuthority, EvidenceType, FeedbackValue, InboxItem, InboxStatus, MessageParams, PolicyDecisionTrace, ReasonCode, SuppressibleReasonCode } from './types.js'
 
 interface PersistedEvidence {
   type: EvidenceType
@@ -16,6 +17,8 @@ type PersistedDecisionTrace = PolicyDecisionTrace
 
 interface PersistedItem {
   id: string
+  /** Opaque DSH session identity retained locally so historical alerts can reopen their session. */
+  sessionId?: string
   sessionRef?: string
   workspaceRef?: string
   occurredAt: string
@@ -37,7 +40,8 @@ interface PersistedItem {
   acknowledgedAt?: string
   recoveredAt?: string
   expiredAt?: string
-  feedback?: { useful: boolean; note?: string; at: string }
+  mutedUntil?: string
+  feedback?: { useful: boolean; value?: FeedbackValue; note?: string; at: string }
   bundleKey?: string
   bundleCount?: number
   reasonCodes?: ReasonCode[]
@@ -61,6 +65,7 @@ export function resolveStateDir(value: string): string {
 function toPersisted(item: InboxItem): PersistedItem {
   return {
     id: item.id,
+    ...(item.sessionId ? { sessionId: item.sessionId } : {}),
     ...(item.sessionRef || item.sessionId ? { sessionRef: item.sessionRef ?? hashMetadata(item.sessionId as string) } : {}),
     ...(item.workspaceRef || item.workspaceId ? { workspaceRef: item.workspaceRef ?? hashMetadata(item.workspaceId as string) } : {}),
     occurredAt: item.occurredAt,
@@ -87,6 +92,7 @@ function toPersisted(item: InboxItem): PersistedItem {
     ...(item.acknowledgedAt ? { acknowledgedAt: item.acknowledgedAt } : {}),
     ...(item.recoveredAt ? { recoveredAt: item.recoveredAt } : {}),
     ...(item.expiredAt ? { expiredAt: item.expiredAt } : {}),
+    ...(item.mutedUntil ? { mutedUntil: item.mutedUntil } : {}),
     ...(item.feedback ? { feedback: { ...item.feedback, ...(item.feedback.note ? { note: item.feedback.note.slice(0, 200) } : {}) } } : {}),
     ...(item.bundleKey ? { bundleKey: item.bundleKey } : {}),
     bundleCount: item.bundleCount,
@@ -95,9 +101,11 @@ function toPersisted(item: InboxItem): PersistedItem {
 }
 
 function fromPersisted(item: PersistedItem): InboxItem {
+  const feedback = isPersistedFeedback(item.feedback) ? item.feedback : undefined
   return {
     eventId: item.id,
     id: item.id,
+    ...(isSafeOpaqueId(item.sessionId) ? { sessionId: item.sessionId } : {}),
     ...(item.sessionRef ? { sessionRef: item.sessionRef } : {}),
     ...(item.workspaceRef ? { workspaceRef: item.workspaceRef } : {}),
     occurredAt: item.occurredAt,
@@ -127,7 +135,8 @@ function fromPersisted(item: PersistedItem): InboxItem {
     ...(item.acknowledgedAt ? { acknowledgedAt: item.acknowledgedAt } : {}),
     ...(item.recoveredAt ? { recoveredAt: item.recoveredAt } : {}),
     ...(item.expiredAt ? { expiredAt: item.expiredAt } : {}),
-    ...(item.feedback ? { feedback: item.feedback } : {}),
+    ...(item.mutedUntil ? { mutedUntil: item.mutedUntil } : {}),
+    ...(feedback === undefined ? {} : { feedback }),
     ...(item.bundleKey ? { bundleKey: item.bundleKey } : {}),
     bundleCount: typeof item.bundleCount === 'number' && Number.isSafeInteger(item.bundleCount) && item.bundleCount > 0 ? item.bundleCount : 1,
     reasonCodes: Array.isArray(item.reasonCodes) && item.reasonCodes.length > 0 ? item.reasonCodes : [item.reasonCode],
@@ -163,6 +172,44 @@ export class MetadataStore {
   }
 }
 
+interface PersistedSuppressionState {
+  schemaVersion: 1
+  reasonCodes: string[]
+}
+
+/** Durable, reason-code-only notification preferences. No session or workspace data is stored here. */
+export class SuppressionStore {
+  readonly directory: string
+  readonly file: string
+
+  constructor(stateDir: string) {
+    this.directory = resolveStateDir(stateDir)
+    this.file = path.join(this.directory, 'suppressions.json')
+  }
+
+  async load(): Promise<SuppressibleReasonCode[]> {
+    try {
+      const raw = JSON.parse(await readFile(this.file, 'utf8')) as Partial<PersistedSuppressionState>
+      if (raw.schemaVersion !== 1 || !Array.isArray(raw.reasonCodes)) return []
+      return [...new Set(raw.reasonCodes.filter(isSuppressibleReasonCode))]
+    } catch (error: unknown) {
+      if (isNodeError(error, 'ENOENT')) return []
+      throw error
+    }
+  }
+
+  async save(reasonCodes: readonly SuppressibleReasonCode[]): Promise<void> {
+    const payload: PersistedSuppressionState = {
+      schemaVersion: 1,
+      reasonCodes: [...new Set(reasonCodes)].filter(isSuppressibleReasonCode),
+    }
+    await mkdir(this.directory, { recursive: true })
+    const temporary = `${this.file}.${process.pid}.tmp`
+    await writeFile(temporary, `${JSON.stringify(payload, null, 2)}\n`, 'utf8')
+    await rename(temporary, this.file)
+  }
+}
+
 function isNodeError(error: unknown, code: string): error is NodeJS.ErrnoException {
   return error instanceof Error && 'code' in error && (error as NodeJS.ErrnoException).code === code
 }
@@ -171,6 +218,7 @@ function isPersistedItem(value: unknown): value is PersistedItem {
   if (value === null || typeof value !== 'object') return false
   const item = value as Partial<PersistedItem>
   return typeof item.id === 'string'
+    && (item.sessionId === undefined || isSafeOpaqueId(item.sessionId))
     && typeof item.occurredAt === 'string'
     && typeof item.level === 'string'
     && typeof item.action === 'string'
@@ -180,6 +228,13 @@ function isPersistedItem(value: unknown): value is PersistedItem {
     && Array.isArray(item.evidence)
     && typeof item.status === 'string'
     && isInboxStatus(item.status)
+}
+
+function isSafeOpaqueId(value: unknown): value is string {
+  return typeof value === 'string'
+    && value.length > 0
+    && value.length <= 256
+    && !/[\u0000-\u001f\u007f]/.test(value)
 }
 
 function persistDecisionTrace(trace: PolicyDecisionTrace): PersistedDecisionTrace {
@@ -257,6 +312,28 @@ function isReasonCode(value: string): value is ReasonCode {
     || value === 'TASK_ABORTED'
     || value === 'COMPLETION_SUSPICIOUS'
     || value === 'HOST_STALL_RECOVERED'
+}
+
+function isSuppressibleReasonCode(value: unknown): value is SuppressibleReasonCode {
+  return typeof value === 'string' && SUPPRESSIBLE_REASON_CODES.includes(value as SuppressibleReasonCode)
+}
+
+function isFeedbackValue(value: unknown): value is FeedbackValue {
+  return value === 'useful'
+    || value === 'not-relevant'
+    || value === 'wrong-level'
+    || value === 'already-resolved'
+}
+
+function isPersistedFeedback(value: unknown): value is NonNullable<PersistedItem['feedback']> {
+  if (value === null || typeof value !== 'object') return false
+  const feedback = value as Partial<NonNullable<PersistedItem['feedback']>>
+  return typeof feedback.useful === 'boolean'
+    && typeof feedback.at === 'string'
+    && feedback.at.length > 0
+    && feedback.at.length <= 64
+    && (feedback.value === undefined || isFeedbackValue(feedback.value))
+    && (feedback.note === undefined || (typeof feedback.note === 'string' && feedback.note.length <= 200))
 }
 
 function isInboxStatus(value: string): value is InboxStatus {

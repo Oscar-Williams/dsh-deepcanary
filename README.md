@@ -11,7 +11,7 @@
 
 ## 版本与兼容性
 
-**当前候选版本**：`0.1.0-rc.4` 已完成本地构建、测试和分发门禁，目标为 npm `next` 预发布通道和 GitHub `v0.1.0-rc.4` tag。npm 正在执行整包撤销后的 24 小时保护期，公共 npm 包和 GitHub Release 将在保护期结束并分别完成验证后提供。本版本面向官方 DSH [`dsh-v0.1.2-alpha.3`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.3)，沿用 RC3 已验证的 Windows、WSL2、Node.js 22/24、WebUI 交互和模型烟测基线；RC4 的候选提交、包摘要和发布状态见 [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json)。
+**当前候选版本**：`0.1.0-rc.4` 已完成本地构建、测试和分发门禁，当前验收基线为官方 DSH [`dsh-v0.1.2-alpha.4`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.4)。npm 包暂未发布，现阶段请使用本地压缩包或完成同步后的 GitHub 来源；npm `next` 安装命令和公共 Release 记录将在对应外部操作完成后启用。RC4 延续 RC3 已验证的 Windows、WSL2、Node.js 22/24 和 WebUI 交互基础，并补齐 alpha.4 兼容性、权威人工等待分级、历史会话回跳、反馈与抑制策略；候选提交、包摘要和发布状态见 [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json)。
 
 RC4 保持为预发布候选，适合本地试用、反馈和插件集成验证。物理触摸设备、真实屏幕阅读器和允许通知权限后的操作系统级通知属于发布后的补充验证项；浏览器自动化、键盘操作、窄视口、强制颜色和通知拒绝分支已有自动化证据。
 
@@ -39,31 +39,31 @@ DeepCanary 只回答一个问题：当前是否值得用户看一眼？它不重
 - Windows x64 或 WSL2 Ubuntu；
 - Node.js `22.19+`（本次 RC 验证使用 Node.js `24.19.0`）；
 - pnpm `11.7.0`；
-- 已安装官方 DSH 源码运行时；RC4 使用 `dsh-v0.1.2-alpha.3`。
+- 已安装官方 DSH 源码运行时；RC4 使用 `dsh-v0.1.2-alpha.4`，commit 为 `4e84901e6471b79ec0338099867ebb4606d12bb5`。
 
-### RC4 公共发布后：v0.1.0-rc.4
+### RC4 公共发布后的安装：v0.1.0-rc.4
 
-npm 保护期结束前，下面的公共安装命令用于发布完成后的复验；当前本地验收请使用“从源码重建并验证 RC4”流程生成的压缩包。
+下面的 npm 命令适用于包在官方 registry 中实际可见之后；当前本地验收请使用“从源码重建并验证 RC4”流程生成的压缩包。npm 发布完成前执行 npm 命令会得到找不到包的结果。
 
-#### 1. 准备官方 DSH alpha.3
+#### 1. 准备官方 DSH alpha.4
 
 ```powershell
-git clone --depth 1 --branch dsh-v0.1.2-alpha.3 https://github.com/deepseek-ai/deepseek-harness.git dsh-runtime-alpha3
-Set-Location .\dsh-runtime-alpha3
+git clone --depth 1 --branch dsh-v0.1.2-alpha.4 https://github.com/deepseek-ai/deepseek-harness.git dsh-runtime-alpha4
+Set-Location .\dsh-runtime-alpha4
 npx --yes pnpm@11.7.0 install
 npx --yes pnpm@11.7.0 run build
 npx --yes pnpm@11.7.0 dsh --version
 git rev-parse HEAD
 ```
 
-版本命令应输出 `0.1.2-alpha.3`，commit 命令应输出 `dd6322d604e00eec1ba5e0c8541159906a21094a`。已有本地 checkout 即使目录名仍为 `dsh-runtime-alpha1`，也必须先确认 tag、commit 和 `dsh --version` 均符合上述值。
+版本命令应输出 `0.1.2-alpha.4`，commit 命令应输出 `4e84901e6471b79ec0338099867ebb4606d12bb5`。已有本地 checkout 即使目录名仍为 `dsh-runtime-alpha1`，也应先确认 tag、commit 和 `dsh --version` 均符合上述值。
 
 #### 2. 安装插件
 
 推荐使用 npm 上的精确预发布版本；需要审计源码来源时，可使用对应的不可变 Git tag。不要把本地源码目录或包含个人设计资料的目录作为日常安装来源。
 
 ```powershell
-Set-Location .\dsh-runtime-alpha3
+Set-Location .\dsh-runtime-alpha4
 # 验收时固定使用官方 npm registry，避免镜像同步延迟
 $env:npm_config_registry = 'https://registry.npmjs.org/'
 npx --yes pnpm@11.7.0 dsh plugin --profile web add dsh-deepcanary@0.1.0-rc.4
@@ -93,18 +93,18 @@ npx --yes pnpm@11.7.0 dsh plugin --profile web update dsh-deepcanary
 npx --yes pnpm@11.7.0 dsh plugin --profile web remove dsh-deepcanary
 ```
 
-需要重新安装当前发布版本时，重新执行上面的 RC4 安装命令；需要复现 RC3 或 RC2 时，分别使用对应 tag 和匹配的 DSH 运行时。完成替换后重启 `dsh web`，并用 `dsh plugin --profile web list` 确认 profile 中只保留目标版本。
+需要重新安装当前版本时，重新执行相应的 RC4 安装命令；需要复现 RC3 或 RC2 时，分别使用对应 tag 和匹配的 DSH 运行时。完成替换后重启 `dsh web`，并用 `dsh plugin --profile web list` 确认 profile 中只保留目标版本。
 
 ### 从源码重建并验证 RC4
 
-需要调试源码或复现构建时，可使用官方 DSH `dsh-v0.1.2-alpha.3` 和独立测试配置；请将 `$pluginDir`、`$dshDir` 改为本机路径。该流程生成的本地压缩包应与 RC4 候选版本的版本和文件布局一致，公共发布完成后可继续用于比对。
+需要调试源码或复现构建时，可使用官方 DSH `dsh-v0.1.2-alpha.4` 和独立测试配置；请将 `$pluginDir`、`$dshDir` 改为本机路径。该流程生成的本地压缩包是当前最可靠的验收来源，也可在公共发布完成后继续用于比对。
 
 ```powershell
 $pluginDir = 'C:\path\to\dsh-deepcanary'
-$dshDir = 'C:\path\to\dsh-runtime-alpha3'
+$dshDir = 'C:\path\to\dsh-runtime-alpha4'
 $testHome = Join-Path $env:USERPROFILE '.dsh-deepcanary-test'
 
-git clone --depth 1 --branch dsh-v0.1.2-alpha.3 https://github.com/deepseek-ai/deepseek-harness.git $dshDir
+git clone --depth 1 --branch dsh-v0.1.2-alpha.4 https://github.com/deepseek-ai/deepseek-harness.git $dshDir
 Set-Location $dshDir
 npx --yes pnpm@11.7.0 install --frozen-lockfile
 npx --yes pnpm@11.7.0 run build
@@ -128,7 +128,7 @@ npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
 
-`dsh --version` 应输出 `0.1.2-alpha.3`，`git rev-parse HEAD` 应输出 `dd6322d604e00eec1ba5e0c8541159906a21094a`，本地压缩包应显示 `0.1.0-rc.4`。`cordis.patch.yml` 使用 DSH 的 `dshHomePath('dsh-deepcanary')`，因此设置 `DSH_HOME` 后，插件状态会跟随独立 DSH home 保存。开始 Web UI 手测前，请确认测试配置已加载当前压缩包，并且页面只显示侧栏入口，不再出现固定在右侧的旧卡片。
+`dsh --version` 应输出 `0.1.2-alpha.4`，`git rev-parse HEAD` 应输出 `4e84901e6471b79ec0338099867ebb4606d12bb5`，本地压缩包应显示 `0.1.0-rc.4`。`cordis.patch.yml` 使用 DSH 的 `dshHomePath('dsh-deepcanary')`，因此设置 `DSH_HOME` 后，插件状态会跟随独立 DSH home 保存。开始 Web UI 手测前，请确认测试配置已加载当前压缩包，并且页面只显示侧栏入口，不再出现固定在右侧的旧卡片。
 
 ### WebUI 交互
 
@@ -166,7 +166,7 @@ dogfood 或受控试验可以在产生提醒后，使用 Inbox 条目的 `id` �
 {
   "id": "<Inbox item id>",
   "source": "real",
-  "trialId": "manual-alpha3-01",
+  "trialId": "manual-alpha4-01",
   "opened": true,
   "acknowledged": true,
   "feedback": "useful",
@@ -177,11 +177,11 @@ dogfood 或受控试验可以在产生提醒后，使用 Inbox 条目的 `id` �
 }
 ```
 
-随后使用 `GET /dsh-deepcanary/outcomes?source=real&trialId=manual-alpha3-01` 读取结果。记录文件为本地状态目录中的 `outcomes.json`；真实、受控和回放数据应使用不同的 `trialId` 或独立状态目录，并通过 [`benchmark/outcome-receipt.schema.json`](benchmark/outcome-receipt.schema.json) 约束字段。试验撤回或达到保留期限后，可使用 `DELETE /dsh-deepcanary/outcomes?source=real&trialId=manual-alpha3-01`，或提供明确的 `before=<ISO 日期>` 进行定点清理；删除请求必须包含 trial 或时间边界。
+随后使用 `GET /dsh-deepcanary/outcomes?source=real&trialId=manual-alpha4-01` 读取结果。记录文件为本地状态目录中的 `outcomes.json`；真实、受控和回放数据应使用不同的 `trialId` 或独立状态目录，并通过 [`benchmark/outcome-receipt.schema.json`](benchmark/outcome-receipt.schema.json) 约束字段。试验撤回或达到保留期限后，可使用 `DELETE /dsh-deepcanary/outcomes?source=real&trialId=manual-alpha4-01`，或提供明确的 `before=<ISO 日期>` 进行定点清理；删除请求必须包含 trial 或时间边界。
 
 设置卡片通过 DSH 标准 `settings.plugin.item` 位置暴露通知级别、自动唤起策略、每小时打断预算、静默时段、长时间阈值、Subagent 压力档位、相邻事件合并窗口和隐私安全摘要选项。挂载 `@deepseek-ai/dsh-settings` 后，设置通过 `dsh-deepcanary` namespace 实时生效；没有该 provider 时，插件仍按 bundle 配置工作。
 
-客户端不再注册独立的 `/dsh-deepcanary/client.js` 路由，也不使用 `webserver/index-inject`。包 manifest 的 `dsh.client` 声明和 `./client` 导出由 DSH alpha.2/alpha.3 的客户端模块加载器负责加载；面板入口贡献到 `sidebar.footer.action`，浮动面板贡献到 `shell.overlay`，设置卡贡献到标准 `settings.plugin.item`。
+客户端通过包 manifest 的 `dsh.client` 声明和 `./client` 导出接入 DSH alpha.4 客户端模块加载器；面板入口贡献到 `sidebar.footer.action`，浮动面板贡献到 `shell.overlay`，设置卡贡献到标准 `settings.plugin.item`。alpha.4 引入的 `SessionSeq` 内部类型变化不影响本插件使用的 `sessions.open(SessionId)` 导航接口。
 
 ## 注意力策略
 
@@ -196,7 +196,7 @@ dogfood 或受控试验可以在产生提醒后，使用 Inbox 条目的 `id` �
 
 ## 隐私与安全边界
 
-默认状态目录跟随 DSH 的 home，bundle 配置使用 `dshHomePath('dsh-deepcanary')`；未设置 `DSH_HOME` 时通常对应 `~/.dsh/dsh-deepcanary`。其中的 `inbox.json` 保存提醒元数据，`outcomes.json` 保存脱敏结果记录。两者只保存时间、等级、原因码、哈希化的 Session/Workspace 引用、证据摘要、Bundle 元数据、用户反馈和结果枚举。Prompt、模型输出、工具参数、凭据、原始工具结果和完整会话内容留在 DSH，不写入 DeepCanary 状态文件。
+默认状态目录跟随 DSH 的 home，bundle 配置使用 `dshHomePath('dsh-deepcanary')`；未设置 `DSH_HOME` 时通常对应 `~/.dsh/dsh-deepcanary`。其中的 `inbox.json` 保存提醒元数据，`outcomes.json` 保存脱敏结果记录。两者保存时间、等级、原因码、哈希化的 Session/Workspace 引用、证据摘要、Bundle 元数据、用户反馈和结果枚举；当 DSH 提供会话入口时，`inbox.json` 还会保存长度受限的本地 opaque session handle，用于调用原生 `sessions.open` 回到对应线程。Prompt、模型输出、工具参数、凭据、原始工具结果和完整会话内容留在 DSH，不写入 DeepCanary 状态文件。
 
 Web 接口使用同源本地 WebServer 和 `no-store` 响应；客户端通过 DOM `textContent` 渲染动态字段，不拼接 `innerHTML`。插件不提供 shell、文件写入、终止、重启、批准或拒绝工具。不要把 DSH WebServer 暴露到未经认证的公网反向代理后面。
 
@@ -204,7 +204,7 @@ Web 接口使用同源本地 WebServer 和 `no-store` 响应；客户端通过 D
 
 - **侧栏入口或面板没有出现**：先停止已有的 `dsh web`，在相同 profile 执行 `dsh plugin --profile web list` 和 `dsh --profile web --dump-config`，确认目标版本与 `dsh-deepcanary` bundle 都已加载；随后重新安装目标包并启动 Web UI。
 - **页面右侧仍有旧卡片**：这通常来自旧 profile 或旧版页面注入插件。移除测试 profile 中的旧 `dsh-deepcanary` 条目，使用当前版本重新安装，并确认页面只保留侧栏入口。
-- **Web UI 无法连接或端口被占用**：关闭旧的 DSH 进程后重新运行 `dsh web --no-open`；保留终端显示的本机访问地址和一次性 token，不要把地址发布到公网。
+- **Web UI 显示“连接中”或“连接异常”**：先访问 `http://127.0.0.1:<端口>/dsh-deepcanary/health`，HTTP 200 且返回 `"ok": true` 表示插件服务正常；再检查 `dsh --profile web --dump-config`、终端中的 DSH 进程和浏览器页面是否使用同一端口。短暂状态波动可刷新页面；持续失败时关闭旧的 DSH 进程后重新运行 `dsh web --no-open`，并保留终端显示的本机访问地址和一次性 token。
 - **需要模型调用**：在 DSH 自己的设置中配置 API key；DeepCanary 不读取或保存凭据。无 API key 时，健康检查、面板和离线测试仍可运行。
 
 ## 验证与发布基线
@@ -229,7 +229,7 @@ npm run benchmark:attention
 npm run outcomes:report -- --input <path-to-outcomes.json> --source real
 ```
 
-质量报告和 Outcome 报告只保存汇总结果；原始试用数据应留在隔离测试目录，具体字段和隐私边界见 [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md)。Outcome 报告使用 [`benchmark/outcome-report.schema.json`](benchmark/outcome-report.schema.json)，同一次汇总只接收一个 `source`。RC4 的安装、测试和发布记录在 [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json)；RC3 的历史 alpha.3 兼容性记录仍保存在 [`benchmark/alpha3-compatibility-receipt.json`](benchmark/alpha3-compatibility-receipt.json) 中。
+质量报告和 Outcome 报告只保存汇总结果；原始试用数据应留在隔离测试目录，具体字段和隐私边界见 [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md)。Outcome 报告使用 [`benchmark/outcome-report.schema.json`](benchmark/outcome-report.schema.json)，同一次汇总只接收一个 `source`。RC4 的安装、测试和发布记录在 [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json)；alpha.3 的历史兼容性记录仍保存在 [`benchmark/alpha3-compatibility-receipt.json`](benchmark/alpha3-compatibility-receipt.json) 中。
 
 当前 RC4 沿用并重新验证 AttentionGold v3，固定覆盖 20 个分类场景，以及重复、共享根因 Bundle、恢复复发和多 Session 场景；RC2 收据仍记录历史 v2 的 15 个分类场景。RC2 的官方运行时、Windows/WSL、公开 tag 安装、Web、设置、卸载重启和分发完整性证据记录在仓库内的 [`benchmark/release-receipt.json`](benchmark/release-receipt.json)，收据状态为 `PASS`。RC2 历史文件与 RC4 收据都不进入 npm 运行包，以避免与发布包 SHA-256 形成循环依赖。可复现检查步骤见 [`docs/release-checklist.md`](docs/release-checklist.md)。
 

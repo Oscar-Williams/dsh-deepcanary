@@ -26,6 +26,37 @@ describe('runtime providers', () => {
     expect(signals[0]).toMatchObject({ kind: 'COMPLETION_SUSPICIOUS' })
   })
 
+  it('distinguishes an authoritative human wait from a heuristic approval hint', () => {
+    expect(signalsFromSessionEvent(session, {
+      type: 'approval/asked',
+      seq: 10,
+      time: 3_100,
+      data: { toolName: 'bash' },
+    }, facts)[0]).toMatchObject({
+      kind: 'HUMAN_APPROVAL_REQUIRED',
+      severityHint: 3,
+      evidence: [{ type: 'session-event', authority: 'runtime' }],
+    })
+    expect(signalsFromSessionEvent(session, {
+      type: 'approval/decided',
+      seq: 11,
+      time: 3_200,
+      data: { toolName: 'bash', outcome: 'allowed-once' },
+    }, facts)).toEqual([])
+    expect(signalsFromSessionEvent(session, {
+      type: 'tool/call',
+      seq: 12,
+      time: 3_300,
+      data: { name: 'permission-check' },
+    }, facts)[0]).toMatchObject({ kind: 'HUMAN_APPROVAL_REQUIRED', severityHint: 2, evidence: [{ authority: 'heuristic' }] })
+    expect(signalsFromSessionEvent(session, {
+      type: 'tool/call',
+      seq: 13,
+      time: 3_400,
+      data: { name: 'ask_user_question' },
+    }, facts)[0]).toMatchObject({ kind: 'HUMAN_QUESTION_PENDING', severityHint: 3 })
+  })
+
   it('raises repeated compaction to context pressure and keeps recovery unbundled', () => {
     const event = { type: 'context/compaction', time: 4_000, data: { kind: 'compaction' } }
     expect(signalsFromSessionEvent(session, event, { ...facts, contextCompactions: 1 })[0]).toMatchObject({ kind: 'COMPACTION_OCCURRED' })

@@ -46,27 +46,27 @@ describe('OutcomeReceipt', () => {
     expect(item).toBeDefined()
     const receipt = await first.recordOutcome(item?.id ?? '', {
       source: 'real',
-      trialId: 'manual-alpha3-01',
+      trialId: 'manual-alpha4-01',
       opened: true,
       acknowledged: true,
       feedback: 'useful',
       laterOutcome: 'continued',
       latencyBucket: 'under-1m',
     })
-    expect(receipt).toMatchObject({ source: 'real', trialId: 'manual-alpha3-01', feedback: 'useful', laterOutcome: 'continued' })
+    expect(receipt).toMatchObject({ source: 'real', trialId: 'manual-alpha4-01', feedback: 'useful', laterOutcome: 'continued' })
     expect(receipt?.attentionRef).toMatch(/^[a-f0-9]{16}$/)
     expect(isOutcomeReceipt({ ...receipt, prompt: 'must not be retained' })).toBe(false)
     await first.dispose()
 
     const persisted = await readFile(first.outcomeStore.file, 'utf8')
-    expect(persisted).toContain('manual-alpha3-01')
+    expect(persisted).toContain('manual-alpha4-01')
     expect(persisted).not.toContain('private-session-id')
     expect(persisted).not.toContain('private-workspace-id')
 
     const second = new DeepCanaryService({ logger: {} } as never, { stateDir: directory, maxInboxItems: 50 })
     await second.ready
     expect(second.outcomes()).toHaveLength(1)
-    expect(second.outcomes()[0]).toMatchObject({ source: 'real', trialId: 'manual-alpha3-01', feedback: 'useful' })
+    expect(second.outcomes()[0]).toMatchObject({ source: 'real', trialId: 'manual-alpha4-01', feedback: 'useful' })
     await second.dispose()
     await rm(directory, { recursive: true, force: true })
   })

@@ -56,6 +56,15 @@ export class InterruptBudget {
     return Math.max(0, this.maxPerHour - this.consumed.length)
   }
 
+  used(now = Date.now()): number {
+    this.prune(now)
+    return this.consumed.length
+  }
+
+  limit(): number {
+    return this.maxPerHour
+  }
+
   private prune(now: number): void {
     const cutoff = now - this.windowMs
     while (this.consumed[0] !== undefined && this.consumed[0] <= cutoff) this.consumed.shift()

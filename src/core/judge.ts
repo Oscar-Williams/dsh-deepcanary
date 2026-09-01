@@ -16,13 +16,10 @@ const c2Reasons = new Set<ReasonCode>([
 
 function levelFor(signal: CanarySignal): { level: AttentionLevel; matchedRules: string[] } {
   const matchedRules: string[] = []
+  const authoritative = signal.evidence.some(item => item.authority === 'host' || item.authority === 'runtime')
   if (signal.data.healthy === true) {
     matchedRules.push('signal.healthy-c0')
     return { level: 'C0', matchedRules }
-  }
-  if (signal.data.userViewing === true && signal.severityHint !== 0) {
-    matchedRules.push('context.user-viewing-downgrade')
-    return { level: 'C1', matchedRules }
   }
   if (signal.kind === 'HOST_UNREACHABLE') {
     matchedRules.push(signal.evidence.some(item => item.authority === 'host' || item.authority === 'runtime') ? 'host.authoritative-c3' : 'host.heuristic-c2')
@@ -34,9 +31,21 @@ function levelFor(signal: CanarySignal): { level: AttentionLevel; matchedRules: 
     if (signal.severityHint === 2) return { level: 'C2', matchedRules }
     return { level: 'C1', matchedRules }
   }
-  if (signal.severityHint === 3 && signal.evidence.some(item => item.authority === 'host' || item.authority === 'runtime')) {
+  if (signal.kind === 'HUMAN_APPROVAL_REQUIRED' && authoritative && signal.severityHint === 3) {
+    matchedRules.push('human.approval-authoritative-c3')
+    return { level: 'C3', matchedRules }
+  }
+  if (signal.kind === 'HUMAN_QUESTION_PENDING' && authoritative && signal.severityHint === 3) {
+    matchedRules.push('human.question-blocking-c3')
+    return { level: 'C3', matchedRules }
+  }
+  if (signal.severityHint === 3 && authoritative) {
     matchedRules.push('severity.authoritative-c3')
     return { level: 'C3', matchedRules }
+  }
+  if (signal.data.userViewing === true && signal.severityHint !== 0) {
+    matchedRules.push('context.user-viewing-downgrade')
+    return { level: 'C1', matchedRules }
   }
   if (c2Reasons.has(signal.kind)) {
     matchedRules.push('reason.default-c2')
@@ -95,9 +104,18 @@ function suggestionKeyFor(reason: ReasonCode): string {
 
 function messageParamsFor(signal: CanarySignal): MessageParams | undefined {
   const params: MessageParams = {}
-  for (const key of ['threshold', 'failureCount', 'activeSubagents', 'idleMs'] as const) {
+  for (const key of ['threshold', 'failureCount', 'activeSubagents', 'idleMs', 'contextCompactions'] as const) {
     const value = signal.data[key]
     if (typeof value === 'number' && Number.isFinite(value)) params[key] = value
+  }
+  const idleMs = signal.data.idleMs
+  if (typeof idleMs === 'number' && Number.isFinite(idleMs)) {
+    params.idleMinutes = Math.max(1, Math.round(idleMs / 60_000))
+  }
+  const toolName = signal.data.toolName
+  if (typeof toolName === 'string') {
+    const safeToolName = toolName.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80)
+    if (safeToolName) params.toolName = safeToolName
   }
   return Object.keys(params).length > 0 ? params : undefined
 }

@@ -5,6 +5,7 @@ import type {
 } from 'react'
 import type { SettingsScope, SettingsScopeSnapshot } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { SettingsPluginItemOwnerProps } from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
+import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
 import { handleNotificationClick, positionSelectedAttention } from './attention-navigation.js'
 
 type Translate = (key: string, params?: Record<string, unknown>) => string
@@ -41,6 +42,8 @@ type ClientItem = {
   acknowledgedAt?: string
   recoveredAt?: string
   expiredAt?: string
+  mutedUntil?: string
+  feedback?: { useful: boolean; value?: 'useful' | 'not-relevant' | 'wrong-level' | 'already-resolved'; at: string }
   bundleCount: number
 }
 
@@ -56,6 +59,7 @@ type ClientSettings = {
   privacySafeSummary: boolean
   healthPollSeconds: number
   maxInboxItems: number
+  suppressedReasonCodes: string[]
 }
 
 type ClientSnapshot = {
@@ -69,15 +73,30 @@ type ClientSnapshot = {
     plugin: { state: string; version: string }
     revision?: number
     capabilities: { browserNotification: boolean; nativeToast: boolean; windowsInterop: string }
+    delivery: {
+      interruptBudget: { limit: number; used: number; remaining: number }
+      quietHours: { enabled: boolean; active: boolean; start: string; end: string }
+      dedupeWindowMinutes: number
+      bundleWindowSeconds: number
+    }
   }
   settings: ClientSettings
   inbox: ClientItem[]
 }
 
-type JumpResult = { available: boolean; url?: string; note: string }
+type JumpResult = { available: boolean; sessionId?: string; url?: string; note: string }
+
+type ActionNotice = {
+  id?: string
+  kind: string
+  useful?: boolean
+  value?: string
+  tone: 'success' | 'error'
+}
 
 type ClientContext = {
   effect: (setup: () => void | (() => void), label?: string) => unknown
+  sessions: Pick<ISessions, 'open'>
   locale: { register: (namespace: string, dictionaries: { zh: Record<string, string>; en: Record<string, string> }) => () => void }
   slots: {
     inject: (name: string, callback: () => unknown) => unknown
@@ -99,6 +118,7 @@ type ControllerState = {
   pending: ReadonlySet<string>
   lastSyncedAt: string | undefined
   protocolUnsupported: boolean
+  notice: ActionNotice | undefined
 }
 
 type Controller = {
@@ -113,6 +133,7 @@ type Controller = {
   setTrigger: (element: HTMLButtonElement | null) => void
   setSize: (width: number, height: number) => void
   action: (id: string, payload: Record<string, unknown>) => Promise<void>
+  openSession: (sessionId: string) => boolean
   jump: (id: string) => Promise<void>
 }
 
@@ -127,7 +148,7 @@ const MIN_WIDTH = 320
 const MAX_WIDTH = 640
 const MIN_HEIGHT = 320
 const MAX_HEIGHT = 720
-const AUTO_OPEN_REASONS = new Set(['HOST_UNREACHABLE', 'SUBAGENT_PRESSURE'])
+const AUTO_OPEN_REASONS = new Set(['HOST_UNREACHABLE', 'SUBAGENT_PRESSURE', 'HUMAN_APPROVAL_REQUIRED', 'HUMAN_QUESTION_PENDING'])
 
 const zh = {
   'trigger.open': '打开 DeepCanary',
@@ -154,6 +175,14 @@ const zh = {
   'panel.bodyLabel': 'DeepCanary 待处理提醒',
   'panel.updateRequired': 'DeepCanary 状态协议需要更新插件。',
   'panel.lastSynced': '最近同步：{time}',
+  'panel.policyHint': 'C1 建议查看 · C2 需要处理 · C3 立即处理',
+  'panel.delivery': '通知预算 {used}/{limit}，剩余 {remaining} · 去重 {dedupe} 分钟 · 合并 {bundle} 秒 · {quiet}',
+  'panel.quiet.active': '静默时段 {start}–{end}，当前生效',
+  'panel.quiet.inactive': '静默时段 {start}–{end}，当前未生效',
+  'panel.quiet.disabled': '静默时段未启用',
+  'panel.suppressed': '已屏蔽：{types}',
+  'panel.suppressed.none': '没有已屏蔽的事件类型',
+  'panel.restore': '恢复提醒',
   'panel.save': '保存设置',
   'panel.saved': '设置已保存',
   'panel.settings.notificationLevel': '提醒级别',
@@ -202,12 +231,12 @@ const zh = {
   'item.reason.HUMAN_APPROVAL_REQUIRED': 'DSH 正在等待人工审批。',
   'item.reason.HUMAN_QUESTION_PENDING': 'DSH 正在等待你的回答。',
   'item.reason.HOST_UNREACHABLE': 'DSH 主机暂时无法访问。',
-  'item.reason.HOST_SUSPECTED_STALL': '会话可能已长时间没有进展。',
-  'item.reason.TOOL_FAILURE_LOOP': '同一工具连续返回失败结果。',
+  'item.reason.HOST_SUSPECTED_STALL': '会话已连续 {idleMinutes} 分钟没有新事件。',
+  'item.reason.TOOL_FAILURE_LOOP': '工具“{toolName}”已连续失败 {failureCount} 次。',
   'item.reason.NO_MEANINGFUL_PROGRESS': '会话持续运行，但暂未观察到有效进展。',
-  'item.reason.SUBAGENT_PRESSURE': '活动 Subagent 数量已达到压力阈值。',
+  'item.reason.SUBAGENT_PRESSURE': '活动 Subagent 已达 {activeSubagents} 个（阈值 {threshold}）。',
   'item.reason.CONTEXT_PRESSURE': '会话上下文压力需要关注。',
-  'item.reason.COMPACTION_OCCURRED': 'DSH 已执行一次上下文压缩。',
+  'item.reason.COMPACTION_OCCURRED': 'DSH 已完成第 {contextCompactions} 次上下文压缩。',
   'item.reason.TASK_COMPLETED': '会话报告了一次正常完成。',
   'item.reason.TASK_FAILED': '会话报告执行失败。',
   'item.reason.TASK_ABORTED': '会话被中止，可能需要确认是否继续。',
@@ -229,6 +258,14 @@ const zh = {
   'item.suggestion.HOST_STALL_RECOVERED': '如恢复并非预期，请检查该会话。',
   'item.suggestion.unknown': '查看收件箱中的证据后决定下一步。',
   'item.level': '注意力级别 {level}',
+  'item.level.C1': '建议查看',
+  'item.level.C2': '需要处理',
+  'item.level.C3': '立即处理',
+  'item.level.C0': '记录',
+  'item.levelLabel': '{level} · {label}',
+  'item.open.C1': '查看 DSH',
+  'item.open.C2': '打开 DSH 处理',
+  'item.open.C3': '立即打开 DSH',
   'item.events': '{count} 个相关事件',
   'item.suggestion': '建议：{text}',
   'item.evidence': '查看技术证据',
@@ -249,16 +286,53 @@ const zh = {
   'item.appliedScopes': '生效范围：{scopes}',
   'item.suppressedBy': '抑制因素：{values}',
   'item.authoritySummary': '证据权威：{text}',
+  'item.decisionWhy': '判定依据：{text}',
   'item.finalDecision': '最终判定：{level} / {action}',
   'item.bundled': 'Bundle 聚合：{count} 个事件',
   'item.recoveryRule': '恢复规则：{rule}',
   'item.none': '无',
   'item.acknowledge': '已处理',
   'item.snooze': '稍后提醒',
-  'item.mute': '静音',
+  'item.mute': '保持静音（1小时）',
+  'item.unmute': '恢复提醒',
+  'item.suppressType': '不再提醒此类事件',
+  'item.moreActions': '更多操作',
+  'item.feedbackMenu': '反馈',
   'item.useful': '有用',
   'item.irrelevant': '不相关',
+  'item.feedbackRecorded': '反馈已记录',
   'item.jump': '跳转到 DSH',
+  'item.notice.acknowledged': '已标记为已处理',
+  'item.notice.snoozed': '已安排稍后提醒',
+  'item.notice.muted': '已静音这条提醒',
+  'item.notice.unmuted': '已恢复这条提醒',
+  'item.notice.suppressed': '已不再提醒此类事件',
+  'item.notice.feedbackUseful': '已记录“有用”反馈',
+  'item.notice.feedbackIrrelevant': '已记录“不相关”反馈',
+  'item.notice.suppressionRestored': '已恢复这类提醒',
+  'item.notice.actionFailed': '操作未完成，请重试',
+  'item.notice.jumpUnavailable': '当前条目没有可用的 DSH 线程入口',
+  'item.mutedUntil': '已静音至 {time}',
+  'item.feedbackWrongLevel': '已记录“级别不合适”反馈',
+  'item.feedbackAlreadyResolved': '已记录“问题已解决”反馈',
+  'item.suppressedTypes': '不再提醒：{types}',
+  'item.noSessionLink': '该历史提醒未保存可用的 DSH 会话入口',
+  'notification.title.HUMAN_APPROVAL_REQUIRED': '等待人工审批',
+  'notification.title.HUMAN_QUESTION_PENDING': '等待你的回答',
+  'notification.title.HOST_UNREACHABLE': 'DSH 主机连接中断',
+  'notification.title.HOST_SUSPECTED_STALL': '会话长时间无进展',
+  'notification.title.TOOL_FAILURE_LOOP': '工具连续失败',
+  'notification.title.NO_MEANINGFUL_PROGRESS': '运行缺少有效进展',
+  'notification.title.SUBAGENT_PRESSURE': 'Subagent 压力升高',
+  'notification.title.CONTEXT_PRESSURE': '上下文压力升高',
+  'notification.title.COMPACTION_OCCURRED': '上下文已压缩',
+  'notification.title.TASK_COMPLETED': '任务已完成',
+  'notification.title.TASK_FAILED': '任务执行失败',
+  'notification.title.TASK_ABORTED': '任务已中止',
+  'notification.title.COMPLETION_SUSPICIOUS': '完成结果待复核',
+  'notification.title.HOST_STALL_RECOVERED': '会话已恢复',
+  'notification.bundle': '已合并 {count} 个相关事件。',
+  'notification.bundleDetail': '已合并 {count} 个相关事件：{reasons}。',
   'item.unknownReason': '未知原因码：{code}',
   'state.failed': '暂时无法读取 DeepCanary 状态。',
   'state.retry': '重试',
@@ -291,6 +365,14 @@ const en = {
   'panel.bodyLabel': 'DeepCanary pending alerts',
   'panel.updateRequired': 'The DeepCanary state protocol requires a newer plugin.',
   'panel.lastSynced': 'Last sync: {time}',
+  'panel.policyHint': 'C1 Review · C2 Action needed · C3 Act now',
+  'panel.delivery': 'Interrupt budget {used}/{limit}, {remaining} remaining · dedupe {dedupe}m · bundle {bundle}s · {quiet}',
+  'panel.quiet.active': 'Quiet hours {start}–{end}, active now',
+  'panel.quiet.inactive': 'Quiet hours {start}–{end}, inactive now',
+  'panel.quiet.disabled': 'Quiet hours are off',
+  'panel.suppressed': 'Silenced types: {types}',
+  'panel.suppressed.none': 'No event types are silenced',
+  'panel.restore': 'Restore alerts',
   'panel.save': 'Save settings',
   'panel.saved': 'Settings saved',
   'panel.settings.notificationLevel': 'Alert level',
@@ -339,12 +421,12 @@ const en = {
   'item.reason.HUMAN_APPROVAL_REQUIRED': 'DSH is waiting for human approval.',
   'item.reason.HUMAN_QUESTION_PENDING': 'DSH is waiting for your answer.',
   'item.reason.HOST_UNREACHABLE': 'The DSH host is temporarily unreachable.',
-  'item.reason.HOST_SUSPECTED_STALL': 'The session may have made no progress for a while.',
-  'item.reason.TOOL_FAILURE_LOOP': 'The same tool has returned repeated failures.',
+  'item.reason.HOST_SUSPECTED_STALL': 'The session has received no new event for {idleMinutes} minutes.',
+  'item.reason.TOOL_FAILURE_LOOP': 'Tool “{toolName}” has failed {failureCount} times in a row.',
   'item.reason.NO_MEANINGFUL_PROGRESS': 'The session is running without meaningful progress so far.',
-  'item.reason.SUBAGENT_PRESSURE': 'Active subagents have reached a pressure threshold.',
+  'item.reason.SUBAGENT_PRESSURE': 'Active subagents reached {activeSubagents} (threshold {threshold}).',
   'item.reason.CONTEXT_PRESSURE': 'The session context pressure needs attention.',
-  'item.reason.COMPACTION_OCCURRED': 'DSH has performed a context compaction.',
+  'item.reason.COMPACTION_OCCURRED': 'DSH completed context compaction number {contextCompactions}.',
   'item.reason.TASK_COMPLETED': 'The session reported a normal completion.',
   'item.reason.TASK_FAILED': 'The session reported a failure.',
   'item.reason.TASK_ABORTED': 'The session was aborted and may need a follow-up decision.',
@@ -366,6 +448,14 @@ const en = {
   'item.suggestion.HOST_STALL_RECOVERED': 'Review the session if the recovery was unexpected.',
   'item.suggestion.unknown': 'Review the Inbox evidence before deciding what to do next.',
   'item.level': 'Attention level {level}',
+  'item.level.C1': 'Review',
+  'item.level.C2': 'Action needed',
+  'item.level.C3': 'Act now',
+  'item.level.C0': 'Record',
+  'item.levelLabel': '{level} · {label}',
+  'item.open.C1': 'View in DSH',
+  'item.open.C2': 'Open DSH to act',
+  'item.open.C3': 'Open DSH now',
   'item.events': '{count} related events',
   'item.suggestion': 'Suggested next step: {text}',
   'item.evidence': 'View technical evidence',
@@ -386,16 +476,53 @@ const en = {
   'item.appliedScopes': 'Applied scopes: {scopes}',
   'item.suppressedBy': 'Suppressed by: {values}',
   'item.authoritySummary': 'Evidence authority: {text}',
+  'item.decisionWhy': 'Decision basis: {text}',
   'item.finalDecision': 'Final decision: {level} / {action}',
   'item.bundled': 'Bundle aggregation: {count} events',
   'item.recoveryRule': 'Recovery rule: {rule}',
   'item.none': 'None',
   'item.acknowledge': 'Acknowledge',
   'item.snooze': 'Snooze',
-  'item.mute': 'Mute',
+  'item.mute': 'Keep muted (1 hour)',
+  'item.unmute': 'Restore alerts',
+  'item.suppressType': 'Stop this type',
+  'item.moreActions': 'More actions',
+  'item.feedbackMenu': 'Feedback',
   'item.useful': 'Useful',
   'item.irrelevant': 'Not relevant',
+  'item.feedbackRecorded': 'Feedback recorded',
   'item.jump': 'Open in DSH',
+  'item.notice.acknowledged': 'Marked as handled',
+  'item.notice.snoozed': 'Reminder scheduled for later',
+  'item.notice.muted': 'This alert is muted',
+  'item.notice.unmuted': 'This alert is active again',
+  'item.notice.suppressed': 'This event type is now silenced',
+  'item.notice.feedbackUseful': 'Useful feedback recorded',
+  'item.notice.feedbackIrrelevant': 'Not-relevant feedback recorded',
+  'item.notice.suppressionRestored': 'Alerts for this type are restored',
+  'item.notice.actionFailed': 'The action did not complete. Try again.',
+  'item.notice.jumpUnavailable': 'This item has no available DSH session link',
+  'item.mutedUntil': 'Muted until {time}',
+  'item.feedbackWrongLevel': '“Wrong level” feedback recorded',
+  'item.feedbackAlreadyResolved': '“Already resolved” feedback recorded',
+  'item.suppressedTypes': 'Silenced: {types}',
+  'item.noSessionLink': 'This historical alert has no saved DSH session link',
+  'notification.title.HUMAN_APPROVAL_REQUIRED': 'Human approval needed',
+  'notification.title.HUMAN_QUESTION_PENDING': 'Your answer is needed',
+  'notification.title.HOST_UNREACHABLE': 'DSH host connection lost',
+  'notification.title.HOST_SUSPECTED_STALL': 'Session has stopped progressing',
+  'notification.title.TOOL_FAILURE_LOOP': 'Tool failures are repeating',
+  'notification.title.NO_MEANINGFUL_PROGRESS': 'No meaningful progress',
+  'notification.title.SUBAGENT_PRESSURE': 'Subagent pressure is high',
+  'notification.title.CONTEXT_PRESSURE': 'Context pressure is high',
+  'notification.title.COMPACTION_OCCURRED': 'Context was compacted',
+  'notification.title.TASK_COMPLETED': 'Task completed',
+  'notification.title.TASK_FAILED': 'Task failed',
+  'notification.title.TASK_ABORTED': 'Task was aborted',
+  'notification.title.COMPLETION_SUSPICIOUS': 'Completion needs review',
+  'notification.title.HOST_STALL_RECOVERED': 'Session recovered',
+  'notification.bundle': '{count} related events were grouped.',
+  'notification.bundleDetail': '{count} related events were grouped: {reasons}.',
   'item.unknownReason': 'Unknown reason code: {code}',
   'state.failed': 'DeepCanary status is temporarily unavailable.',
   'state.retry': 'Retry',
@@ -436,6 +563,23 @@ const suggestionKeys: Record<string, LocaleKey> = {
   TASK_ABORTED: 'item.suggestion.TASK_ABORTED',
   COMPLETION_SUSPICIOUS: 'item.suggestion.COMPLETION_SUSPICIOUS',
   HOST_STALL_RECOVERED: 'item.suggestion.HOST_STALL_RECOVERED',
+}
+
+const notificationTitleKeys: Record<string, LocaleKey> = {
+  HUMAN_APPROVAL_REQUIRED: 'notification.title.HUMAN_APPROVAL_REQUIRED',
+  HUMAN_QUESTION_PENDING: 'notification.title.HUMAN_QUESTION_PENDING',
+  HOST_UNREACHABLE: 'notification.title.HOST_UNREACHABLE',
+  HOST_SUSPECTED_STALL: 'notification.title.HOST_SUSPECTED_STALL',
+  TOOL_FAILURE_LOOP: 'notification.title.TOOL_FAILURE_LOOP',
+  NO_MEANINGFUL_PROGRESS: 'notification.title.NO_MEANINGFUL_PROGRESS',
+  SUBAGENT_PRESSURE: 'notification.title.SUBAGENT_PRESSURE',
+  CONTEXT_PRESSURE: 'notification.title.CONTEXT_PRESSURE',
+  COMPACTION_OCCURRED: 'notification.title.COMPACTION_OCCURRED',
+  TASK_COMPLETED: 'notification.title.TASK_COMPLETED',
+  TASK_FAILED: 'notification.title.TASK_FAILED',
+  TASK_ABORTED: 'notification.title.TASK_ABORTED',
+  COMPLETION_SUSPICIOUS: 'notification.title.COMPLETION_SUSPICIOUS',
+  HOST_STALL_RECOVERED: 'notification.title.HOST_STALL_RECOVERED',
 }
 
 function interpolate(text: string, params: Record<string, unknown> | undefined): string {
@@ -508,7 +652,7 @@ function makeRequestId(): string {
   return generated ?? `dsc-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
-function createController(): Controller {
+function createController(sessions: Pick<ISessions, 'open'>): Controller {
   const initial = safeSize()
   let state: ControllerState = {
     open: false,
@@ -520,6 +664,7 @@ function createController(): Controller {
     pending: new Set(),
     lastSyncedAt: undefined,
     protocolUnsupported: false,
+    notice: undefined,
   }
   const listeners = new Set<() => void>()
   let disposed = false
@@ -532,10 +677,20 @@ function createController(): Controller {
   let etag: string | undefined
   let visibilityHandler: (() => void) | undefined
   let resizeHandler: (() => void) | undefined
+  let noticeTimer: number | undefined
 
   const publish = (patch: Partial<ControllerState>): void => {
     state = { ...state, ...patch }
     for (const listener of [...listeners]) listener()
+  }
+
+  const showNotice = (notice: ActionNotice): void => {
+    if (noticeTimer !== undefined) window.clearTimeout(noticeTimer)
+    publish({ notice })
+    noticeTimer = window.setTimeout(() => {
+      noticeTimer = undefined
+      publish({ notice: undefined })
+    }, 4_500)
   }
 
   const request = async (path: string, init?: RequestInit): Promise<Response | undefined> => {
@@ -593,6 +748,7 @@ function createController(): Controller {
       disposed = true
       started = false
       if (timer !== undefined) window.clearTimeout(timer)
+      if (noticeTimer !== undefined) window.clearTimeout(noticeTimer)
       abort?.abort()
       if (visibilityHandler !== undefined) document.removeEventListener('visibilitychange', visibilityHandler)
       if (resizeHandler !== undefined) window.removeEventListener('resize', resizeHandler)
@@ -653,6 +809,17 @@ function createController(): Controller {
       persistSize(next.width, next.height)
       publish(next)
     },
+    openSession: sessionId => {
+      try {
+        sessions.open(sessionId as Parameters<ISessions['open']>[0])
+        return true
+      } catch {
+        // The alpha4 Session API rejects unknown ids. Keeping the panel in
+        // place makes that failure visible instead of sending the user to a
+        // guessed URL that may open a different session.
+        return false
+      }
+    },
     action: async (id, payload) => {
       if (state.pending.has(id)) return
       const nextPending = new Set(state.pending)
@@ -665,11 +832,19 @@ function createController(): Controller {
           body: JSON.stringify({ id, requestId: makeRequestId(), ...payload }),
         })
         if (!response?.ok) throw new Error('action request failed')
+        const body = await response.json() as { updated?: boolean; result?: { kind?: string; useful?: boolean; value?: string } }
+        if (body.updated !== true) throw new Error('action was not applied')
+        const result = body.result
+        showNotice({
+          id,
+          kind: result?.kind ?? String(payload.action ?? 'action-complete'),
+          ...(typeof result?.useful === 'boolean' ? { useful: result.useful } : {}),
+          ...(typeof result?.value === 'string' ? { value: result.value } : {}),
+          tone: 'success',
+        })
         await controller.refresh()
       } catch {
-        // Card actions are best-effort. Keep the panel usable and, most
-        // importantly, do not turn a transient local WebServer failure into
-        // an unhandled promise rejection from a button handler.
+        showNotice({ id, kind: 'action-failed', tone: 'error' })
       } finally {
         const finished = new Set(state.pending)
         finished.delete(id)
@@ -677,15 +852,31 @@ function createController(): Controller {
       }
     },
     jump: async id => {
-      const response = await request('/dsh-deepcanary/action', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ id, action: 'jump', requestId: makeRequestId() }),
-      })
-      if (!response?.ok) return
-      const body = await response.json() as JumpResult | { result?: JumpResult }
-      const result = 'result' in body && body.result !== undefined ? body.result : body as JumpResult
-      if (result.available && result.url) window.location.assign(result.url)
+      if (state.pending.has(id)) return
+      const nextPending = new Set(state.pending)
+      nextPending.add(id)
+      publish({ pending: nextPending })
+      try {
+        const response = await request('/dsh-deepcanary/action', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ id, action: 'jump', requestId: makeRequestId() }),
+        })
+        if (!response?.ok) throw new Error('jump request failed')
+        const body = await response.json() as JumpResult | { result?: JumpResult }
+        const result = 'result' in body && body.result !== undefined ? body.result : body as JumpResult
+        if (result.available && result.sessionId !== undefined && controller.openSession(result.sessionId)) {
+          controller.close()
+          return
+        }
+        showNotice({ id, kind: 'jump-unavailable', tone: 'error' })
+      } catch {
+        showNotice({ id, kind: 'action-failed', tone: 'error' })
+      } finally {
+        const finished = new Set(state.pending)
+        finished.delete(id)
+        publish({ pending: finished })
+      }
     },
   }
   return controller
@@ -738,11 +929,20 @@ function injectStyles(): () => void {
     '.dsc-card-time{flex:none;color:var(--dsw-alias-label-caption,#8a8f98);font-size:10px}',
     '.dsc-card-copy{margin:0;color:var(--dsw-alias-label-secondary,#4b5563);font-size:12px}',
     '.dsc-card-suggestion{margin:0;color:var(--dsw-alias-label-tertiary,#6b7280);font-size:11px}',
+    '.dsc-level-label{flex:none;color:var(--dsw-alias-label-tertiary,#6b7280);font-size:10px;font-weight:600}',
     '.dsc-card-actions{display:flex;flex-wrap:wrap;gap:5px;margin-top:1px}',
     '.dsc-card-action{padding:4px 7px;border:1px solid var(--dsw-alias-border-l2,#d9dce1);border-radius:7px;background:transparent;color:var(--dsw-alias-label-secondary,#4b5563);font:inherit;font-size:11px;cursor:pointer}',
     '.dsc-card-action[data-primary="true"]{border-color:var(--dsw-alias-state-warn-primary,#c77700);color:var(--dsw-alias-state-warn-label,#8a4b00)}',
     '.dsc-card-action:hover:not(:disabled),.dsc-card-action:focus-visible{background:var(--dsw-alias-interactive-bg-hover,rgba(128,128,128,.12));outline:none}',
     '.dsc-card-action:disabled{cursor:default;opacity:.45}',
+    '.dsc-action-notice{margin:0;color:var(--dsw-alias-state-success-primary,#16803c);font-size:11px}',
+    '.dsc-action-notice-error{color:var(--dsw-alias-state-error-primary,#c5221f)}',
+    '.dsc-more{display:inline-flex;position:relative}',
+    '.dsc-more summary{display:inline-flex;align-items:center;min-height:28px;padding:4px 7px;border:1px solid var(--dsw-alias-border-l2,#d9dce1);border-radius:7px;color:var(--dsw-alias-label-secondary,#4b5563);font-size:11px;cursor:pointer;list-style:none}',
+    '.dsc-more summary::-webkit-details-marker{display:none}',
+    '.dsc-more[open] summary{background:var(--dsw-alias-interactive-bg-hover,rgba(128,128,128,.12))}',
+    '.dsc-more-actions{position:absolute;right:0;bottom:calc(100% + 5px);z-index:3;display:flex;align-items:flex-start;gap:5px;max-width:min(310px,calc(100vw - 40px));padding:7px;border:1px solid var(--dsw-alias-border-l2,#d9dce1);border-radius:8px;background:var(--dsw-specific-menu,var(--dsw-alias-bg-primary,#fff));box-shadow:0 8px 20px rgba(0,0,0,.14);white-space:nowrap;flex-wrap:wrap}',
+    '.dsc-more-label{align-self:center;color:var(--dsw-alias-label-tertiary,#6b7280);font-size:11px}',
     '.dsc-evidence{margin-top:1px;color:var(--dsw-alias-label-tertiary,#6b7280);font-size:11px}',
     '.dsc-evidence summary{cursor:pointer}',
     '.dsc-evidence p{margin:5px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}',
@@ -756,6 +956,9 @@ function injectStyles(): () => void {
     '.dsc-settings-chevron{flex:none;color:var(--dsw-alias-label-tertiary,#6b7280);font-size:14px}',
     '.dsc-settings-card-body{display:grid;gap:9px;padding:0 12px 12px;border-top:1px solid var(--dsw-alias-border-l2,#eceef1)}',
     '.dsc-settings-hint{margin:0;color:var(--dsw-alias-label-tertiary,#6b7280);font-size:11px}',
+    '.dsc-policy-summary{margin:8px 0 0;color:var(--dsw-alias-label-secondary,#4b5563);font-size:11px;font-weight:600}',
+    '.dsc-suppressed-summary{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:5px 0 8px;color:var(--dsw-alias-label-tertiary,#6b7280);font-size:11px}',
+    '.dsc-suppressed-actions{display:flex;gap:5px;flex-wrap:wrap}',
     '.dsc-settings-status{margin:0;color:var(--dsw-alias-label-tertiary,#6b7280);font-size:11px}',
     '.dsc-settings-status-error{color:var(--dsw-alias-state-error-primary,#c5221f)}',
     '.dsc-settings-fieldset{display:grid;gap:8px;margin:0;padding:8px;border:1px solid var(--dsw-alias-border-l2,#eceef1);border-radius:8px}',
@@ -768,8 +971,8 @@ function injectStyles(): () => void {
     '.dsc-field input,.dsc-field select{width:100%;box-sizing:border-box;min-height:28px;padding:4px 6px;border:1px solid var(--dsw-alias-border-l2,#d9dce1);border-radius:7px;background:transparent;color:var(--dsw-alias-label-primary,#202124);font:inherit}',
     '.dsc-check{display:flex;align-items:center;gap:6px;color:var(--dsw-alias-label-secondary,#4b5563);font-size:11px}',
     '.dsc-check input{width:auto}',
-    '.dsc-resize-width{position:absolute;top:58px;right:-7px;bottom:48px;width:14px;cursor:ew-resize;touch-action:none}',
-    '.dsc-resize-height{position:absolute;right:48px;bottom:-7px;left:48px;height:14px;cursor:ns-resize;touch-action:none}',
+    '.dsc-resize-width{position:absolute;top:58px;right:-7px;bottom:48px;z-index:2;width:14px;cursor:ew-resize;touch-action:none;user-select:none}',
+    '.dsc-resize-height{position:absolute;right:48px;bottom:-7px;left:48px;z-index:2;height:14px;cursor:ns-resize;touch-action:none;user-select:none}',
     '.dsc-resize-width:focus-visible,.dsc-resize-height:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary,#4b7bec);outline-offset:1px;border-radius:5px}',
     '@media (max-width:720px){.dsc-panel{right:8px;bottom:8px;width:min(var(--dsc-width),calc(100vw - 16px));height:min(var(--dsc-height),calc(100dvh - 16px))}.dsc-toolbar{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:center}.dsc-status{grid-column:1/-1;width:100%;flex:none}.dsc-toolbar-button{width:100%;min-width:0}.dsc-field-row{grid-template-columns:1fr}}',
     '@media (max-width:360px){.dsc-panel{right:4px;bottom:4px;width:calc(100vw - 8px);height:calc(100dvh - 8px);min-width:0;min-height:0;border-radius:10px}.dsc-body{padding-right:8px;padding-left:8px}.dsc-toolbar{padding-right:8px;padding-left:8px}.dsc-header{padding-right:8px;padding-left:8px}}',
@@ -807,6 +1010,83 @@ function suggestionText(item: ClientItem, t: Translate): string {
     ? item.suggestionKey as LocaleKey
     : suggestionKeys[item.reasonCode] ?? 'item.suggestion.unknown'
   return translate(t, key, item.messageParams)
+}
+
+function levelLabel(level: ClientItem['level'], t: Translate): string {
+  const key: LocaleKey = level === 'C1'
+    ? 'item.level.C1'
+    : level === 'C2'
+      ? 'item.level.C2'
+      : level === 'C3'
+        ? 'item.level.C3'
+        : 'item.level.C0'
+  return translate(t, key)
+}
+
+function notificationTitle(item: ClientItem, t: Translate): string {
+  const key = notificationTitleKeys[item.reasonCode]
+  const title = key === undefined
+    ? translate(t, 'item.unknownReason', { code: item.reasonCode })
+    : translate(t, key, item.messageParams)
+  return `${translate(t, 'item.levelLabel', { level: item.level, label: levelLabel(item.level, t) })} · ${title}`
+}
+
+function reasonCodeText(reasonCode: string, t: Translate): string {
+  const key = reasonKeys[reasonCode]
+  return key === undefined ? translate(t, 'item.unknownReason', { code: reasonCode }) : translate(t, key)
+}
+
+function notificationBody(item: ClientItem, t: Translate): string {
+  const parts = [reasonText(item, t)]
+  if (item.bundleCount > 1) {
+    const relatedReasons = item.reasonCodes
+      .filter(reasonCode => reasonCode !== item.reasonCode)
+      .slice(0, 2)
+      .map(reasonCode => reasonCodeText(reasonCode, t))
+    parts.push(relatedReasons.length > 0
+      ? translate(t, 'notification.bundleDetail', { count: item.bundleCount, reasons: relatedReasons.join(chineseLocale() ? '、' : ', ') })
+      : translate(t, 'notification.bundle', { count: item.bundleCount }))
+  }
+  return parts.join(' ')
+}
+
+function noticeText(notice: ActionNotice, t: Translate): string {
+  if (notice.kind === 'feedback-recorded') {
+    if (notice.value === 'wrong-level') return translate(t, 'item.feedbackWrongLevel')
+    if (notice.value === 'already-resolved') return translate(t, 'item.feedbackAlreadyResolved')
+    return translate(t, notice.useful === true ? 'item.notice.feedbackUseful' : 'item.notice.feedbackIrrelevant')
+  }
+  const keys: Record<string, LocaleKey> = {
+    'acknowledge-complete': 'item.notice.acknowledged',
+    'snooze-complete': 'item.notice.snoozed',
+    'mute-complete': 'item.notice.muted',
+    'unmute-complete': 'item.notice.unmuted',
+    suppressed: 'item.notice.suppressed',
+    'suppression-restored': 'item.notice.suppressionRestored',
+    'jump-unavailable': 'item.notice.jumpUnavailable',
+    'action-failed': 'item.notice.actionFailed',
+  }
+  return translate(t, keys[notice.kind] ?? 'item.notice.actionFailed')
+}
+
+function suppressedTypeText(reasonCode: string, t: Translate): string {
+  const key = reasonKeys[reasonCode]
+  return key === undefined ? reasonCode : translate(t, key)
+}
+
+function deliveryText(snapshot: ClientSnapshot, t: Translate): string {
+  const delivery = snapshot.status.delivery
+  const quiet = delivery.quietHours.enabled
+    ? translate(t, delivery.quietHours.active ? 'panel.quiet.active' : 'panel.quiet.inactive', delivery.quietHours)
+    : translate(t, 'panel.quiet.disabled')
+  return translate(t, 'panel.delivery', {
+    used: delivery.interruptBudget.used,
+    limit: delivery.interruptBudget.limit,
+    remaining: delivery.interruptBudget.remaining,
+    dedupe: delivery.dedupeWindowMinutes,
+    bundle: delivery.bundleWindowSeconds,
+    quiet,
+  })
 }
 
 function formatTime(value: string): string {
@@ -847,14 +1127,33 @@ function notify(snapshot: ClientSnapshot, t: Translate, controller: Controller):
     seen = new Set()
   }
   for (const item of snapshot.inbox
-    .filter(value => (value.level === 'C2' || value.level === 'C3') && !seen.has(value.id))
+    .filter(value => {
+      const mutedUntil = value.mutedUntil === undefined ? Number.NaN : Date.parse(value.mutedUntil)
+      return (value.action === 'INTERRUPT' || value.action === 'ESCALATE')
+        && !seen.has(value.id)
+        && (!Number.isFinite(mutedUntil) || mutedUntil <= Date.now())
+    })
     .slice(0, 3)) {
-    const notification = new Notification('DeepCanary · ' + item.level, {
-      body: reasonText(item, t),
+    const navigationUrl = item.sessionId ? `/?session=${encodeURIComponent(item.sessionId)}` : undefined
+    const notification = new Notification(`DeepCanary · ${notificationTitle(item, t)}`, {
+      body: notificationBody(item, t),
       tag: item.id,
+      data: {
+        itemId: item.id,
+        ...(navigationUrl === undefined ? {} : { navigationUrl }),
+      },
     })
     notification.onclick = () => {
-      handleNotificationClick(notification, item.id, controller.open, () => { window.focus() })
+      handleNotificationClick(
+        notification,
+        item.id,
+        () => { window.focus() },
+        controller.open,
+        controller.openSession,
+        url => { window.location.assign(url) },
+        navigationUrl,
+        item.sessionId,
+      )
     }
     seen.add(item.id)
   }
@@ -874,25 +1173,64 @@ function ResizeHandle(props: {
   onResize: (value: number) => void
 }): ReactNode {
   const origin = useRef<{ x: number; y: number; value: number } | undefined>(undefined)
+  const activePointerId = useRef<number | undefined>(undefined)
+  const handleRef = useRef<HTMLDivElement | null>(null)
+  const propsRef = useRef(props)
+  propsRef.current = props
+  const applyPointerResize = (clientX: number, clientY: number): void => {
+    const start = origin.current
+    if (start === undefined) return
+    const current = propsRef.current
+    const delta = current.axis === 'width' ? clientX - start.x : clientY - start.y
+    current.onResize(clamp(start.value - delta, current.min, current.max))
+  }
+  const finishPointerResize = (pointerId: number): void => {
+    if (activePointerId.current !== pointerId) return
+    try {
+      if (handleRef.current?.hasPointerCapture(pointerId)) handleRef.current.releasePointerCapture(pointerId)
+    } catch {
+      // A browser bridge may release capture before the component receives pointerup.
+    }
+    activePointerId.current = undefined
+    origin.current = undefined
+  }
+  useEffect(() => {
+    const onWindowPointerMove = (event: globalThis.PointerEvent): void => {
+      if (activePointerId.current !== event.pointerId) return
+      applyPointerResize(event.clientX, event.clientY)
+    }
+    const onWindowPointerUp = (event: globalThis.PointerEvent): void => { finishPointerResize(event.pointerId) }
+    const onWindowPointerCancel = (event: globalThis.PointerEvent): void => { finishPointerResize(event.pointerId) }
+    window.addEventListener('pointermove', onWindowPointerMove)
+    window.addEventListener('pointerup', onWindowPointerUp)
+    window.addEventListener('pointercancel', onWindowPointerCancel)
+    return () => {
+      window.removeEventListener('pointermove', onWindowPointerMove)
+      window.removeEventListener('pointerup', onWindowPointerUp)
+      window.removeEventListener('pointercancel', onWindowPointerCancel)
+      if (activePointerId.current !== undefined) finishPointerResize(activePointerId.current)
+    }
+  }, [])
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>): void => {
     event.preventDefault()
-    event.currentTarget.setPointerCapture(event.pointerId)
+    handleRef.current = event.currentTarget
+    activePointerId.current = event.pointerId
     origin.current = { x: event.clientX, y: event.clientY, value: props.value }
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    } catch {
+      // The window listeners keep dragging usable when pointer capture is unavailable.
+    }
   }
   const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>): void => {
-    if (origin.current === undefined || !event.currentTarget.hasPointerCapture(event.pointerId)) return
-    const delta = props.axis === 'width'
-      ? event.clientX - origin.current.x
-      : event.clientY - origin.current.y
-    props.onResize(clamp(origin.current.value - delta, props.min, props.max))
+    if (activePointerId.current !== event.pointerId) return
+    applyPointerResize(event.clientX, event.clientY)
   }
   const onPointerUp = (event: ReactPointerEvent<HTMLDivElement>): void => {
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
-    origin.current = undefined
+    finishPointerResize(event.pointerId)
   }
   const onPointerCancel = (event: ReactPointerEvent<HTMLDivElement>): void => {
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
-    origin.current = undefined
+    finishPointerResize(event.pointerId)
   }
   const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
     const positive = props.axis === 'width' ? event.key === 'ArrowLeft' : event.key === 'ArrowUp'
@@ -913,6 +1251,7 @@ function ResizeHandle(props: {
     'aria-valuemin': props.min,
     'aria-valuemax': props.max,
     'aria-valuenow': props.value,
+    'aria-valuetext': `${props.value}px`,
     tabIndex: 0,
     onPointerDown,
     onPointerMove,
@@ -952,6 +1291,7 @@ const DEFAULT_SETTINGS: ClientSettings = {
   privacySafeSummary: true,
   healthPollSeconds: 15,
   maxInboxItems: 500,
+  suppressedReasonCodes: [],
 }
 
 function settingsValue(value: unknown): ClientSettings | undefined {
@@ -961,6 +1301,7 @@ function settingsValue(value: unknown): ClientSettings | undefined {
     ...DEFAULT_SETTINGS,
     ...input,
     quietHours: { ...DEFAULT_SETTINGS.quietHours, ...input.quietHours },
+    suppressedReasonCodes: Array.isArray(input.suppressedReasonCodes) ? [...input.suppressedReasonCodes] : [],
   }
 }
 
@@ -1181,6 +1522,7 @@ function decisionTraceDetails(item: ClientItem, t: Translate): ReactNode | undef
     .map(([name, count]) => `${authorityText(name, t)} ${count}`)
     .join(' · ')
   const traceRows: ReactNode[] = [
+    createElement('p', { key: 'why' }, translate(t, 'item.decisionWhy', { text: item.why })),
     createElement('p', { key: 'version' }, translate(t, 'item.policyVersion', { version: trace.policyVersion })),
     createElement('p', { key: 'rules' }, translate(t, 'item.matchedRules', { rules: trace.matchedRules.join(', ') || translate(t, 'item.none') })),
     createElement('p', { key: 'scopes' }, translate(t, 'item.appliedScopes', { scopes: trace.appliedScopes.join(', ') || translate(t, 'item.none') })),
@@ -1210,6 +1552,7 @@ function itemCard(item: ClientItem, state: ControllerState, t: Translate, contro
         'data-level': item.level,
         title: translate(t, 'item.level', { level: item.level }),
       }, item.level),
+      createElement('span', { className: 'dsc-level-label' }, levelLabel(item.level, t)),
       createElement('span', { className: 'dsc-card-reason' }, reason),
       createElement('time', { className: 'dsc-card-time', dateTime: item.occurredAt }, formatTime(item.occurredAt)),
     ),
@@ -1221,34 +1564,81 @@ function itemCard(item: ClientItem, state: ControllerState, t: Translate, contro
     children.push(createElement('small', { className: 'dsc-card-suggestion', key: 'events' },
       translate(t, 'item.events', { count: item.bundleCount })))
   }
+  if (item.sessionId === undefined) {
+    children.push(createElement('small', { className: 'dsc-card-suggestion', key: 'session-link' },
+      translate(t, 'item.noSessionLink')))
+  }
+  if (item.mutedUntil !== undefined && Number.isFinite(Date.parse(item.mutedUntil)) && Date.parse(item.mutedUntil) > Date.now()) {
+    children.push(createElement('small', { className: 'dsc-card-suggestion', key: 'muted' },
+      translate(t, 'item.mutedUntil', { time: formatTime(item.mutedUntil) })))
+  }
   children.push(createElement('details', { className: 'dsc-evidence', key: 'evidence' },
     createElement('summary', null, translate(t, 'item.evidence') + (evidence ? ' · ' + evidence : '')),
     createElement('p', null, translate(t, 'item.technicalDetail', { text: reason })),
   ))
   const traceDetails = decisionTraceDetails(item, t)
   if (traceDetails !== undefined) children.push(traceDetails)
+  if (state.notice?.id === item.id) {
+    children.push(createElement('p', {
+      className: `dsc-action-notice dsc-action-notice-${state.notice.tone}`,
+      key: 'notice',
+      role: 'status',
+      'aria-live': 'polite',
+    }, noticeText(state.notice, t)))
+  } else if (item.feedback !== undefined) {
+    children.push(createElement('p', {
+      className: 'dsc-action-notice',
+      key: 'feedback-state',
+      role: 'status',
+    }, item.feedback.value === 'wrong-level'
+      ? translate(t, 'item.feedbackWrongLevel')
+      : item.feedback.value === 'already-resolved'
+        ? translate(t, 'item.feedbackAlreadyResolved')
+        : translate(t, item.feedback.useful ? 'item.notice.feedbackUseful' : 'item.notice.feedbackIrrelevant')))
+  }
   const actions: ReactNode[] = [
-    actionButton(translate(t, 'item.acknowledge'), () => {
-      void controller.action(item.id, { action: 'acknowledge' })
-    }, busy, true),
+    item.sessionId
+      ? actionButton(translate(t, (`item.open.${item.level}`) as LocaleKey), () => {
+        void controller.jump(item.id)
+      }, busy, true)
+      : actionButton(translate(t, 'item.acknowledge'), () => {
+        void controller.action(item.id, { action: 'acknowledge' })
+      }, busy, true),
     actionButton(translate(t, 'item.snooze'), () => {
       void controller.action(item.id, { action: 'snooze', minutes: 30 })
     }, busy),
-    actionButton(translate(t, 'item.mute'), () => {
-      void controller.action(item.id, { action: 'mute' })
-    }, busy),
-    actionButton(translate(t, 'item.useful'), () => {
-      void controller.action(item.id, { action: 'feedback', useful: true })
-    }, busy),
-    actionButton(translate(t, 'item.irrelevant'), () => {
-      void controller.action(item.id, { action: 'feedback', useful: false })
+  ]
+  const moreActions: ReactNode[] = [
+    actionButton(translate(t, 'item.acknowledge'), () => {
+      void controller.action(item.id, { action: 'acknowledge' })
     }, busy),
   ]
-  if (item.sessionId) {
-    actions.push(actionButton(translate(t, 'item.jump'), () => {
-      void controller.jump(item.id)
+  const mutedUntil = item.mutedUntil === undefined ? Number.NaN : Date.parse(item.mutedUntil)
+  moreActions.push(Number.isFinite(mutedUntil) && mutedUntil > Date.now()
+    ? actionButton(translate(t, 'item.unmute'), () => {
+      void controller.action(item.id, { action: 'unmute' })
+    }, busy)
+    : actionButton(translate(t, 'item.mute'), () => {
+      void controller.action(item.id, { action: 'mute' })
+    }, busy))
+  if (item.level === 'C1' && (item.reasonCode === 'TASK_COMPLETED' || item.reasonCode === 'COMPACTION_OCCURRED' || item.reasonCode === 'SUBAGENT_PRESSURE')) {
+    moreActions.push(actionButton(translate(t, 'item.suppressType'), () => {
+      void controller.action(item.id, { action: 'suppress' })
     }, busy))
   }
+  moreActions.push(
+    createElement('span', { className: 'dsc-more-label', key: 'feedback-label' }, translate(t, 'item.feedbackMenu')),
+    actionButton(translate(t, 'item.useful'), () => {
+      void controller.action(item.id, { action: 'feedback', useful: true, value: 'useful' })
+    }, busy),
+    actionButton(translate(t, 'item.irrelevant'), () => {
+      void controller.action(item.id, { action: 'feedback', useful: false, value: 'not-relevant' })
+    }, busy),
+  )
+  actions.push(createElement('details', { className: 'dsc-more', key: 'more' },
+    createElement('summary', null, translate(t, 'item.moreActions')),
+    createElement('div', { className: 'dsc-more-actions' }, ...moreActions),
+  ))
   children.push(createElement('div', { className: 'dsc-card-actions', key: 'actions' }, ...actions))
   return createElement('article', {
     className: 'dsc-card',
@@ -1319,6 +1709,25 @@ function DeepCanaryOverlay(props: { t: Translate; controller: Controller }): Rea
   const body: ReactNode[] = []
   if (snapshot !== undefined) {
     body.push(createElement('p', { className: 'dsc-settings-hint', key: 'settings-location' }, translate(props.t, 'panel.settingsLocation')))
+    body.push(createElement('p', { className: 'dsc-policy-summary', key: 'policy-hint' }, translate(props.t, 'panel.policyHint')))
+    if (snapshot.status.delivery !== undefined) {
+      body.push(createElement('p', { className: 'dsc-settings-hint', key: 'delivery' }, deliveryText(snapshot, props.t)))
+    }
+    const suppressedReasonCodes = snapshot.settings.suppressedReasonCodes ?? []
+    body.push(createElement('div', { className: 'dsc-suppressed-summary', key: 'suppressed' },
+      createElement('span', null, translate(props.t, 'panel.suppressed', {
+        types: suppressedReasonCodes.length === 0
+          ? translate(props.t, 'panel.suppressed.none')
+          : suppressedReasonCodes.map(reasonCode => suppressedTypeText(reasonCode, props.t)).join('、'),
+      })),
+      suppressedReasonCodes.length > 0 && createElement('div', { className: 'dsc-suppressed-actions' },
+        ...suppressedReasonCodes.map(reasonCode => actionButton(
+          translate(props.t, 'panel.restore'),
+          () => { void props.controller.action(reasonCode, { action: 'unsuppress', reasonCode }) },
+          state.pending.has(reasonCode),
+        )),
+      ),
+    ))
     if (state.protocolUnsupported) body.push(createElement('p', { className: 'dsc-note', key: 'protocol' }, translate(props.t, 'panel.updateRequired')))
   }
   if (state.failed && snapshot === undefined) {
@@ -1375,8 +1784,9 @@ function DeepCanaryOverlay(props: { t: Translate; controller: Controller }): Rea
         createElement('span', { className: 'dsc-status', role: 'status', 'aria-live': 'polite', 'aria-atomic': true },
           createElement('span', { className: 'dsc-status-dot', 'data-state': statusState, 'aria-hidden': true }),
           statusText,
-          snapshot !== undefined && ' · ' + translate(props.t, 'panel.sessions', { count: snapshot.status.sessions }),
-          state.lastSyncedAt !== undefined && ' · ' + translate(props.t, 'panel.lastSynced', { time: formatTime(state.lastSyncedAt) })),
+           snapshot !== undefined && ' · ' + translate(props.t, 'panel.sessions', { count: snapshot.status.sessions }),
+           state.lastSyncedAt !== undefined && ' · ' + translate(props.t, 'panel.lastSynced', { time: formatTime(state.lastSyncedAt) }),
+           state.notice !== undefined && ' · ' + noticeText(state.notice, props.t)),
         createElement('button', {
           className: 'dsc-toolbar-button',
           type: 'button',
@@ -1426,10 +1836,10 @@ function DeepCanaryOverlay(props: { t: Translate; controller: Controller }): Rea
   )
 }
 
-export const inject = ['slots', 'locale', 'settingsScope']
+export const inject = ['slots', 'locale', 'settingsScope', 'sessions']
 
 export function apply(ctx: ClientContext): void {
-  const controller = createController()
+  const controller = createController(ctx.sessions)
   ctx.effect(() => injectStyles(), 'deepcanary: client styles')
   ctx.effect(() => {
     controller.start()

@@ -4,7 +4,7 @@ Thank you for helping improve `dsh-deepcanary`. Contributions are most useful wh
 
 ## Development baseline
 
-Use Node.js 22.19.0 or 24.19.0. The published RC.2 evidence uses the official `dsh-v0.1.2-alpha.2` tag of DeepSeek Harness, commit `0a53fb55bea101816fa226bb964ae2bed71c343b`. New changes and compatibility tests use the latest official `dsh-v0.1.2-alpha.3` tag, commit `dd6322d604e00eec1ba5e0c8541159906a21094a`. Do not use the older `0.1.1-rc.2` runtime as an integration-test substitute.
+Use Node.js 22.19.0 or 24.19.0. The published RC.2 evidence uses the official `dsh-v0.1.2-alpha.2` tag of DeepSeek Harness, commit `0a53fb55bea101816fa226bb964ae2bed71c343b`. New changes and compatibility tests use the latest official `dsh-v0.1.2-alpha.4` tag, commit `4e84901e6471b79ec0338099867ebb4606d12bb5`. The older `0.1.1-rc.2` runtime is reserved for historical environment diagnosis.
 
 Install dependencies and run the complete local gate from the repository root:
 
@@ -24,7 +24,7 @@ The repository tracks the generated `lib/` directory because DSH installs a publ
 
 - Keep C3 decisions tied to Host or Runtime authority. A heuristic or model-shaped summary must not promote an event to C3 by itself.
 - Preserve deduplication, Decision Bundle merging, hourly budget, quiet-hour behavior, and bounded evidence summaries when adding providers.
-- Do not persist raw prompts, transcripts, tool arguments, session identifiers, workspace paths, credentials, or opaque runtime payloads.
+- Persisted state contains only bounded metadata. Session and Workspace references remain hashed; a bounded opaque DSH session handle may be retained locally when the host provides it, solely to reopen the native DSH session. Never persist prompts, transcripts, tool arguments, workspace paths, credentials, or opaque runtime payloads.
 - Add or update AttentionGold fixtures and focused tests for new event mappings, including normal completion and recovery paths.
 - Keep Web routes same-origin and `no-store`; render untrusted values with safe DOM APIs.
 - Do not add shell, file-write, process-control, approval, or rejection capabilities to the plugin tools.
