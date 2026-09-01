@@ -29,7 +29,7 @@ For current development end-to-end checks, use the official alpha.3 checkout doc
 
 The repository tracks the built `lib/` output because DSH installs a public Git tag without running this repository's TypeScript toolchain. Every source change must therefore be followed by `npm run build`, and CI must fail if the committed `lib/` output is stale.
 
-The WSL2 verification lane uses the isolated Conda environment at `/home/Oscar/miniconda3/envs/dsh-deepcanary`. Keep its DSH profile home separate from the environment directory when running end-to-end checks.
+The WSL2 verification lane uses the isolated Conda environment named `dsh-deepcanary`. Keep its DSH profile home separate from the environment directory when running end-to-end checks.
 
 ## Documentation
 

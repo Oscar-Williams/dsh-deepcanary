@@ -63,8 +63,8 @@
       "npm run verify:distribution"
     ],
     "profiles": [
-      "F:\\Agent_Related\\Deepseek-Harness_test\\.dsh-home\\profiles\\web",
-      "F:\\Agent_Related\\Deepseek-Harness_test\\.dsh-home\\profiles\\headless"
+      "isolated alpha.2 Web profile",
+      "isolated alpha.2 headless profile"
     ],
     "publicTag": {
       "tag": "v0.1.0-rc.2",
