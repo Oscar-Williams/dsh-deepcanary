@@ -11,7 +11,7 @@
 
 ## 版本与兼容性
 
-**当前候选版本**：`0.1.0-rc.4` 已完成本地构建、测试和分发门禁，当前验收基线为官方 DSH [`dsh-v0.1.2-alpha.4`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.4)。npm 包暂未发布，现阶段请使用本地压缩包或完成同步后的 GitHub 来源；npm `next` 安装命令和公共 Release 记录将在对应外部操作完成后启用。RC4 延续 RC3 已验证的 Windows、WSL2、Node.js 22/24 和 WebUI 交互基础，并补齐 alpha.4 兼容性、权威人工等待分级、历史会话回跳、反馈与抑制策略；候选提交、包摘要和发布状态见 [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json)。
+**当前预发布版本**：`0.1.0-rc.4` 已完成本地构建、测试、分发和公开 GitHub tag 验证，当前验收基线为官方 DSH [`dsh-v0.1.2-alpha.4`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.4)。GitHub [`v0.1.0-rc.4 Release`](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.0-rc.4) 已提供不可变源码 tag 和 RC4 压缩包；npm 包仍在发布流程之外，日常安装请使用 GitHub tag 或 Release 附件。RC4 延续 RC3 已验证的 Windows、WSL2、Node.js 22/24 和 WebUI 交互基础，并补齐 alpha.4 兼容性、权威人工等待分级、历史会话回跳、反馈与抑制策略；提交、包摘要和发布状态见 [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json)。
 
 RC4 保持为预发布候选，适合本地试用、反馈和插件集成验证。物理触摸设备、真实屏幕阅读器和允许通知权限后的操作系统级通知属于发布后的补充验证项；浏览器自动化、键盘操作、窄视口、强制颜色和通知拒绝分支已有自动化证据。
 
@@ -32,7 +32,7 @@ DeepCanary 只回答一个问题：当前是否值得用户看一眼？它不重
 
 ## 安装和启动
 
-下面提供两条清晰路径：RC4 公共发布完成后适合日常试用；当前可通过源码重建和本地压缩包完成开发、复现与提交问题。
+下面提供 GitHub tag、Release 附件和源码重建三条路径。GitHub tag 与 Release 附件适合日常试用；源码重建和本地压缩包适合开发、复现与提交问题。npm `next` 通道保留为后续发布路径。
 
 ### 环境要求
 
@@ -41,9 +41,9 @@ DeepCanary 只回答一个问题：当前是否值得用户看一眼？它不重
 - pnpm `11.7.0`；
 - 已安装官方 DSH 源码运行时；RC4 使用 `dsh-v0.1.2-alpha.4`，commit 为 `4e84901e6471b79ec0338099867ebb4606d12bb5`。
 
-### RC4 公共发布后的安装：v0.1.0-rc.4
+### GitHub tag 安装（当前可用）：v0.1.0-rc.4
 
-下面的 npm 命令适用于包在官方 registry 中实际可见之后；当前本地验收请使用“从源码重建并验证 RC4”流程生成的压缩包。npm 发布完成前执行 npm 命令会得到找不到包的结果。
+以下命令从不可变 GitHub tag 安装 RC4，适用于当前公开试用和验收。Release 页面同时提供相同版本的压缩包附件。
 
 #### 1. 准备官方 DSH alpha.4
 
@@ -60,24 +60,31 @@ git rev-parse HEAD
 
 #### 2. 安装插件
 
-推荐使用 npm 上的精确预发布版本；需要审计源码来源时，可使用对应的不可变 Git tag。不要把本地源码目录或包含个人设计资料的目录作为日常安装来源。
+推荐使用不可变 GitHub tag；需要离线验收时，可下载 Release 附件并使用本地压缩包安装。个人设计资料目录不属于安装来源。
 
 ```powershell
 Set-Location .\dsh-runtime-alpha4
-# 验收时固定使用官方 npm registry，避免镜像同步延迟
-$env:npm_config_registry = 'https://registry.npmjs.org/'
-npx --yes pnpm@11.7.0 dsh plugin --profile web add dsh-deepcanary@0.1.0-rc.4
+npx --yes pnpm@11.7.0 dsh plugin --profile web add https://codeload.github.com/Oscar-Williams/dsh-deepcanary/tar.gz/refs/tags/v0.1.0-rc.4
 npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
 
-如需固定 GitHub 来源，可将安装命令替换为：
+需要使用 Release 附件时，将下载后的压缩包路径传给同一条安装命令：
 
 ```powershell
-npx --yes pnpm@11.7.0 dsh plugin --profile web add https://codeload.github.com/Oscar-Williams/dsh-deepcanary/tar.gz/refs/tags/v0.1.0-rc.4
+npx --yes pnpm@11.7.0 dsh plugin --profile web add C:\path\to\dsh-deepcanary-0.1.0-rc.4.tgz
 ```
 
 启动后，在同一台机器的浏览器打开 DSH Web 页面。RC4 默认只保留侧栏入口，不会遮挡页面；点击入口后才打开浮动 Inbox。浏览器通知权限被拒绝时，面板和模型可见工具仍然可用。
+
+### npm `next` 通道（待发布）
+
+npm 包当前尚未发布。获得发布通知后，可在官方 registry 上执行：
+
+```powershell
+$env:npm_config_registry = 'https://registry.npmjs.org/'
+npx --yes pnpm@11.7.0 dsh plugin --profile web add dsh-deepcanary@next
+```
 
 更新已安装的 RC 时，先清理旧配置或执行：
 

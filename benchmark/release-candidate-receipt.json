@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "receiptType": "release-candidate",
-  "status": "CANDIDATE",
+  "status": "PASS",
   "scope": "RC4 release candidate and isolated acceptance profiles",
   "plugin": "dsh-deepcanary",
   "pluginVersion": "0.1.0-rc.4",
@@ -36,7 +36,7 @@
     "unloadRestart": true,
     "privacyGate": true,
     "distributionIntegrity": true,
-    "publicTagInstall": false,
+    "publicTagInstall": true,
     "windowsE2E": true,
     "wslE2E": true,
     "modelE2E": true
@@ -95,6 +95,18 @@
       "webHealth": "HTTP 200 with plugin state ready",
       "credentialMaterial": "excluded"
     },
+    "publicTagInstall": {
+      "status": "PASS",
+      "tag": "v0.1.0-rc.4",
+      "commit": "884b67612a76222d3fa7252a44b6c6fcb2b4d98f",
+      "source": "https://codeload.github.com/Oscar-Williams/dsh-deepcanary/tar.gz/refs/tags/v0.1.0-rc.4",
+      "profiles": [
+        "fresh Windows alpha.4 Web profile",
+        "fresh Windows alpha.4 headless profile"
+      ],
+      "webHealth": "HTTP 200 with plugin state ready",
+      "package": "dsh-deepcanary@0.1.0-rc.4"
+    },
     "npmInstall": {
       "status": "PAUSED",
       "registry": "https://registry.npmjs.org/",
@@ -134,6 +146,6 @@
     "OS-level notification delivery with permission allowed"
   ],
   "artifactSha256": "3595fdf52344707ac8fdfa3a1de95b4a257ce31b08a71b98a23911cc2fc6820b",
-  "verifiedAt": "2026-09-02T04:47:09+08:00",
-  "note": "This receipt records the RC4 release candidate against the official DSH alpha.4 tag at its pinned commit. The Windows Edge WebUI, WSL WebUI, local tarball, authorized fixed-marker model smoke checks, and the five-job public CI run were completed against alpha.4; the public npm package remains intentionally unpublished and the public-tag gate remains pending. The historical alpha.3 compatibility record and RC2 release receipt remain separate. Device-level touch, real screen-reader, and permission-allowed operating-system notification checks remain supplemental follow-up items. Credentials, raw prompts, transcripts, model output, workspace contents, and private design material are excluded."
+  "verifiedAt": "2026-09-02T04:54:00+08:00",
+  "note": "This receipt records the RC4 GitHub prerelease against the official DSH alpha.4 tag at its pinned commit. The Windows Edge WebUI, WSL WebUI, local tarball, authorized fixed-marker model smoke checks, five-job public CI run, immutable GitHub tag, Release asset, and fresh public-tag web/headless profiles were completed against alpha.4. npm publication remains intentionally paused and is recorded separately as PAUSED. The historical alpha.3 compatibility record and RC2 release receipt remain separate. Device-level touch, real screen-reader, and permission-allowed operating-system notification checks remain supplemental follow-up items. Credentials, raw prompts, transcripts, model output, workspace contents, and private design material are excluded."
 }

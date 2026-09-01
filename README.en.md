@@ -11,7 +11,7 @@
 
 ## Versions and compatibility
 
-**Current candidate:** `0.1.0-rc.4` has passed the local build, test, and distribution gates. The current acceptance baseline is the official DSH [`dsh-v0.1.2-alpha.4`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.4). The npm package is currently unpublished, so local acceptance uses the generated tarball or the GitHub source path; the npm `next` command and public Release record become active after the corresponding external operation succeeds. RC4 carries forward the RC3 Windows, WSL2, Node.js 22/24, and Web UI foundations while adding alpha.4 compatibility, authoritative human-wait classification, native historical-session reopening, and explicit feedback and suppression behavior. The candidate commit, artifact digest, and publication status are recorded in [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json).
+**Current prerelease:** `0.1.0-rc.4` has passed the local build, test, distribution, and public GitHub tag gates. The current acceptance baseline is the official DSH [`dsh-v0.1.2-alpha.4`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.4). The GitHub [`v0.1.0-rc.4 Release`](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.0-rc.4) provides the immutable source tag and RC4 tarball; the npm package remains outside the current publication cycle, so daily installation should use the GitHub tag or Release asset. RC4 carries forward the RC3 Windows, WSL2, Node.js 22/24, and Web UI foundations while adding alpha.4 compatibility, authoritative human-wait classification, native historical-session reopening, and explicit feedback and suppression behavior. The source commit, artifact digest, and publication status are recorded in [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json).
 
 RC4 remains a pre-release candidate for local trials, feedback, and plugin integration testing. Physical touch hardware, a real screen reader, and operating-system notification delivery after granting permission are post-release supplemental checks; browser automation, keyboard interaction, narrow viewports, forced colors, and the notification-denied branch already have automated evidence.
 
@@ -34,7 +34,7 @@ The governing rule is evidence before escalation. C3 requires Host or Runtime au
 
 ## Install and start
 
-The two paths below have different purposes: the public RC4 will be for daily trial use after publication; source builds and the local tarball are available now for development, reproduction, and issue reports.
+The three paths below serve different purposes: the GitHub tag and Release asset support daily trial use; source builds and the local tarball support development, reproduction, and issue reports. The npm `next` channel remains a later publication path.
 
 ### Requirements
 
@@ -43,9 +43,9 @@ The two paths below have different purposes: the public RC4 will be for daily tr
 - pnpm `11.7.0`;
 - an official DSH source runtime; RC4 uses `dsh-v0.1.2-alpha.4` at commit `4e84901e6471b79ec0338099867ebb4606d12bb5`.
 
-### After public RC4 publication: v0.1.0-rc.4
+### GitHub tag installation (available now): v0.1.0-rc.4
 
-The npm command below applies after the package is visible in the official registry. For current local acceptance, use the “Rebuild and verify RC4 from source” path to generate a tarball; running the npm command before publication will return a missing-package result.
+The following command installs RC4 from the immutable GitHub tag. The Release page provides the same version as a downloadable tarball asset.
 
 #### 1. Prepare the official DSH alpha.4 runtime
 
@@ -62,24 +62,31 @@ The version command should print `0.1.2-alpha.4`, and the commit command should 
 
 #### 2. Install the plugin
 
-Use the exact prerelease published on npm for the normal installation path; use the matching immutable Git tag when you need to audit the source archive. Do not use a local source directory or a directory containing personal design notes as the daily installation source.
+Use the immutable GitHub tag for the normal installation path; use the Release asset when you need an offline installation. A local directory containing personal design notes is not an installation source.
 
 ```powershell
 Set-Location .\dsh-runtime-alpha4
-# Pin the official npm registry for release verification to avoid mirror lag.
-$env:npm_config_registry = 'https://registry.npmjs.org/'
-npx --yes pnpm@11.7.0 dsh plugin --profile web add dsh-deepcanary@0.1.0-rc.4
+npx --yes pnpm@11.7.0 dsh plugin --profile web add https://codeload.github.com/Oscar-Williams/dsh-deepcanary/tar.gz/refs/tags/v0.1.0-rc.4
 npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
 
-For a fixed GitHub source, replace the install command with:
+For a Release asset downloaded to disk, pass the local tarball path to the same install command:
 
 ```powershell
-npx --yes pnpm@11.7.0 dsh plugin --profile web add https://codeload.github.com/Oscar-Williams/dsh-deepcanary/tar.gz/refs/tags/v0.1.0-rc.4
+npx --yes pnpm@11.7.0 dsh plugin --profile web add C:\path\to\dsh-deepcanary-0.1.0-rc.4.tgz
 ```
 
 Open the DSH Web page in a browser on the same machine. RC4 keeps only the sidebar entry visible at startup; the floating Inbox opens after the entry is clicked. If browser notification permission is denied, the panel and model-visible tools remain available.
+
+### npm `next` channel (pending publication)
+
+The npm package is not currently published. After a publication notice, use the official registry:
+
+```powershell
+$env:npm_config_registry = 'https://registry.npmjs.org/'
+npx --yes pnpm@11.7.0 dsh plugin --profile web add dsh-deepcanary@next
+```
 
 To update an existing RC installation, rebuild only when using a local development checkout; for an installed profile use:
 
