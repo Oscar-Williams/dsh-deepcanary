@@ -5,7 +5,7 @@
   "scope": "local worktree and isolated acceptance profiles",
   "plugin": "dsh-deepcanary",
   "pluginVersion": "0.1.0-rc.3",
-  "pluginCommit": "a6d2dd5fc74e58dcf5384b675d478e4f751e0885",
+  "pluginCommit": "851fca20e8e557a9323f9c39418953bdc3f95a15",
   "attentionFixtureVersion": 3,
   "runtime": {
     "tag": "dsh-v0.1.2-alpha.3",
@@ -75,9 +75,9 @@
     },
     "publicCI": {
       "status": "PASS",
-      "runId": 33474693939,
-      "headSha": "291d15dbbedb2ad3305656dc931dcea633c23911",
-      "url": "https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33474693939",
+      "runId": 33475942572,
+      "headSha": "851fca20e8e557a9323f9c39418953bdc3f95a15",
+      "url": "https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33475942572",
       "coverage": "Windows and Ubuntu checks on Node 22 and 24 plus alpha.3 WebUI smoke"
     },
     "modelSmokeTest": {
@@ -99,7 +99,7 @@
     "real screen-reader verification",
     "OS-level notification delivery with permission allowed"
   ],
-  "artifactSha256": "d7b64892c2410e196a053a0a433ff87f00f6a67ba3caa2d0f4b9d90e95d4d707",
+  "artifactSha256": "6b4ed268f37dfed7f8a1d4f6bde8f8f89dde253e53e9f3af562c1cad5ddf05a6",
   "verifiedAt": "2026-09-01",
   "note": "This receipt is the local RC3 candidate record for the official DSH alpha.3 runtime. It is updated only from isolated local evidence and keeps the historical RC2 receipt separate. Credentials, raw prompts, transcripts, model output, workspace contents, and private design material are excluded."
 }
