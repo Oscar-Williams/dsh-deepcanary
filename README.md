@@ -13,9 +13,9 @@
 
 **已发布版本**：公开插件 tag 为 [`v0.1.0-rc.2`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.2)，对应提交 `4ae7c2bb577d7a2b855f425a8e3fde7800a9feb2`。该版本已在官方 DSH `dsh-v0.1.2-alpha.2` 上完成发布验证，日常安装请使用下面的“已发布版本”路径。
 
-**本地候选版本**：当前实现的候选版本为 `0.1.0-rc.3`，目标运行时为官方 DSH `dsh-v0.1.2-alpha.3`（commit `dd6322d604e00eec1ba5e0c8541159906a21094a`）。候选包已完成本机 Windows WebUI 与 WSL2 隔离 profile 的兼容性验证，公开 `main` 也已通过 Windows/Ubuntu、Node 22/24 和 alpha.3 WebUI 浏览器自动化测试（[CI 运行记录](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33475427764)）。当前仍作为本地候选使用，尚未建立公开 RC3 tag 和 Release；真实试用与设备级验证仍是正式发布前的必要条件。
+**本地候选版本**：当前实现的候选版本为 `0.1.0-rc.3`，目标运行时为官方 DSH `dsh-v0.1.2-alpha.3`（commit `dd6322d604e00eec1ba5e0c8541159906a21094a`）。候选包已完成本机 Windows WebUI 与 WSL2 隔离 profile 的兼容性验证，公开 `main` 也已通过 Windows/Ubuntu、Node 22/24 和 alpha.3 WebUI 浏览器自动化测试（[候选 CI 运行记录](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33475665562)）。当前仍作为本地候选使用，尚未建立公开 RC3 tag 和 Release；真实试用与设备级验证仍是正式发布前的必要条件。
 
-**兼容性参考**：当前公开 `main` 已通过 alpha.3 WebUI 浏览器自动化验收（[CI 运行记录](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33475427764)）；本地 `0.1.0-rc.3` 候选仍以隔离 profile 和固定 SHA-256 的构建包为测试对象。
+**兼容性参考**：当前公开 `main` 已通过 alpha.3 WebUI 浏览器自动化验收（[CI 运行记录](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33475665562)）；本地 `0.1.0-rc.3` 候选仍以隔离 profile 和固定 SHA-256 的构建包为测试对象。
 
 `v0.1.0-rc.1` 和 npm `0.1.1-rc.2` 仅用于历史复现，不属于本仓库当前的安装或测试基线。测试前请先停止 DSH，移除测试配置中的旧插件，再安装目标版本。
 
