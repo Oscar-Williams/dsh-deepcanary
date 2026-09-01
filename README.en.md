@@ -11,7 +11,7 @@
 
 **Published version:** the public plugin tag is `v0.1.0-rc.2`, at commit `4ae7c2bb577d7a2b855f425a8e3fde7800a9feb2`. This version completed its release verification on the official DSH `dsh-v0.1.2-alpha.2` runtime. Use the “Published version” path below for regular installation.
 
-**Latest source:** `main` has completed local compatibility checks against the official DSH `dsh-v0.1.2-alpha.3` exact tag (commit `dd6322d604e00eec1ba5e0c8541159906a21094a`), and public CI has passed its Web UI browser acceptance check ([CI run](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33462082451)). A new public plugin tag has not been created yet. To validate the latest source, follow the “Validate the latest source” path below with an isolated test profile.
+**Latest source:** `main` has completed local compatibility checks against the official DSH `dsh-v0.1.2-alpha.3` exact tag (commit `dd6322d604e00eec1ba5e0c8541159906a21094a`), and public CI has passed its Web UI browser acceptance check ([CI workflow](https://github.com/Oscar-Williams/dsh-deepcanary/actions/workflows/ci.yml)). A new public plugin tag has not been created yet. To validate the latest source, follow the “Validate the latest source” path below with an isolated test profile.
 
 `v0.1.0-rc.1` and npm `0.1.1-rc.2` are retained only for historical reproduction. They are not the installation or testing baseline for this repository. Before testing, stop DSH, remove the older plugin from the profile, and install the intended version.
 
@@ -65,7 +65,7 @@ npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
 
-Open the DSH Web page in a browser on the same machine. Once RC.2 is installed, its client is loaded through the alpha.2 client-module surface; the panel does not cover the page at startup and opens only after the sidebar entry is clicked. If browser notification permission is denied, the panel and model-visible tools remain available.
+Open the DSH Web page in a browser on the same machine. Once RC.2 is installed, its client is loaded through the alpha.2 client-module support; the panel does not cover the page at startup and opens only after the sidebar entry is clicked. If browser notification permission is denied, the panel and model-visible tools remain available.
 
 To update an existing RC installation, rebuild only when using a local development checkout; for an installed profile use:
 
@@ -154,7 +154,7 @@ Web routes are same-origin local routes with `no-store` responses. The client re
 
 ## Verification and release baseline
 
-The release branch tracks built `lib/` output because DSH installs a public Git tag without depending on this repository's TypeScript toolchain. For local checks:
+The repository tracks built `lib/` output because DSH installs a public Git tag without depending on this repository's TypeScript toolchain. For local checks:
 
 ```powershell
 npm install

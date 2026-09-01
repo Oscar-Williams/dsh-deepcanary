@@ -18,7 +18,7 @@ npm run verify:distribution
 npm pack --dry-run
 ```
 
-The release branch tracks the generated `lib/` directory because DSH installs a public Git tag without running this repository's TypeScript toolchain. After changing `src/`, run `npm run build` and include the resulting `lib/` changes in the same commit. CI rejects stale generated output.
+The repository tracks the generated `lib/` directory because DSH installs a public Git tag without running this repository's TypeScript toolchain. After changing `src/`, run `npm run build` and include the resulting `lib/` changes in the same commit. CI rejects stale generated output.
 
 ## Design and testing expectations
 

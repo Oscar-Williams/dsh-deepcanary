@@ -25,7 +25,7 @@ All notable changes to `dsh-deepcanary` are recorded here.
 - replaced the historical body-injected Web client with a DSH alpha.2 `dsh.client` lazy-CJS client module;
 - moved the visible entry to `sidebar.footer.action` and the Inbox panel to the additive `shell.overlay` seat;
 - made the panel hidden by default, explicitly closable and reopenable, resizable with pointer and keyboard controls, and responsive to DSH Chinese/English locale changes;
-- kept the local WebServer contract focused on state, settings, health, and actions; the plugin no longer owns a `/dsh-deepcanary/client.js` route.
+- kept the local WebServer endpoints focused on state, settings, health, and actions; the plugin no longer owns a `/dsh-deepcanary/client.js` route.
 - added the standard keyed `settings.plugin.item` card and alpha.2 Settings namespace pairing;
 - versioned public state and action responses, added ETag/`304` state reads, request replay protection, and explicit Inbox recovery/expiry lifecycle;
 - updated the local integration baseline to official DSH `dsh-v0.1.2-alpha.2`.

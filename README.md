@@ -11,7 +11,7 @@
 
 **已发布版本**：公开插件 tag 为 `v0.1.0-rc.2`，对应提交 `4ae7c2bb577d7a2b855f425a8e3fde7800a9feb2`。该版本已在官方 DSH `dsh-v0.1.2-alpha.2` 上完成发布验证，日常安装请使用下面的“已发布版本”路径。
 
-**最新代码**：`main` 已在官方 DSH `dsh-v0.1.2-alpha.3` 固定版本标签（commit `dd6322d604e00eec1ba5e0c8541159906a21094a`）上完成本地兼容性验证，公开 CI 也已通过 Web UI 浏览器验收（[CI 记录](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33462082451)）。新的公开插件 tag 尚未建立；需要验证最新代码时，请使用下面的“验证最新代码”路径和独立测试配置。
+**最新代码**：`main` 已在官方 DSH `dsh-v0.1.2-alpha.3` 固定版本标签（commit `dd6322d604e00eec1ba5e0c8541159906a21094a`）上完成本地兼容性验证，公开 CI 也已通过 Web UI 浏览器验收（[CI 工作流](https://github.com/Oscar-Williams/dsh-deepcanary/actions/workflows/ci.yml)）。新的公开插件 tag 尚未建立；需要验证最新代码时，请使用下面的“验证最新代码”路径和独立测试配置。
 
 `v0.1.0-rc.1` 和 npm `0.1.1-rc.2` 仅用于历史复现，不属于本仓库当前的安装或测试基线。测试前请先停止 DSH，移除测试配置中的旧插件，再安装目标版本。
 
@@ -65,7 +65,7 @@ npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
 
-启动后，在同一台机器的浏览器打开 DSH Web 页面。成功安装 RC.2 后，客户端通过 alpha.2 的 client-module 机制挂载，默认不会遮挡页面，点击侧栏入口后才打开浮动 Inbox。浏览器通知权限被拒绝时，面板和模型可见工具仍然可用。
+启动后，在同一台机器的浏览器打开 DSH Web 页面。成功安装 RC.2 后，客户端通过 alpha.2 的客户端模块机制加载，默认不会遮挡页面，点击侧栏入口后才打开浮动 Inbox。浏览器通知权限被拒绝时，面板和模型可见工具仍然可用。
 
 更新已安装的 RC 时，先清理旧配置或执行：
 
@@ -135,7 +135,7 @@ DSH 模型可使用九个工具：
 
 设置卡片通过 DSH 标准 `settings.plugin.item` 位置暴露通知级别、自动唤起策略、每小时打断预算、静默时段、长时间阈值、Subagent 压力档位、相邻事件合并窗口和隐私安全摘要选项。挂载 `@deepseek-ai/dsh-settings` 后，设置通过 `dsh-deepcanary` namespace 实时生效；没有该 provider 时，插件仍按 bundle 配置工作。
 
-客户端不再注册独立的 `/dsh-deepcanary/client.js` 路由，也不使用 `webserver/index-inject`。包 manifest 的 `dsh.client` 声明和 `./client` 导出由 DSH alpha.2/alpha.3 的 client-module loader 负责加载；面板入口贡献到 `sidebar.footer.action`，浮动面板贡献到 `shell.overlay`，设置卡贡献到标准 `settings.plugin.item`。
+客户端不再注册独立的 `/dsh-deepcanary/client.js` 路由，也不使用 `webserver/index-inject`。包 manifest 的 `dsh.client` 声明和 `./client` 导出由 DSH alpha.2/alpha.3 的客户端模块加载器负责加载；面板入口贡献到 `sidebar.footer.action`，浮动面板贡献到 `shell.overlay`，设置卡贡献到标准 `settings.plugin.item`。
 
 ## 注意力策略
 

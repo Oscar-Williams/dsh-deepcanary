@@ -160,5 +160,5 @@
     "WSL model smoke when an isolated WSL credential is explicitly provisioned"
   ],
   "verifiedAt": "2026-09-01",
-  "note": "This receipt records the alpha.3 development compatibility lane, including semantic WebUI checks, emulated iPhone touch input, forced-colors rendering, a six-size viewport matrix, notification click return and positioning, and a passing public-commit Playwright smoke. Physical touch hardware and a real screen reader remain device-level follow-up; OS-level notification delivery remains outside headless browser evidence. benchmark/release-receipt.json remains the historical public RC.2 receipt and is not relabeled. No prompt, transcript, credential, raw model output, or private design material is included."
+  "note": "This receipt records the latest-source alpha.3 compatibility check, including semantic WebUI checks, emulated iPhone touch input, forced-colors rendering, a six-size viewport matrix, notification click return and positioning, and a passing public-commit Playwright smoke. Physical touch hardware and a real screen reader remain device-level follow-up; OS-level notification delivery remains outside headless browser evidence. benchmark/release-receipt.json remains the historical public RC.2 receipt and is not relabeled. No prompt, transcript, credential, raw model output, or private design material is included."
 }
