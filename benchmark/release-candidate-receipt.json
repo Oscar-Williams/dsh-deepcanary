@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "receiptType": "release-candidate",
   "status": "CANDIDATE",
-  "scope": "local worktree and isolated acceptance profiles",
+  "scope": "RC3 release candidate and isolated acceptance profiles",
   "plugin": "dsh-deepcanary",
   "pluginVersion": "0.1.0-rc.3",
-  "pluginCommit": "851fca20e8e557a9323f9c39418953bdc3f95a15",
+  "pluginCommit": "90d32f82e4976c05954fc3bc6c3f18913699f0cb",
   "attentionFixtureVersion": 3,
   "runtime": {
     "tag": "dsh-v0.1.2-alpha.3",
@@ -99,7 +99,7 @@
     "real screen-reader verification",
     "OS-level notification delivery with permission allowed"
   ],
-  "artifactSha256": "6b4ed268f37dfed7f8a1d4f6bde8f8f89dde253e53e9f3af562c1cad5ddf05a6",
+  "artifactSha256": "1c3d30c137c8a39bc501a3e751223be7efa78881a65aec8c2417cad2ae44fff2",
   "verifiedAt": "2026-09-01",
   "note": "This receipt is the local RC3 candidate record for the official DSH alpha.3 runtime. It is updated only from isolated local evidence and keeps the historical RC2 receipt separate. Credentials, raw prompts, transcripts, model output, workspace contents, and private design material are excluded."
 }
