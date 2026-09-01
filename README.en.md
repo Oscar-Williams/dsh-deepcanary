@@ -11,7 +11,7 @@
 
 **Published version:** the public plugin tag is `v0.1.0-rc.2`, at commit `4ae7c2bb577d7a2b855f425a8e3fde7800a9feb2`. This version completed its release verification on the official DSH `dsh-v0.1.2-alpha.2` runtime. Use the “Published version” path below for regular installation.
 
-**Latest source:** `main` has completed local compatibility checks against the official DSH `dsh-v0.1.2-alpha.3` exact tag (commit `dd6322d604e00eec1ba5e0c8541159906a21094a`), and public CI has passed its Web UI browser acceptance check ([CI run](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33455584434)). A new public plugin tag has not been created yet. To validate the latest source, follow the “Validate the latest source” path below with an isolated test profile.
+**Latest source:** `main` has completed local compatibility checks against the official DSH `dsh-v0.1.2-alpha.3` exact tag (commit `dd6322d604e00eec1ba5e0c8541159906a21094a`), and public CI has passed its Web UI browser acceptance check ([CI run](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33462082451)). A new public plugin tag has not been created yet. To validate the latest source, follow the “Validate the latest source” path below with an isolated test profile.
 
 `v0.1.0-rc.1` and npm `0.1.1-rc.2` are retained only for historical reproduction. They are not the installation or testing baseline for this repository. Before testing, stop DSH, remove the older plugin from the profile, and install the intended version.
 

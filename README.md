@@ -11,7 +11,7 @@
 
 **已发布版本**：公开插件 tag 为 `v0.1.0-rc.2`，对应提交 `4ae7c2bb577d7a2b855f425a8e3fde7800a9feb2`。该版本已在官方 DSH `dsh-v0.1.2-alpha.2` 上完成发布验证，日常安装请使用下面的“已发布版本”路径。
 
-**最新代码**：`main` 已在官方 DSH `dsh-v0.1.2-alpha.3` 固定版本标签（commit `dd6322d604e00eec1ba5e0c8541159906a21094a`）上完成本地兼容性验证，公开 CI 也已通过 Web UI 浏览器验收（[CI 记录](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33455584434)）。新的公开插件 tag 尚未建立；需要验证最新代码时，请使用下面的“验证最新代码”路径和独立测试配置。
+**最新代码**：`main` 已在官方 DSH `dsh-v0.1.2-alpha.3` 固定版本标签（commit `dd6322d604e00eec1ba5e0c8541159906a21094a`）上完成本地兼容性验证，公开 CI 也已通过 Web UI 浏览器验收（[CI 记录](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33462082451)）。新的公开插件 tag 尚未建立；需要验证最新代码时，请使用下面的“验证最新代码”路径和独立测试配置。
 
 `v0.1.0-rc.1` 和 npm `0.1.1-rc.2` 仅用于历史复现，不属于本仓库当前的安装或测试基线。测试前请先停止 DSH，移除测试配置中的旧插件，再安装目标版本。
 

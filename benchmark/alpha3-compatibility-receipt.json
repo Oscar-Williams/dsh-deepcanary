@@ -46,7 +46,7 @@
   "evidence": {
     "tests": {
       "testFiles": 10,
-      "tests": 34,
+      "tests": 36,
       "windows": "PASS",
       "wsl": "PASS"
     },
@@ -138,8 +138,8 @@
     },
     "playwrightCI": {
       "status": "PASS",
-      "runId": 33455401831,
-      "commit": "7600c130deafb12924efa496515e83d226fa4a63",
+      "runId": 33462082451,
+      "commit": "41d7410eefe06909fc2e1fbc4729808982b5e6d9",
       "runtime": "dsh-v0.1.2-alpha.3",
       "browser": "Chromium via Playwright CLI",
       "coverage": [
