@@ -11,9 +11,11 @@
 
 ## Versions and compatibility
 
-**Current release:** the public plugin tag is [`v0.1.0-rc.3`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.3), and the npm package is [`dsh-deepcanary@0.1.0-rc.3`](https://www.npmjs.com/package/dsh-deepcanary/v/0.1.0-rc.3), available through the `next` prerelease channel. It targets the official DSH [`dsh-v0.1.2-alpha.3`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.3) and has been verified on Windows, WSL2, Node.js 22/24, the Web UI interaction surface, and the model smoke path; the release commit and artifact digest are recorded in [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json).
+**Current release:** the public plugin tag is [`v0.1.0-rc.4`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.4), and the npm package is [`dsh-deepcanary@0.1.0-rc.4`](https://www.npmjs.com/package/dsh-deepcanary/v/0.1.0-rc.4), available through the `next` prerelease channel. It targets the official DSH [`dsh-v0.1.2-alpha.3`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.3) and has been verified on Windows, WSL2, Node.js 22/24, the Web UI interaction surface, and the model smoke path; the release commit and artifact digest are recorded in [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json).
 
-RC3 remains a pre-release for daily trial use, feedback, and plugin integration testing. Physical touch hardware, a real screen reader, and operating-system notification delivery after granting permission are post-release supplemental checks; browser automation, keyboard interaction, narrow viewports, forced colors, and the notification-denied branch already have automated evidence.
+RC4 remains a pre-release for daily trial use, feedback, and plugin integration testing. Physical touch hardware, a real screen reader, and operating-system notification delivery after granting permission are post-release supplemental checks; browser automation, keyboard interaction, narrow viewports, forced colors, and the notification-denied branch already have automated evidence.
+
+Historical v0.1.0-rc.3 remains available as a Git tag for comparison; its npm version was withdrawn and cannot be reused under npm policy.
 
 Historical [`v0.1.0-rc.2`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.2) with official DSH `dsh-v0.1.2-alpha.2` remains available for reproduction. `v0.1.0-rc.1` and DSH npm `0.1.1-rc.2` are retained for historical environment diagnosis and are not the current installation or test baseline. Before testing, stop DSH, remove the older plugin from the profile, and install the intended version.
 
@@ -32,16 +34,16 @@ The governing rule is evidence before escalation. C3 requires Host or Runtime au
 
 ## Install and start
 
-The two paths below have different purposes: the published RC3 is for daily trial use; source builds are for development, reproduction, and issue reports.
+The two paths below have different purposes: the published RC4 is for daily trial use; source builds are for development, reproduction, and issue reports.
 
 ### Requirements
 
 - Windows x64 or WSL2 Ubuntu;
 - Node.js `22.19+` (the release verification used Node.js `24.19.0`);
 - pnpm `11.7.0`;
-- an official DSH source runtime; RC3 uses `dsh-v0.1.2-alpha.3`.
+- an official DSH source runtime; RC4 uses `dsh-v0.1.2-alpha.3`.
 
-### Published version: v0.1.0-rc.3
+### Published version: v0.1.0-rc.4
 
 #### 1. Prepare the official DSH alpha.3 runtime
 
@@ -64,7 +66,7 @@ Use the exact prerelease published on npm for the normal installation path; use 
 Set-Location .\dsh-runtime-alpha3
 # Pin the official npm registry for release verification to avoid mirror lag.
 $env:npm_config_registry = 'https://registry.npmjs.org/'
-npx --yes pnpm@11.7.0 dsh plugin --profile web add dsh-deepcanary@0.1.0-rc.3
+npx --yes pnpm@11.7.0 dsh plugin --profile web add dsh-deepcanary@0.1.0-rc.4
 npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
@@ -72,10 +74,10 @@ npx --yes pnpm@11.7.0 dsh web --no-open
 For a fixed GitHub source, replace the install command with:
 
 ```powershell
-npx --yes pnpm@11.7.0 dsh plugin --profile web add https://codeload.github.com/Oscar-Williams/dsh-deepcanary/tar.gz/refs/tags/v0.1.0-rc.3
+npx --yes pnpm@11.7.0 dsh plugin --profile web add https://codeload.github.com/Oscar-Williams/dsh-deepcanary/tar.gz/refs/tags/v0.1.0-rc.4
 ```
 
-Open the DSH Web page in a browser on the same machine. RC3 keeps only the sidebar entry visible at startup; the floating Inbox opens after the entry is clicked. If browser notification permission is denied, the panel and model-visible tools remain available.
+Open the DSH Web page in a browser on the same machine. RC4 keeps only the sidebar entry visible at startup; the floating Inbox opens after the entry is clicked. If browser notification permission is denied, the panel and model-visible tools remain available.
 
 To update an existing RC installation, rebuild only when using a local development checkout; for an installed profile use:
 
@@ -91,11 +93,11 @@ Remove the plugin from the target DSH profile:
 npx --yes pnpm@11.7.0 dsh plugin --profile web remove dsh-deepcanary
 ```
 
-To reinstall the current published version, rerun the RC3 installation command above. To reproduce RC2, use its tag with the matching alpha.2 runtime. Restart `dsh web` after replacing the package, then use `dsh plugin --profile web list` to confirm that the profile contains only the intended version.
+To reinstall the current published version, rerun the RC4 installation command above. To reproduce RC2, use its tag with the matching alpha.2 runtime. Restart `dsh web` after replacing the package, then use `dsh plugin --profile web list` to confirm that the profile contains only the intended version.
 
-### Rebuild and verify RC3 from source
+### Rebuild and verify RC4 from source
 
-For source debugging or reproduction, use the official DSH `dsh-v0.1.2-alpha.3` and a separate profile; replace `$pluginDir` and `$dshDir` with paths on your machine. The generated tarball should have the same version and file layout as the published RC3 package.
+For source debugging or reproduction, use the official DSH `dsh-v0.1.2-alpha.3` and a separate profile; replace `$pluginDir` and `$dshDir` with paths on your machine. The generated tarball should have the same version and file layout as the published RC4 package.
 
 ```powershell
 $pluginDir = 'C:\path\to\dsh-deepcanary'
@@ -126,7 +128,7 @@ npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
 
-`dsh --version` should print `0.1.2-alpha.3`, `git rev-parse HEAD` should print `dd6322d604e00eec1ba5e0c8541159906a21094a`, and the local tarball should show version `0.1.0-rc.3`. The bundle patch uses DSH's `dshHomePath('dsh-deepcanary')`, so setting `DSH_HOME` keeps plugin state inside the isolated DSH home. Before opening the Web UI, confirm that the profile loaded the current tarball and that the page shows only the sidebar entry, with no fixed legacy card on the right.
+`dsh --version` should print `0.1.2-alpha.3`, `git rev-parse HEAD` should print `dd6322d604e00eec1ba5e0c8541159906a21094a`, and the local tarball should show version `0.1.0-rc.4`. The bundle patch uses DSH's `dshHomePath('dsh-deepcanary')`, so setting `DSH_HOME` keeps plugin state inside the isolated DSH home. Before opening the Web UI, confirm that the profile loaded the current tarball and that the page shows only the sidebar entry, with no fixed legacy card on the right.
 
 ### Web UI interactions
 
@@ -225,9 +227,9 @@ npm run benchmark:attention
 npm run outcomes:report -- --input <path-to-outcomes.json> --source real
 ```
 
-The quality and Outcome reports store aggregate results only. Raw trial data should remain in the isolated test directory; see [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md) for the fields and privacy boundary. Outcome reports use [`benchmark/outcome-report.schema.json`](benchmark/outcome-report.schema.json) and accept one `source` per aggregate. The RC3 installation, test results, and release follow-ups are recorded in [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json); an earlier alpha.3 compatibility record remains in [`benchmark/alpha3-compatibility-receipt.json`](benchmark/alpha3-compatibility-receipt.json).
+The quality and Outcome reports store aggregate results only. Raw trial data should remain in the isolated test directory; see [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md) for the fields and privacy boundary. Outcome reports use [`benchmark/outcome-report.schema.json`](benchmark/outcome-report.schema.json) and accept one `source` per aggregate. The RC4 installation, test results, and release follow-ups are recorded in [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json); an earlier alpha.3 compatibility record remains in [`benchmark/alpha3-compatibility-receipt.json`](benchmark/alpha3-compatibility-receipt.json).
 
-The regression fixture covers 20 AttentionGold v3 classification scenarios plus duplicate-event, shared-root Bundle, recovery-recurrence, and parallel-session scenarios; the public RC.2 receipt still records the historical v2 set of 15 classification scenarios. RC.2 evidence for the upstream runtime, Windows/WSL, public-tag installation, Web, settings, unload/restart, and distribution integrity is recorded in [`benchmark/release-receipt.json`](benchmark/release-receipt.json), whose status is `PASS`. Both that historical receipt and the RC3 receipt are intentionally excluded from the npm runtime package so their SHA-256 checks remain independent of the package contents. See [`docs/release-checklist.md`](docs/release-checklist.md) for the reproducible release procedure.
+The regression fixture covers 20 AttentionGold v3 classification scenarios plus duplicate-event, shared-root Bundle, recovery-recurrence, and parallel-session scenarios; the public RC.2 receipt still records the historical v2 set of 15 classification scenarios. RC.2 evidence for the upstream runtime, Windows/WSL, public-tag installation, Web, settings, unload/restart, and distribution integrity is recorded in [`benchmark/release-receipt.json`](benchmark/release-receipt.json), whose status is `PASS`. Both that historical receipt and the RC4 receipt are intentionally excluded from the npm runtime package so their SHA-256 checks remain independent of the package contents. See [`docs/release-checklist.md`](docs/release-checklist.md) for the reproducible release procedure.
 
 ## Documentation
 

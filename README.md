@@ -11,11 +11,11 @@
 
 ## 版本与兼容性
 
-**当前发布版本**：公开插件 tag 为 [`v0.1.0-rc.3`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.3)，npm 包为 [`dsh-deepcanary@0.1.0-rc.3`](https://www.npmjs.com/package/dsh-deepcanary/v/0.1.0-rc.3)，可通过 `next` 预发布通道获取。本版本面向官方 DSH [`dsh-v0.1.2-alpha.3`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.3)，Windows、WSL2、Node.js 22/24、WebUI 交互和模型烟测均已完成验证；发布提交和包摘要见 [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json)。
+**当前发布版本**：公开插件 tag 为 [`v0.1.0-rc.4`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.4)，npm 包为 [`dsh-deepcanary@0.1.0-rc.4`](https://www.npmjs.com/package/dsh-deepcanary/v/0.1.0-rc.4)，可通过 `next` 预发布通道获取。本版本面向官方 DSH [`dsh-v0.1.2-alpha.3`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.3)，沿用 RC3 已验证的 Windows、WSL2、Node.js 22/24、WebUI 交互和模型烟测基线；RC4 的发布提交和包摘要见 [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json)。
 
-RC3 保持为预发布版本，适合日常试用、反馈和插件集成验证。物理触摸设备、真实屏幕阅读器和允许通知权限后的操作系统级通知属于发布后的补充验证项；浏览器自动化、键盘操作、窄视口、强制颜色和通知拒绝分支已有自动化证据。
+RC4 保持为预发布版本，适合日常试用、反馈和插件集成验证。物理触摸设备、真实屏幕阅读器和允许通知权限后的操作系统级通知属于发布后的补充验证项；浏览器自动化、键盘操作、窄视口、强制颜色和通知拒绝分支已有自动化证据。
 
-历史 [`v0.1.0-rc.2`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.2) 与官方 DSH `dsh-v0.1.2-alpha.2` 的组合仍保留用于复现。`v0.1.0-rc.1` 以及 DSH npm `0.1.1-rc.2` 仅用于历史环境排查，不属于当前安装或测试基线。测试前请先停止 DSH，移除测试配置中的旧插件，再安装目标版本。
+历史 [`v0.1.0-rc.3`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.3) Git tag 保留用于版本对照；对应 npm 版本已撤销，npm 规则不允许复用。历史 [`v0.1.0-rc.2`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.2) 与官方 DSH `dsh-v0.1.2-alpha.2` 的组合仍保留用于复现。`v0.1.0-rc.1` 以及 DSH npm `0.1.1-rc.2` 仅用于历史环境排查，不属于当前安装或测试基线。测试前请先停止 DSH，移除测试配置中的旧插件，再安装目标版本。
 
 ## 能解决什么问题
 
@@ -32,16 +32,16 @@ DeepCanary 只回答一个问题：当前是否值得用户看一眼？它不重
 
 ## 安装和启动
 
-下面提供两条清晰路径：已发布 RC3 适合日常试用；从源码重建适合开发、复现和提交问题。
+下面提供两条清晰路径：已发布 RC4 适合日常试用；从源码重建适合开发、复现和提交问题。
 
 ### 环境要求
 
 - Windows x64 或 WSL2 Ubuntu；
 - Node.js `22.19+`（本次 RC 验证使用 Node.js `24.19.0`）；
 - pnpm `11.7.0`；
-- 已安装官方 DSH 源码运行时；RC3 使用 `dsh-v0.1.2-alpha.3`。
+- 已安装官方 DSH 源码运行时；RC4 使用 `dsh-v0.1.2-alpha.3`。
 
-### 已发布版本：v0.1.0-rc.3
+### 已发布版本：v0.1.0-rc.4
 
 #### 1. 准备官方 DSH alpha.3
 
@@ -64,7 +64,7 @@ git rev-parse HEAD
 Set-Location .\dsh-runtime-alpha3
 # 验收时固定使用官方 npm registry，避免镜像同步延迟
 $env:npm_config_registry = 'https://registry.npmjs.org/'
-npx --yes pnpm@11.7.0 dsh plugin --profile web add dsh-deepcanary@0.1.0-rc.3
+npx --yes pnpm@11.7.0 dsh plugin --profile web add dsh-deepcanary@0.1.0-rc.4
 npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
@@ -72,10 +72,10 @@ npx --yes pnpm@11.7.0 dsh web --no-open
 如需固定 GitHub 来源，可将安装命令替换为：
 
 ```powershell
-npx --yes pnpm@11.7.0 dsh plugin --profile web add https://codeload.github.com/Oscar-Williams/dsh-deepcanary/tar.gz/refs/tags/v0.1.0-rc.3
+npx --yes pnpm@11.7.0 dsh plugin --profile web add https://codeload.github.com/Oscar-Williams/dsh-deepcanary/tar.gz/refs/tags/v0.1.0-rc.4
 ```
 
-启动后，在同一台机器的浏览器打开 DSH Web 页面。RC3 默认只保留侧栏入口，不会遮挡页面；点击入口后才打开浮动 Inbox。浏览器通知权限被拒绝时，面板和模型可见工具仍然可用。
+启动后，在同一台机器的浏览器打开 DSH Web 页面。RC4 默认只保留侧栏入口，不会遮挡页面；点击入口后才打开浮动 Inbox。浏览器通知权限被拒绝时，面板和模型可见工具仍然可用。
 
 更新已安装的 RC 时，先清理旧配置或执行：
 
@@ -91,11 +91,11 @@ npx --yes pnpm@11.7.0 dsh plugin --profile web update dsh-deepcanary
 npx --yes pnpm@11.7.0 dsh plugin --profile web remove dsh-deepcanary
 ```
 
-需要重新安装当前发布版本时，重新执行上面的 RC3 安装命令；需要复现 RC2 时，使用其 tag 和对应的 alpha.2 运行时。完成替换后重启 `dsh web`，并用 `dsh plugin --profile web list` 确认 profile 中只保留目标版本。
+需要重新安装当前发布版本时，重新执行上面的 RC4 安装命令；需要复现 RC3 或 RC2 时，分别使用对应 tag 和匹配的 DSH 运行时。完成替换后重启 `dsh web`，并用 `dsh plugin --profile web list` 确认 profile 中只保留目标版本。
 
-### 从源码重建并验证 RC3
+### 从源码重建并验证 RC4
 
-需要调试源码或复现构建时，可使用官方 DSH `dsh-v0.1.2-alpha.3` 和独立测试配置；请将 `$pluginDir`、`$dshDir` 改为本机路径。该流程生成的本地压缩包应与公开 RC3 的版本和文件布局一致。
+需要调试源码或复现构建时，可使用官方 DSH `dsh-v0.1.2-alpha.3` 和独立测试配置；请将 `$pluginDir`、`$dshDir` 改为本机路径。该流程生成的本地压缩包应与公开 RC4 的版本和文件布局一致。
 
 ```powershell
 $pluginDir = 'C:\path\to\dsh-deepcanary'
@@ -126,7 +126,7 @@ npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
 
-`dsh --version` 应输出 `0.1.2-alpha.3`，`git rev-parse HEAD` 应输出 `dd6322d604e00eec1ba5e0c8541159906a21094a`，本地压缩包应显示 `0.1.0-rc.3`。`cordis.patch.yml` 使用 DSH 的 `dshHomePath('dsh-deepcanary')`，因此设置 `DSH_HOME` 后，插件状态会跟随独立 DSH home 保存。开始 Web UI 手测前，请确认测试配置已加载当前压缩包，并且页面只显示侧栏入口，不再出现固定在右侧的旧卡片。
+`dsh --version` 应输出 `0.1.2-alpha.3`，`git rev-parse HEAD` 应输出 `dd6322d604e00eec1ba5e0c8541159906a21094a`，本地压缩包应显示 `0.1.0-rc.4`。`cordis.patch.yml` 使用 DSH 的 `dshHomePath('dsh-deepcanary')`，因此设置 `DSH_HOME` 后，插件状态会跟随独立 DSH home 保存。开始 Web UI 手测前，请确认测试配置已加载当前压缩包，并且页面只显示侧栏入口，不再出现固定在右侧的旧卡片。
 
 ### WebUI 交互
 
@@ -227,9 +227,9 @@ npm run benchmark:attention
 npm run outcomes:report -- --input <path-to-outcomes.json> --source real
 ```
 
-质量报告和 Outcome 报告只保存汇总结果；原始试用数据应留在隔离测试目录，具体字段和隐私边界见 [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md)。Outcome 报告使用 [`benchmark/outcome-report.schema.json`](benchmark/outcome-report.schema.json)，同一次汇总只接收一个 `source`。RC3 的安装、测试和发布后补充验证记录在 [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json)；较早的 alpha.3 兼容性记录仍保存在 [`benchmark/alpha3-compatibility-receipt.json`](benchmark/alpha3-compatibility-receipt.json) 中。
+质量报告和 Outcome 报告只保存汇总结果；原始试用数据应留在隔离测试目录，具体字段和隐私边界见 [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md)。Outcome 报告使用 [`benchmark/outcome-report.schema.json`](benchmark/outcome-report.schema.json)，同一次汇总只接收一个 `source`。RC4 的安装、测试和发布记录在 [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json)；RC3 的历史 alpha.3 兼容性记录仍保存在 [`benchmark/alpha3-compatibility-receipt.json`](benchmark/alpha3-compatibility-receipt.json) 中。
 
-当前 RC3 实现的 AttentionGold v3 固定覆盖 20 个分类场景，以及重复、共享根因 Bundle、恢复复发和多 Session 场景；RC2 收据仍记录历史 v2 的 15 个分类场景。RC2 的官方运行时、Windows/WSL、公开 tag 安装、Web、设置、卸载重启和分发完整性证据记录在仓库内的 [`benchmark/release-receipt.json`](benchmark/release-receipt.json)，收据状态为 `PASS`。RC2 历史文件与 RC3 收据都不进入 npm 运行包，以避免与发布包 SHA-256 形成循环依赖。可复现检查步骤见 [`docs/release-checklist.md`](docs/release-checklist.md)。
+当前 RC4 沿用并重新验证 AttentionGold v3，固定覆盖 20 个分类场景，以及重复、共享根因 Bundle、恢复复发和多 Session 场景；RC2 收据仍记录历史 v2 的 15 个分类场景。RC2 的官方运行时、Windows/WSL、公开 tag 安装、Web、设置、卸载重启和分发完整性证据记录在仓库内的 [`benchmark/release-receipt.json`](benchmark/release-receipt.json)，收据状态为 `PASS`。RC2 历史文件与 RC4 收据都不进入 npm 运行包，以避免与发布包 SHA-256 形成循环依赖。可复现检查步骤见 [`docs/release-checklist.md`](docs/release-checklist.md)。
 
 ## 文档
 
