@@ -27,7 +27,7 @@ The implementation must preserve these boundaries:
 
 For current development end-to-end checks, use the official alpha.3 checkout documented in `docs/compatibility.md`, verify `dsh --version` is `0.1.2-alpha.3`, install the current built package into the isolated web profile, run `dsh web`, and check HTTP 200 on the DeepCanary health route. Use the alpha.2 checkout only when reproducing the historical RC.2 receipt.
 
-The release branch tracks the built `lib/` output because DSH installs a public Git tag without running this repository's TypeScript toolchain. Every source change must therefore be followed by `npm run build`, and CI must fail if the committed `lib/` output is stale.
+The repository tracks the built `lib/` output because DSH installs a public Git tag without running this repository's TypeScript toolchain. Every source change must therefore be followed by `npm run build`, and CI must fail if the committed `lib/` output is stale.
 
 The WSL2 verification lane uses the isolated Conda environment at `/home/Oscar/miniconda3/envs/dsh-deepcanary`. Keep its DSH profile home separate from the environment directory when running end-to-end checks.
 
