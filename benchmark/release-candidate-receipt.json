@@ -5,12 +5,12 @@
   "scope": "RC4 release candidate and isolated acceptance profiles",
   "plugin": "dsh-deepcanary",
   "pluginVersion": "0.1.0-rc.4",
-  "pluginCommit": "8e03bb82925d00c3fc37811577c82334a61e9cf8",
+  "pluginCommit": "f0f0b7bdee94e4c1d9b5063ad1bff6280cba8b30",
   "attentionFixtureVersion": 3,
   "runtime": {
-    "tag": "dsh-v0.1.2-alpha.3",
-    "version": "0.1.2-alpha.3",
-    "commit": "dd6322d604e00eec1ba5e0c8541159906a21094a",
+    "tag": "dsh-v0.1.2-alpha.4",
+    "version": "0.1.2-alpha.4",
+    "commit": "4e84901e6471b79ec0338099867ebb4606d12bb5",
     "source": "official-git-tag"
   },
   "environment": {
@@ -19,9 +19,9 @@
     "packageManager": "pnpm@11.7.0 for the Windows DSH source checkout; pnpm@11.22.0 in WSL",
     "wslEnvironment": "miniconda3/envs/dsh-deepcanary",
     "profiles": [
-      "isolated Windows alpha.3 Web profile",
-      "authorized Windows alpha.3 headless profile",
-      "isolated WSL alpha.3 Web profile"
+      "isolated Windows alpha.4 Web profile",
+      "authorized Windows alpha.4 headless profile",
+      "isolated WSL alpha.4 Web profile"
     ]
   },
   "gates": {
@@ -45,7 +45,7 @@
   "evidence": {
     "tests": {
       "testFiles": 11,
-      "tests": 39,
+      "tests": 49,
       "windows": "PASS",
       "wsl": "PASS"
     },
@@ -78,29 +78,34 @@
       "runId": null,
       "headSha": null,
       "url": null,
-      "coverage": "Windows and Ubuntu checks on Node 22 and 24 plus alpha.3 WebUI smoke"
+      "coverage": "Windows and Ubuntu checks on Node 22 and 24 plus alpha.4 WebUI smoke"
     },
     "modelSmokeTest": {
       "status": "PASS",
       "surface": "headless",
-      "responseMarker": "RC3_MODEL_OK",
-      "fileAccess": "must remain prohibited by the smoke-test prompt"
+      "runtime": "dsh-v0.1.2-alpha.4",
+      "profile": "authorized Windows alpha.4 headless profile",
+      "responseMarker": "RC4_MODEL_OK",
+      "fileAccess": "must remain prohibited by the smoke-test prompt; no credential or transcript recorded"
     },
     "wslProfileMount": {
-      "status": "PENDING",
-      "runtime": "dsh-v0.1.2-alpha.3",
+      "status": "PASS",
+      "runtime": "dsh-v0.1.2-alpha.4",
       "package": "dsh-deepcanary@0.1.0-rc.4",
-      "credential": "not provisioned"
+      "webHealth": "HTTP 200 with plugin state ready",
+      "credentialMaterial": "excluded"
     },
     "npmInstall": {
-      "status": "PENDING",
+      "status": "PAUSED",
       "registry": "https://registry.npmjs.org/",
       "package": "dsh-deepcanary@0.1.0-rc.4",
       "profiles": [
-        "isolated Windows alpha.3 Web profile",
-        "isolated Windows alpha.3 headless profile"
+        "isolated Windows alpha.4 Web profile",
+        "authorized Windows alpha.4 headless profile",
+        "isolated WSL alpha.4 Web profile"
       ],
-      "webHealth": "pending public RC4 installation"
+      "webHealth": "local tarball verified; public npm publication intentionally paused",
+      "reason": "npm publication is paused by the current release instruction"
     }
   },
   "publication": {
@@ -128,7 +133,7 @@
     "real screen-reader verification",
     "OS-level notification delivery with permission allowed"
   ],
-  "artifactSha256": "0dd76ccd9fa508a998d844c969a71df5d6b9309f4b75506e708554fee998d5cd",
-  "verifiedAt": "2026-09-01",
-  "note": "This receipt records the RC4 release candidate for the official DSH alpha.3 runtime. The authenticated npm publish attempt was rejected with 403 until 2026-09-02T10:38:55Z because the package was wholly unpublished at 2026-09-01T10:38:55Z; retry after that time. Public npm next publication, immutable Git tag, GitHub Release, and public installation evidence are recorded only after each external operation succeeds. RC3 behavior evidence remains the compatibility baseline for this metadata-only candidate refresh. Device-level follow-up checks remain listed separately. Credentials, raw prompts, transcripts, model output, workspace contents, and private design material are excluded."
+  "artifactSha256": "3595fdf52344707ac8fdfa3a1de95b4a257ce31b08a71b98a23911cc2fc6820b",
+  "verifiedAt": "2026-09-02T04:39:30+08:00",
+  "note": "This receipt records the RC4 release candidate against the official DSH alpha.4 tag at its pinned commit. The Windows Edge WebUI, WSL WebUI, local tarball, and authorized fixed-marker model smoke checks were run against alpha.4; the public npm package remains intentionally unpublished and the public-tag gate remains pending. The historical alpha.3 compatibility record and RC2 release receipt remain separate. Device-level touch, real screen-reader, and permission-allowed operating-system notification checks remain supplemental follow-up items. Credentials, raw prompts, transcripts, model output, workspace contents, and private design material are excluded."
 }
