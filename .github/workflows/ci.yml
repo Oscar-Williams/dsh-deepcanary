@@ -25,8 +25,8 @@ jobs:
           - os: windows-latest
             node: 24.19.0
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node }}
           cache: npm
@@ -46,8 +46,8 @@ jobs:
     env:
       DSH_HOME: ${{ github.workspace }}/.ci-dsh-deepcanary-home
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
         with:
           node-version: 22.19.0
           cache: npm
@@ -159,7 +159,7 @@ jobs:
           fi
       - name: Upload redacted browser smoke log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: alpha3-web-smoke-log
           path: |
