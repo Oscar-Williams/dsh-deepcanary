@@ -147,6 +147,10 @@ jobs:
             await trigger.click()
             await page.keyboard.press('Escape')
             if (await page.getByRole('dialog', { name: 'DeepCanary' }).count() !== 0) throw new Error('escape did not hide panel')
+            await page.waitForFunction(() => {
+              const element = document.querySelector('[data-deepcanary-trigger]')
+              return element !== null && document.activeElement === element
+            })
             if (!await trigger.evaluate((element) => document.activeElement === element)) throw new Error('focus did not return to trigger')
             await trigger.click()
             await page.mouse.click(24, 120)
