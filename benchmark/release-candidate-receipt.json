@@ -130,5 +130,5 @@
   ],
   "artifactSha256": "0dd76ccd9fa508a998d844c969a71df5d6b9309f4b75506e708554fee998d5cd",
   "verifiedAt": "2026-09-01",
-  "note": "This receipt records the RC4 release candidate for the official DSH alpha.3 runtime. Public npm next publication, immutable Git tag, GitHub Release, and public installation evidence are recorded only after each external operation succeeds. RC3 behavior evidence remains the compatibility baseline for this metadata-only candidate refresh. Device-level follow-up checks remain listed separately. Credentials, raw prompts, transcripts, model output, workspace contents, and private design material are excluded."
+  "note": "This receipt records the RC4 release candidate for the official DSH alpha.3 runtime. The authenticated npm publish attempt was rejected with 403 until 2026-09-02T10:38:55Z because the package was wholly unpublished at 2026-09-01T10:38:55Z; retry after that time. Public npm next publication, immutable Git tag, GitHub Release, and public installation evidence are recorded only after each external operation succeeds. RC3 behavior evidence remains the compatibility baseline for this metadata-only candidate refresh. Device-level follow-up checks remain listed separately. Credentials, raw prompts, transcripts, model output, workspace contents, and private design material are excluded."
 }
