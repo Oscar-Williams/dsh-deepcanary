@@ -36,7 +36,11 @@
     "wslProtocolSmoke": true,
     "wslWebE2E": true,
     "unloadReload": true,
-    "distributionIntegrity": true
+    "distributionIntegrity": true,
+    "webAccessibilitySemantics": true,
+    "webTouchDeviceEmulation": true,
+    "webForcedColors": true,
+    "webViewportMatrix": true
   },
   "evidence": {
     "tests": {
@@ -81,6 +85,38 @@
       "pointerResize": true,
       "bilingualSurface": true,
       "notificationPermissionAllowedBranch": true,
+      "accessibilitySemantics": {
+        "dialogName": "DeepCanary",
+        "regionName": "DeepCanary pending alerts",
+        "liveStatus": "polite",
+        "resizeHandles": ["Resize panel width", "Resize panel height"],
+        "focusReturnedToTrigger": true
+      },
+      "touchDeviceEmulation": {
+        "device": "iPhone 15",
+        "maxTouchPoints": 1,
+        "coarsePointer": true,
+        "widthBefore": 320,
+        "widthAfter": 368,
+        "heightBefore": 560,
+        "heightAfter": 608
+      },
+      "forcedColors": {
+        "mode": "active",
+        "viewportWidth": 393,
+        "viewportHeight": 659,
+        "statusVisible": true,
+        "toolbarWrapped": true,
+        "horizontalOverflow": false
+      },
+      "viewportMatrix": [
+        { "width": 1920, "height": 1080, "inside": true, "horizontalOverflow": false },
+        { "width": 1280, "height": 800, "inside": true, "horizontalOverflow": false },
+        { "width": 900, "height": 700, "inside": true, "horizontalOverflow": false },
+        { "width": 768, "height": 800, "inside": true, "horizontalOverflow": false },
+        { "width": 540, "height": 720, "inside": true, "horizontalOverflow": false },
+        { "width": 360, "height": 640, "inside": true, "horizontalOverflow": false }
+      ],
       "narrowViewport": {
         "viewportWidth": 360,
         "documentScrollWidth": 360,
@@ -96,9 +132,11 @@
   "pendingForPublicRelease": [
     "immutable plugin tag and public-tag installation for this candidate",
     "artifact-specific release receipt after the candidate version is cut",
-    "physical touch-device, screen-reader, high-contrast, and full viewport-matrix coverage",
+    "browser notification click positioning",
+    "physical touch-device and screen-reader checks",
+    "Playwright CI run on a public commit",
     "WSL model smoke when an isolated WSL credential is explicitly provisioned"
   ],
   "verifiedAt": "2026-09-01",
-  "note": "This receipt records the alpha.3 development compatibility lane. benchmark/release-receipt.json remains the historical public RC.2 receipt and is not relabeled. No prompt, transcript, credential, raw model output, or private design material is included."
+  "note": "This receipt records the alpha.3 development compatibility lane, including semantic WebUI checks, emulated iPhone touch input, forced-colors rendering, and a six-size viewport matrix. Physical touch hardware and a real screen reader remain device-level follow-up. benchmark/release-receipt.json remains the historical public RC.2 receipt and is not relabeled. No prompt, transcript, credential, raw model output, or private design material is included."
 }

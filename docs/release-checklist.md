@@ -19,6 +19,8 @@ The version must be `0.1.2-alpha.3` and the checkout must resolve to `dd6322d604
 
 The current candidate also runs `npm run quality:report` and `npm run benchmark:attention`. These commands provide the frozen replay and local resource baseline; real-user outcome fields remain pending until a sanitized dogfood run supplies them. The completed alpha.3 local compatibility result is recorded separately in [`benchmark/alpha3-compatibility-receipt.json`](../benchmark/alpha3-compatibility-receipt.json); it is excluded from the npm package and does not replace the historical RC.2 receipt.
 
+The repository CI workflow also starts the pinned alpha.3 Web profile in an isolated home and exercises the panel through Playwright CLI. This automated check covers first-run dismissal, mount semantics, close and Escape behavior, focus return, narrow-viewport bounds, forced-colors rendering, and the live status region; it does not replace physical touch or real Screen Reader evaluation.
+
 ## 1. Source and documentation
 
 - [ ] Confirm `package.json`, `package-lock.json`, `CHANGELOG.md`, README files, compatibility matrix, surface audit, and release receipt use the same plugin version and DSH tag.
@@ -75,7 +77,7 @@ The completed `benchmark/release-receipt.json` uses `status: "PASS"`; `publicTag
 Verify from the running local Web host:
 
 - the bundle patch is active;
-- all eight `deepcanary_*` tools are registered once;
+- all nine `deepcanary_*` tools are registered once;
 - `/dsh-deepcanary/health`, `/state`, `/settings`, and `/action` return the documented status codes;
 - the installed package exposes `exports["./client"]`, declares `dsh.client`, and the DSH boot graph includes the plugin client module;
 - the Web UI starts with no DeepCanary panel covering the page, opens from `sidebar.footer.action`, closes through its button/`Esc`/outside click, reopens from the entry, and leaves the page underneath usable;

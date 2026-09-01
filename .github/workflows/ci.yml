@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   checks:
     name: ${{ matrix.os }} / Node ${{ matrix.node }}
@@ -35,3 +38,125 @@ jobs:
       - run: git diff --exit-code -- lib
       - run: npm run verify:distribution
       - run: npm pack --dry-run
+
+  browser-smoke:
+    name: alpha.3 WebUI smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DSH_HOME: ${{ runner.temp }}/dsh-deepcanary-home
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.19.0
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Install the pinned DSH alpha.3 runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global --no-audit --no-fund pnpm@11.7.0
+          npm install --global --prefix "$RUNNER_TEMP/dsh" --ignore-scripts --no-audit --no-fund @deepseek-ai/dsh@0.1.2-alpha.3
+          echo "$RUNNER_TEMP/dsh/bin" >> "$GITHUB_PATH"
+          export PATH="$RUNNER_TEMP/dsh/bin:$PATH"
+          dsh --version
+      - name: Install the checkout into an isolated web profile
+        shell: bash
+        run: |
+          set -euo pipefail
+          dsh plugin --profile web add "$GITHUB_WORKSPACE"
+          dsh --profile web --dump-config | grep -F 'dsh-deepcanary'
+      - name: Install Chromium for Playwright CLI
+        shell: bash
+        run: npx --yes --package @playwright/cli playwright-cli install-browser chromium
+      - name: Start the isolated DSH Web server
+        shell: bash
+        run: |
+          set -euo pipefail
+          dsh --profile web --no-open --port 43135 > "$RUNNER_TEMP/dsh-web.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/dsh-web.pid"
+          for _ in $(seq 1 60); do
+            if grep -q '^dsh web: http' "$RUNNER_TEMP/dsh-web.log"; then
+              break
+            fi
+            if ! kill -0 "$(cat "$RUNNER_TEMP/dsh-web.pid")" 2>/dev/null; then
+              cat "$RUNNER_TEMP/dsh-web.log"
+              exit 1
+            fi
+            sleep 1
+          done
+          url=$(sed -n 's/^dsh web: //p' "$RUNNER_TEMP/dsh-web.log" | tail -n 1)
+          test -n "$url"
+          token=$(printf '%s' "$url" | sed -n 's/.*[?&]token=\([^&]*\).*/\1/p')
+          test -n "$token"
+          echo "::add-mask::$token"
+          printf 'DSH_URL=%s\n' "$url" >> "$GITHUB_ENV"
+      - name: Exercise the panel in a real browser
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/playwright
+          code=$(cat <<'EOF'
+          async () => {
+            const intro = page.getByRole('button', { name: /^(继续|continue)$/i })
+            if (await intro.count()) await intro.first().click()
+            const postpone = page.getByRole('button', { name: /稍后配置|later|skip|not now|configure later/i })
+            if (await postpone.count()) await postpone.last().click()
+            const trigger = page.locator('[data-deepcanary-trigger]')
+            await trigger.waitFor({ state: 'visible', timeout: 30000 })
+            await trigger.click()
+            const panel = page.getByRole('dialog', { name: 'DeepCanary' })
+            await panel.waitFor({ state: 'visible' })
+            if (await page.getByRole('separator', { name: /Resize panel width|调整面板宽度/i }).count() !== 1) throw new Error('width resize handle missing')
+            if (await page.getByRole('separator', { name: /Resize panel height|调整面板高度/i }).count() !== 1) throw new Error('height resize handle missing')
+            await page.getByRole('button', { name: /Close panel|关闭面板/i }).click()
+            if (await page.getByRole('dialog', { name: 'DeepCanary' }).count() !== 0) throw new Error('close did not hide panel')
+            if (await trigger.getAttribute('aria-expanded') !== 'false') throw new Error('trigger state did not close')
+            await trigger.click()
+            await page.keyboard.press('Escape')
+            if (await page.getByRole('dialog', { name: 'DeepCanary' }).count() !== 0) throw new Error('escape did not hide panel')
+            if (!await trigger.evaluate((element) => document.activeElement === element)) throw new Error('focus did not return to trigger')
+            await trigger.click()
+            await page.setViewportSize({ width: 360, height: 640 })
+            await page.waitForTimeout(100)
+            const narrow = await page.evaluate(() => {
+              const element = document.querySelector('[role=dialog]')
+              const rect = element?.getBoundingClientRect()
+              return { overflow: document.documentElement.scrollWidth > innerWidth, inside: !!rect && rect.left >= 0 && rect.right <= innerWidth && rect.top >= 0 && rect.bottom <= innerHeight, width: rect?.width ?? 0 }
+            })
+            if (narrow.overflow || !narrow.inside || narrow.width <= 0) throw new Error(`narrow viewport failed: ${JSON.stringify(narrow)}`)
+            await page.emulateMedia({ forcedColors: 'active' })
+            if (!await page.evaluate(() => matchMedia('(forced-colors: active)').matches)) throw new Error('forced colors was not enabled')
+            if (await panel.getByRole('status').count() !== 1) throw new Error('status live region missing')
+            await page.screenshot({ path: 'output/playwright/ci-alpha3-forced-colors.png', animations: 'disabled' })
+            return { narrow, forcedColors: true }
+          }
+          EOF
+          )
+          npx --yes --package @playwright/cli playwright-cli --session ci open "$DSH_URL"
+          npx --yes --package @playwright/cli playwright-cli --session ci run-code "$code"
+      - name: Stop the isolated DSH Web server
+        if: always()
+        shell: bash
+        run: |
+          if test -f "$RUNNER_TEMP/dsh-web.pid"; then
+            kill "$(cat "$RUNNER_TEMP/dsh-web.pid")" 2>/dev/null || true
+          fi
+      - name: Redact the browser smoke log
+        if: always()
+        shell: bash
+        run: |
+          if test -f "$RUNNER_TEMP/dsh-web.log"; then
+            sed -E 's/(token=)[^&[:space:]]*/\1[REDACTED]/g' "$RUNNER_TEMP/dsh-web.log" > "$RUNNER_TEMP/dsh-web-redacted.log"
+          fi
+      - name: Upload redacted browser smoke log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alpha3-web-smoke-log
+          path: |
+            ${{ runner.temp }}/dsh-web-redacted.log
+            output/playwright/ci-alpha3-forced-colors.png
+          if-no-files-found: ignore

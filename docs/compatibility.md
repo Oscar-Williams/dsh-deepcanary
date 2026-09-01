@@ -55,5 +55,6 @@ For the current alpha.3 lane, install the local built package into the isolated 
 - The jump action returns a local DSH navigation hint; the host decides whether the target session URL is available.
 - Liveness is conservative: session heartbeat silence produces a suspected-stall C2; a C3 host failure requires a failed local HTTP probe.
 - Native Windows Toast is not a hard dependency in this RC. Browser and Web fallback behavior is the supported cross-platform path.
+- The alpha.3 local WebUI lane covers emulated touch input, forced-colors rendering, semantic roles, and six viewport sizes. Physical touch hardware, real Screen Reader output, and browser-notification click positioning remain device-level follow-up checks.
 - Model-assisted judgment, Done Verification, Watcher Swarm, tray persistence, and organization policy are intentionally deferred to later release lines; deterministic policy is complete for this RC's declared surface.
 - If a future DSH release changes an event payload, Settings scope, Tool contract, or WebServer API, update this matrix and `docs/dsh-surface-audit.md` before changing the provider, then rerun the full release receipt.
