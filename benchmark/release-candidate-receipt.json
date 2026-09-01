@@ -73,6 +73,13 @@
       "settingsWriteReadback": true,
       "notificationPermissionDeniedBranch": true
     },
+    "publicCI": {
+      "status": "PASS",
+      "runId": 33474693939,
+      "headSha": "291d15dbbedb2ad3305656dc931dcea633c23911",
+      "url": "https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33474693939",
+      "coverage": "Windows and Ubuntu checks on Node 22 and 24 plus alpha.3 WebUI smoke"
+    },
     "modelSmokeTest": {
       "status": "PASS",
       "surface": "headless",
@@ -88,7 +95,6 @@
   },
   "pendingForPublicRelease": [
     "immutable plugin tag and public-tag installation for this candidate",
-    "candidate-specific public CI run",
     "physical touch-device verification",
     "real screen-reader verification",
     "OS-level notification delivery with permission allowed"
