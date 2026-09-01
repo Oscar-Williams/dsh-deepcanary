@@ -2,9 +2,9 @@
 
 All notable changes to `dsh-deepcanary` are recorded here.
 
-## Unreleased
+## 0.1.0-rc.3 — 2026-09-01
 
-The next local release candidate is `0.1.0-rc.3`. It targets the official DSH `dsh-v0.1.2-alpha.3`; the public tag and Release remain pending until the candidate receipt, dogfood, and device-level evidence are complete. The current candidate record is [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json).
+`0.1.0-rc.3` is a public prerelease for the official DSH `dsh-v0.1.2-alpha.3`. It is ready for daily trial use, integration testing, and structured feedback. Physical touch hardware, real screen-reader output, and operating-system notification delivery remain supplemental post-release verification items.
 
 ### Added
 
@@ -19,9 +19,9 @@ The next local release candidate is `0.1.0-rc.3`. It targets the official DSH `d
 
 ### Compatibility
 
-- prepared the current RC3 candidate against the official immutable DSH `dsh-v0.1.2-alpha.3` tag at commit `dd6322d604e00eec1ba5e0c8541159906a21094a`.
+- prepared RC3 against the official immutable DSH `dsh-v0.1.2-alpha.3` tag at commit `dd6322d604e00eec1ba5e0c8541159906a21094a`.
 - added a public-commit Playwright smoke for the alpha.3 Web profile, covering onboarding, mount semantics, panel lifecycle, responsive bounds, forced colors, and live status semantics.
-- The public `v0.1.0-rc.2` release remains the historical alpha.2 distribution until a new release candidate has its own receipt and artifact checks.
+- The public `v0.1.0-rc.2` release remains the historical alpha.2 distribution; its receipt is retained for comparison with RC3.
 
 ## 0.1.0-rc.2 — 2026-08-31
 

@@ -11,13 +11,11 @@
 
 ## 版本与兼容性
 
-**已发布版本**：公开插件 tag 为 [`v0.1.0-rc.2`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.2)，对应提交 `4ae7c2bb577d7a2b855f425a8e3fde7800a9feb2`。该版本已在官方 DSH `dsh-v0.1.2-alpha.2` 上完成发布验证，日常安装请使用下面的“已发布版本”路径。
+**当前发布版本**：公开插件 tag 为 [`v0.1.0-rc.3`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.3)，npm 包为 `dsh-deepcanary@0.1.0-rc.3`。本版本面向官方 DSH [`dsh-v0.1.2-alpha.3`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.3)，Windows、WSL2、Node.js 22/24、WebUI 交互和模型烟测均已完成验证；发布提交和包摘要见 [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json)。
 
-**本地候选版本**：当前实现的候选版本为 `0.1.0-rc.3`，目标运行时为官方 DSH `dsh-v0.1.2-alpha.3`（commit `dd6322d604e00eec1ba5e0c8541159906a21094a`）。候选包已完成本机 Windows WebUI 与 WSL2 隔离 profile 的兼容性验证，公开 `main` 也已通过 Windows/Ubuntu、Node 22/24 和 alpha.3 WebUI 浏览器自动化测试（[候选 CI 运行记录](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33475665562)）。当前仍作为本地候选使用，尚未建立公开 RC3 tag 和 Release；真实试用与设备级验证仍是正式发布前的必要条件。
+RC3 保持为预发布版本，适合日常试用、反馈和插件集成验证。物理触摸设备、真实屏幕阅读器和允许通知权限后的操作系统级通知属于发布后的补充验证项；浏览器自动化、键盘操作、窄视口、强制颜色和通知拒绝分支已有自动化证据。
 
-**兼容性参考**：当前公开 `main` 已通过 alpha.3 WebUI 浏览器自动化验收（[CI 运行记录](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33475665562)）；本地 `0.1.0-rc.3` 候选仍以隔离 profile 和固定 SHA-256 的构建包为测试对象。
-
-`v0.1.0-rc.1` 和 npm `0.1.1-rc.2` 仅用于历史复现，不属于本仓库当前的安装或测试基线。测试前请先停止 DSH，移除测试配置中的旧插件，再安装目标版本。
+历史 [`v0.1.0-rc.2`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.2) 与官方 DSH `dsh-v0.1.2-alpha.2` 的组合仍保留用于复现。`v0.1.0-rc.1` 以及 DSH npm `0.1.1-rc.2` 仅用于历史环境排查，不属于当前安装或测试基线。测试前请先停止 DSH，移除测试配置中的旧插件，再安装目标版本。
 
 ## 能解决什么问题
 
@@ -34,42 +32,48 @@ DeepCanary 只回答一个问题：当前是否值得用户看一眼？它不重
 
 ## 安装和启动
 
-下面提供两条清晰路径：已发布版本适合日常使用；本地候选版本适合参与测试或开发。
+下面提供两条清晰路径：已发布 RC3 适合日常试用；从源码重建适合开发、复现和提交问题。
 
 ### 环境要求
 
 - Windows x64 或 WSL2 Ubuntu；
 - Node.js `22.19+`（本次 RC 验证使用 Node.js `24.19.0`）；
 - pnpm `11.7.0`；
-- 已安装官方 DSH 源码运行时；已发布版本使用 `dsh-v0.1.2-alpha.2`，本地候选版本使用 `dsh-v0.1.2-alpha.3`。
+- 已安装官方 DSH 源码运行时；RC3 使用 `dsh-v0.1.2-alpha.3`。
 
-### 已发布版本：v0.1.0-rc.2
+### 已发布版本：v0.1.0-rc.3
 
-#### 1. 准备官方 DSH alpha.2
+#### 1. 准备官方 DSH alpha.3
 
 ```powershell
-git clone --depth 1 --branch dsh-v0.1.2-alpha.2 https://github.com/deepseek-ai/deepseek-harness.git dsh-runtime-alpha2
-Set-Location .\dsh-runtime-alpha2
+git clone --depth 1 --branch dsh-v0.1.2-alpha.3 https://github.com/deepseek-ai/deepseek-harness.git dsh-runtime-alpha3
+Set-Location .\dsh-runtime-alpha3
 npx --yes pnpm@11.7.0 install
 npx --yes pnpm@11.7.0 run build
 npx --yes pnpm@11.7.0 dsh --version
 git rev-parse HEAD
 ```
 
-版本命令应输出 `0.1.2-alpha.2`，commit 命令应输出 `0a53fb55bea101816fa226bb964ae2bed71c343b`。官方发布页：[dsh-v0.1.2-alpha.2](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.2)。已有本地 checkout 即使目录名仍为 `dsh-runtime-alpha1`，也必须先确认 tag、commit 和 `dsh --version` 均符合上述值。
+版本命令应输出 `0.1.2-alpha.3`，commit 命令应输出 `dd6322d604e00eec1ba5e0c8541159906a21094a`。已有本地 checkout 即使目录名仍为 `dsh-runtime-alpha1`，也必须先确认 tag、commit 和 `dsh --version` 均符合上述值。
 
 #### 2. 安装插件
 
-正式安装请使用已独立验证的不可变 tag `v0.1.0-rc.2`。不要把本地源码目录或包含个人设计资料的目录作为正式安装来源。
+推荐使用 npm 上的精确预发布版本；需要审计源码来源时，可使用对应的不可变 Git tag。不要把本地源码目录或包含个人设计资料的目录作为日常安装来源。
 
 ```powershell
-Set-Location .\dsh-runtime-alpha2
-npx --yes pnpm@11.7.0 dsh plugin --profile web add https://codeload.github.com/Oscar-Williams/dsh-deepcanary/tar.gz/refs/tags/v0.1.0-rc.2
+Set-Location .\dsh-runtime-alpha3
+npx --yes pnpm@11.7.0 dsh plugin --profile web add dsh-deepcanary@0.1.0-rc.3
 npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
 
-启动后，在同一台机器的浏览器打开 DSH Web 页面。成功安装 RC.2 后，客户端通过 alpha.2 的客户端模块机制加载，默认不会遮挡页面，点击侧栏入口后才打开浮动 Inbox。浏览器通知权限被拒绝时，面板和模型可见工具仍然可用。
+如需固定 GitHub 来源，可将安装命令替换为：
+
+```powershell
+npx --yes pnpm@11.7.0 dsh plugin --profile web add https://codeload.github.com/Oscar-Williams/dsh-deepcanary/tar.gz/refs/tags/v0.1.0-rc.3
+```
+
+启动后，在同一台机器的浏览器打开 DSH Web 页面。RC3 默认只保留侧栏入口，不会遮挡页面；点击入口后才打开浮动 Inbox。浏览器通知权限被拒绝时，面板和模型可见工具仍然可用。
 
 更新已安装的 RC 时，先清理旧配置或执行：
 
@@ -85,11 +89,11 @@ npx --yes pnpm@11.7.0 dsh plugin --profile web update dsh-deepcanary
 npx --yes pnpm@11.7.0 dsh plugin --profile web remove dsh-deepcanary
 ```
 
-需要恢复到已发布版本时，重新执行上面的 RC.2 安装命令；测试本地候选时，重新执行本地压缩包安装命令。完成替换后重启 `dsh web`，并用 `dsh plugin --profile web list` 确认 profile 中只保留目标版本。
+需要重新安装当前发布版本时，重新执行上面的 RC3 安装命令；需要复现 RC2 时，使用其 tag 和对应的 alpha.2 运行时。完成替换后重启 `dsh web`，并用 `dsh plugin --profile web list` 确认 profile 中只保留目标版本。
 
-### 本地候选版本：0.1.0-rc.3（官方 DSH alpha.3）
+### 从源码重建并验证 RC3
 
-本地候选验证使用官方 DSH `dsh-v0.1.2-alpha.3` 和独立测试配置；请将 `$pluginDir`、`$dshDir` 改为本机路径。尚未建立公开 RC3 tag，安装来源应为当前工作树生成的本地压缩包。
+需要调试源码或复现构建时，可使用官方 DSH `dsh-v0.1.2-alpha.3` 和独立测试配置；请将 `$pluginDir`、`$dshDir` 改为本机路径。该流程生成的本地压缩包应与公开 RC3 的版本和文件布局一致。
 
 ```powershell
 $pluginDir = 'C:\path\to\dsh-deepcanary'
@@ -120,7 +124,7 @@ npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
 
-`dsh --version` 应输出 `0.1.2-alpha.3`，`git rev-parse HEAD` 应输出 `dd6322d604e00eec1ba5e0c8541159906a21094a`，本地压缩包应显示 `0.1.0-rc.3`。`cordis.patch.yml` 使用 DSH 的 `dshHomePath('dsh-deepcanary')`，因此设置 `DSH_HOME` 后，插件状态会跟随独立 DSH home 保存。开始 Web UI 手测前，请确认测试配置已加载当前压缩包，并且页面只显示侧栏入口，不再出现固定在右侧的旧卡片。公开 tag 和 Release 建立后，再将本地命令替换为不可变 tag 安装。
+`dsh --version` 应输出 `0.1.2-alpha.3`，`git rev-parse HEAD` 应输出 `dd6322d604e00eec1ba5e0c8541159906a21094a`，本地压缩包应显示 `0.1.0-rc.3`。`cordis.patch.yml` 使用 DSH 的 `dshHomePath('dsh-deepcanary')`，因此设置 `DSH_HOME` 后，插件状态会跟随独立 DSH home 保存。开始 Web UI 手测前，请确认测试配置已加载当前压缩包，并且页面只显示侧栏入口，不再出现固定在右侧的旧卡片。
 
 ### WebUI 交互
 
@@ -221,9 +225,9 @@ npm run benchmark:attention
 npm run outcomes:report -- --input <path-to-outcomes.json> --source real
 ```
 
-质量报告和 Outcome 报告只保存汇总结果；原始试用数据应留在隔离测试目录，具体字段和隐私边界见 [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md)。Outcome 报告使用 [`benchmark/outcome-report.schema.json`](benchmark/outcome-report.schema.json)，同一次汇总只接收一个 `source`。当前 RC3 候选的安装、测试和待发布事项记录在 [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json)；较早的 alpha.3 兼容性记录仍保存在 [`benchmark/alpha3-compatibility-receipt.json`](benchmark/alpha3-compatibility-receipt.json) 中。
+质量报告和 Outcome 报告只保存汇总结果；原始试用数据应留在隔离测试目录，具体字段和隐私边界见 [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md)。Outcome 报告使用 [`benchmark/outcome-report.schema.json`](benchmark/outcome-report.schema.json)，同一次汇总只接收一个 `source`。RC3 的安装、测试和发布后补充验证记录在 [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json)；较早的 alpha.3 兼容性记录仍保存在 [`benchmark/alpha3-compatibility-receipt.json`](benchmark/alpha3-compatibility-receipt.json) 中。
 
-当前候选实现的 AttentionGold v3 固定覆盖 20 个分类场景，以及重复、共享根因 Bundle、恢复复发和多 Session 场景；公开 RC.2 收据仍记录历史 v2 的 15 个分类场景。RC.2 的官方运行时、Windows/WSL、公开 tag 安装、Web、设置、卸载重启和分发完整性证据记录在仓库内的 [`benchmark/release-receipt.json`](benchmark/release-receipt.json)，收据状态为 `PASS`。该历史文件与当前 RC3 候选收据都不进入 npm 运行包，以避免与发布包 SHA-256 形成循环依赖。可复现检查步骤见 [`docs/release-checklist.md`](docs/release-checklist.md)。
+当前 RC3 实现的 AttentionGold v3 固定覆盖 20 个分类场景，以及重复、共享根因 Bundle、恢复复发和多 Session 场景；RC2 收据仍记录历史 v2 的 15 个分类场景。RC2 的官方运行时、Windows/WSL、公开 tag 安装、Web、设置、卸载重启和分发完整性证据记录在仓库内的 [`benchmark/release-receipt.json`](benchmark/release-receipt.json)，收据状态为 `PASS`。RC2 历史文件与 RC3 收据都不进入 npm 运行包，以避免与发布包 SHA-256 形成循环依赖。可复现检查步骤见 [`docs/release-checklist.md`](docs/release-checklist.md)。
 
 ## 文档
 
