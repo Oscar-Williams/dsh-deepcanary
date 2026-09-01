@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "receiptType": "release-candidate",
-  "status": "PASS",
-  "scope": "public RC3 release and isolated acceptance profiles",
+  "status": "CANDIDATE",
+  "scope": "RC4 release candidate and isolated acceptance profiles",
   "plugin": "dsh-deepcanary",
-  "pluginVersion": "0.1.0-rc.3",
-  "pluginCommit": "90d32f82e4976c05954fc3bc6c3f18913699f0cb",
+  "pluginVersion": "0.1.0-rc.4",
+  "pluginCommit": "8e03bb82925d00c3fc37811577c82334a61e9cf8",
   "attentionFixtureVersion": 3,
   "runtime": {
     "tag": "dsh-v0.1.2-alpha.3",
@@ -36,7 +36,7 @@
     "unloadRestart": true,
     "privacyGate": true,
     "distributionIntegrity": true,
-    "publicTagInstall": true,
+    "publicTagInstall": false,
     "windowsE2E": true,
     "wslE2E": true,
     "modelE2E": true
@@ -74,10 +74,10 @@
       "notificationPermissionDeniedBranch": true
     },
     "publicCI": {
-      "status": "PASS",
-      "runId": 33481882712,
-      "headSha": "625ce4d4ed2b4fa75f1382066c86a3a13249d15d",
-      "url": "https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33481882712",
+      "status": "PENDING",
+      "runId": null,
+      "headSha": null,
+      "url": null,
       "coverage": "Windows and Ubuntu checks on Node 22 and 24 plus alpha.3 WebUI smoke"
     },
     "modelSmokeTest": {
@@ -87,39 +87,39 @@
       "fileAccess": "must remain prohibited by the smoke-test prompt"
     },
     "wslProfileMount": {
-      "status": "PASS",
+      "status": "PENDING",
       "runtime": "dsh-v0.1.2-alpha.3",
-      "package": "dsh-deepcanary@0.1.0-rc.3",
+      "package": "dsh-deepcanary@0.1.0-rc.4",
       "credential": "not provisioned"
     },
     "npmInstall": {
-      "status": "PASS",
+      "status": "PENDING",
       "registry": "https://registry.npmjs.org/",
-      "package": "dsh-deepcanary@0.1.0-rc.3",
+      "package": "dsh-deepcanary@0.1.0-rc.4",
       "profiles": [
         "isolated Windows alpha.3 Web profile",
         "isolated Windows alpha.3 headless profile"
       ],
-      "webHealth": "HTTP 200; plugin ready; nine tools"
+      "webHealth": "pending public RC4 installation"
     }
   },
   "publication": {
     "npm": {
       "registry": "https://registry.npmjs.org/",
       "package": "dsh-deepcanary",
-      "version": "0.1.0-rc.3",
+      "version": "0.1.0-rc.4",
       "distTags": {
-        "next": "0.1.0-rc.3",
-        "latest": "0.1.0-rc.3"
+        "next": "pending",
+        "latest": "pending"
       },
-      "packageUrl": "https://www.npmjs.com/package/dsh-deepcanary/v/0.1.0-rc.3",
-      "distShasum": "76fc37a651356b4db726aea362db16cd0648cd2d",
-      "distIntegrity": "sha512-/HgAHFgMW+kvo15CvVuIM0kDOWSnZNu2a2pxof9MvIJuridHLcWnEUr0RHWcfjo6/xI9fyQ7WTuU5HjetRazOA=="
+      "packageUrl": "https://www.npmjs.com/package/dsh-deepcanary/v/0.1.0-rc.4",
+      "distShasum": "pending",
+      "distIntegrity": "pending"
     },
     "github": {
-      "tag": "v0.1.0-rc.3",
-      "release": "https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.0-rc.3",
-      "asset": "dsh-deepcanary-0.1.0-rc.3.tgz",
+      "tag": "v0.1.0-rc.4",
+      "release": "https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.0-rc.4",
+      "asset": "dsh-deepcanary-0.1.0-rc.4.tgz",
       "prerelease": true
     }
   },
@@ -128,7 +128,7 @@
     "real screen-reader verification",
     "OS-level notification delivery with permission allowed"
   ],
-  "artifactSha256": "1c3d30c137c8a39bc501a3e751223be7efa78881a65aec8c2417cad2ae44fff2",
+  "artifactSha256": "d98136440e4327efea1d85579563d2102afb4615c527df61e06d35d37aee61e2",
   "verifiedAt": "2026-09-01",
-  "note": "This receipt records the public RC3 release for the official DSH alpha.3 runtime. It is updated only from isolated local evidence and keeps the historical RC2 receipt separate. Device-level follow-up checks remain listed separately. Credentials, raw prompts, transcripts, model output, workspace contents, and private design material are excluded."
+  "note": "This receipt records the RC4 release candidate for the official DSH alpha.3 runtime. Public npm next publication, immutable Git tag, GitHub Release, and public installation evidence are recorded only after each external operation succeeds. RC3 behavior evidence remains the compatibility baseline for this metadata-only candidate refresh. Device-level follow-up checks remain listed separately. Credentials, raw prompts, transcripts, model output, workspace contents, and private design material are excluded."
 }
