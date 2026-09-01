@@ -218,6 +218,7 @@ describe('DeepCanaryService', () => {
     const restoredAction = await restored.performAction('restore-suppression', 'TASK_COMPLETED', 'unsuppress', { reasonCode: 'TASK_COMPLETED' })
     expect(restoredAction.body).toMatchObject({ updated: true, result: { kind: 'suppression-restored', reasonCode: 'TASK_COMPLETED' } })
     expect(restored.settings().suppressedReasonCodes).toEqual([])
+    await restored.dispose()
     await rm(directory, { recursive: true, force: true })
   })
 
