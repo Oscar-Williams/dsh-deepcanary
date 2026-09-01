@@ -13,9 +13,9 @@
 
 **Published version:** the public plugin tag is [`v0.1.0-rc.2`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.2), at commit `4ae7c2bb577d7a2b855f425a8e3fde7800a9feb2`. This version completed its release verification on the official DSH `dsh-v0.1.2-alpha.2` runtime. Use the “Published version” path below for regular installation.
 
-**Local candidate:** the current implementation is candidate version `0.1.0-rc.3`, targeting the official DSH `dsh-v0.1.2-alpha.3` runtime (commit `dd6322d604e00eec1ba5e0c8541159906a21094a`). The candidate package has completed local Windows Web UI and isolated WSL2 profile compatibility acceptance. It remains a local candidate: no public RC3 tag or Release has been created, and dogfood plus device-level evidence remain required before a formal release.
+**Local candidate:** the current implementation is candidate version `0.1.0-rc.3`, targeting the official DSH `dsh-v0.1.2-alpha.3` runtime (commit `dd6322d604e00eec1ba5e0c8541159906a21094a`). The candidate package has completed local Windows Web UI and isolated WSL2 profile compatibility acceptance, and the public `main` branch has passed the Windows/Ubuntu, Node 22/24, and alpha.3 Web UI browser checks ([CI run](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33475427764)). It remains a local candidate: no public RC3 tag or Release has been created, and real-world use plus device-level evidence remain required before a formal release.
 
-**Compatibility reference:** an earlier public commit passed the alpha.3 Web UI browser acceptance check ([CI workflow](https://github.com/Oscar-Williams/dsh-deepcanary/actions/workflows/ci.yml)); that historical result is reference evidence, while `0.1.0-rc.3` is tested from the current local package in an isolated profile.
+**Compatibility reference:** the current public `main` branch has passed the alpha.3 Web UI browser acceptance check ([CI run](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33475427764)); the local `0.1.0-rc.3` candidate is tested from an isolated profile using the package's fixed SHA-256.
 
 `v0.1.0-rc.1` and npm `0.1.1-rc.2` are retained only for historical reproduction. They are not the installation or testing baseline for this repository. Before testing, stop DSH, remove the older plugin from the profile, and install the intended version.
 
