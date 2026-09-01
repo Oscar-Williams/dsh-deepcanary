@@ -100,10 +100,16 @@ jobs:
           mkdir -p output/playwright
           code=$(cat <<'EOF'
           async () => {
-            const intro = page.getByRole('button', { name: /^(继续|continue)$/i })
-            if (await intro.count()) await intro.first().click()
-            const postpone = page.getByRole('button', { name: /稍后配置|later|skip|not now|configure later/i })
-            if (await postpone.count()) await postpone.last().click()
+            const welcome = page.getByRole('dialog', { name: /Internal Testing Notice|内测声明/i })
+            await welcome.waitFor({ state: 'visible', timeout: 15000 })
+            await welcome.getByRole('button', { name: /^(继续|continue)$/i }).click()
+            await welcome.waitFor({ state: 'hidden', timeout: 15000 })
+
+            const credential = page.getByRole('dialog', { name: /Add an API key to get started|添加一个 API key 开始使用/i })
+            await credential.waitFor({ state: 'visible', timeout: 15000 })
+            await credential.getByRole('button', { name: /Configure later|稍后配置|later|skip|not now/i }).click()
+            await credential.waitFor({ state: 'hidden', timeout: 15000 })
+
             const trigger = page.locator('[data-deepcanary-trigger]')
             await trigger.waitFor({ state: 'visible', timeout: 30000 })
             await trigger.click()
