@@ -13,7 +13,7 @@ All notable changes to `dsh-deepcanary` are recorded here.
 - retained the connection-stability maintenance from the RC4 follow-up, including host-probe outage epochs, bounded state polling, notification-attempt evidence, Persistent Supervisor standby retry, and bounded policy persistence;
 - regenerated the distribution from the alpha.5 dependency graph and verified type checks, tests, build, distribution integrity, and release-gate inputs.
 
-GitHub synchronization and npm publication to the `next` dist-tag are performed after the final local acceptance run. The artifact-specific receipt records the resulting tag, Release asset, package digest, registry version, and dist-tag.
+The GitHub `v0.1.1-rc.1` tag and prerelease Release are now synchronized with the verified artifact. npm publication to the `next` dist-tag follows the registry release step; the artifact-specific receipt records each resulting state.
 
 ## Post-RC4 maintenance — historical alpha.4 notes (2026-09-02)
 

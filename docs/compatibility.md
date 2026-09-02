@@ -19,7 +19,7 @@ The official upstream tag and Release for alpha.5 were verified on 2026-09-02. T
 | --- | --- | --- | --- |
 | DSH | `dsh-v0.1.2-alpha.5` | `dsh-v0.1.2-alpha.4` | Official source checkout; verify the matching `dsh --version` output |
 | DSH commit | `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5` | `4e84901e6471b79ec0338099867ebb4606d12bb5` | Immutable upstream commits used for reproducibility |
-| Plugin | `v0.1.1-rc.1` GitHub tag, Release asset, and npm `next` | `v0.1.0-rc.4` GitHub tag and Release asset | Keep the plugin revision and DSH runtime in the same acceptance record |
+| Plugin | `v0.1.1-rc.1` GitHub tag and Release asset; npm `next` pending | `v0.1.0-rc.4` GitHub tag and Release asset | Keep the plugin revision and DSH runtime in the same acceptance record |
 | Node.js | `22.19+` | `22.19+` | Local Windows verification uses `v24.19.0`; current DSH packages declare the same supported range |
 | pnpm | `11.7.0` | `11.7.0` | Invoke as `npx --yes pnpm@11.7.0` |
 | Windows x64 | supported | supported | Browser Notification and Web Inbox are the baseline sinks |

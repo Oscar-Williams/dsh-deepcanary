@@ -32,7 +32,7 @@ The public synchronization order is: commit and push `main`, create and push the
 - [x] local unit, type, build, distribution, package, and stable-gate checks pass;
 - [x] fresh alpha.5 Web profile loads the exact local artifact and passes the WebUI smoke;
 - [ ] isolated Ubuntu-26.04 WSL alpha.5 profile completes the package install and Web health check;
-- [ ] `main`, tag `v0.1.1-rc.1`, and GitHub Release are synchronized;
+- [x] `main`, tag `v0.1.1-rc.1`, and GitHub Release are synchronized;
 - [ ] npm `dsh-deepcanary@0.1.1-rc.1` is published with dist-tag `next` and verified from the public registry;
 - [ ] README, English README, changelog, compatibility matrix, and release receipt reflect the final publication state.
 
