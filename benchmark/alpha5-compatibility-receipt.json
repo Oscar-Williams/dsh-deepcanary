@@ -70,6 +70,13 @@
       "fixture": "benchmark/policy-replay.json",
       "coverage": "classification, dedupe, Bundle escalation, budget, quiet hours, and recovery"
     },
+    "publicCI": {
+      "status": "PASS",
+      "runId": 33630531423,
+      "headSha": "077582b9d814dfcd4d2cccc2fb36b0fbe637cfe1",
+      "url": "https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33630531423",
+      "coverage": "Windows and Ubuntu checks on Node 22 and 24 plus the alpha.5 WebUI smoke; all five jobs passed"
+    },
     "wslProfile": {
       "status": "PENDING",
       "runtime": "dsh-v0.1.2-alpha.5 version was independently confirmed",

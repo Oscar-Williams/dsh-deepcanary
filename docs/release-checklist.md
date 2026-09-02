@@ -31,6 +31,7 @@ The public synchronization order is: commit and push `main`, create and push the
 - [x] alpha.5 source checkout, CLI version, package lock, and plugin version agree;
 - [x] local unit, type, build, distribution, package, and stable-gate checks pass;
 - [x] fresh alpha.5 Web profile loads the exact local artifact and passes the WebUI smoke;
+- [x] public CI run [33630531423](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33630531423) passes on Windows and Ubuntu with Node 22 and 24 plus the alpha.5 WebUI smoke;
 - [ ] isolated Ubuntu-26.04 WSL alpha.5 profile completes the package install and Web health check;
 - [x] `main`, tag `v0.1.1-rc.1`, and GitHub Release are synchronized;
 - [ ] npm `dsh-deepcanary@0.1.1-rc.1` is published with dist-tag `next` and verified from the public registry;
