@@ -1,14 +1,14 @@
 # RC release checklist
 
-This checklist records the `dsh-deepcanary` `v0.1.0-rc.4` prerelease and preserves the historical RC2 procedure for reproduction. RC4 is pinned to the exact official `dsh-v0.1.2-alpha.4` tag at commit `4e84901e6471b79ec0338099867ebb4606d12bb5`; RC2 remains tied to `dsh-v0.1.2-alpha.2`. An older DSH npm runtime belongs to historical diagnosis. The public `v0.1.0-rc.1` remains a historical artifact.
+This checklist records the active `dsh-deepcanary` `0.1.1-rc.1` prerelease against the official DSH `dsh-v0.1.2-alpha.5` tag and preserves the RC4 and RC2 procedures for historical reproduction. The current candidate uses the alpha.5 source checkout, the immutable `v0.1.1-rc.1` tag, and its prerelease Release; the historical RC4 record remains pinned to alpha.4 and RC2 remains tied to alpha.2.
 
-RC4 npm publication is currently paused. The immutable GitHub tag, Release asset, local tarball, and exact alpha.4 source checkout provide the active acceptance paths; the public tag and Release checks below are complete, while npm dist-tag work remains pending.
+The current GitHub tag, Release asset, local tarball, npm `next` package, and alpha.5 source checkout provide the verified acceptance paths. The isolated Ubuntu-26.04 alpha.5 profile and device-level notification, touch, and screen-reader observations remain separately tracked below and in `benchmark/alpha5-compatibility-receipt.json`.
 
 ## 0.1.1-rc.1 release: official DSH alpha.5
 
 The active release candidate is `0.1.1-rc.1`, tested against the official `dsh-v0.1.2-alpha.5` tag at commit `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`. The alpha.5 runtime is the current development and compatibility baseline. RC4 and RC2 sections below preserve their original evidence and reproduction commands.
 
-The Windows alpha.5 Web profile, isolated headless model smoke, and package gates passed. The Ubuntu-26.04 profile has a separate pending WSL gate because the isolated npm installation did not complete during this run; the alpha.4 WSL result remains historical evidence and is not promoted to alpha.5.
+The Windows alpha.5 Web profile, isolated headless model smoke, package gates, and clean npm `next` installation passed. The Ubuntu-26.04 profile has a separate pending WSL gate because its alpha.5 Web health evidence has not been recorded; the alpha.4 WSL result remains historical evidence and is not promoted to alpha.5.
 
 Run the following sequence from the plugin repository after confirming the alpha.5 DSH checkout:
 
@@ -26,6 +26,15 @@ npm pack --pack-destination output/local-pack
 
 The generated artifact must be `dsh-deepcanary-0.1.1-rc.1.tgz`. Record its SHA-256 in [`benchmark/alpha5-compatibility-receipt.json`](../benchmark/alpha5-compatibility-receipt.json) together with the package digest, source commit, alpha.5 runtime identity, local WebUI result, and the stable-gate report. Keep OS-level Toast observations separate from browser delivery evidence; the receipt should mark Gate D or native-notification work according to the evidence actually collected.
 
+For the public npm installation path, use the explicit `next` selector and verify the resolved version and dist-tags:
+
+```powershell
+$env:npm_config_registry = 'https://registry.npmjs.org/'
+npx --yes pnpm@11.7.0 dsh plugin --profile web add dsh-deepcanary@next
+npm view dsh-deepcanary@0.1.1-rc.1 version dist --json
+npm view dsh-deepcanary dist-tags --json
+```
+
 The public synchronization order is: commit and push `main`, create and push the immutable `v0.1.1-rc.1` tag, create the prerelease Release with the exact tarball, verify the remote tag and Release asset, then publish the same tarball to npm with dist-tag `next`. After npm publication, verify the package version and dist-tag from the public registry and update the receipt and bilingual README publication status in a follow-up commit. The GitHub tag remains immutable throughout this process.
 
 - [x] alpha.5 source checkout, CLI version, package lock, and plugin version agree;
@@ -34,8 +43,8 @@ The public synchronization order is: commit and push `main`, create and push the
 - [x] public CI run [33630531423](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33630531423) passes on Windows and Ubuntu with Node 22 and 24 plus the alpha.5 WebUI smoke;
 - [ ] isolated Ubuntu-26.04 WSL alpha.5 profile completes the package install and Web health check;
 - [x] `main`, tag `v0.1.1-rc.1`, and GitHub Release are synchronized;
-- [ ] npm `dsh-deepcanary@0.1.1-rc.1` is published with dist-tag `next` and verified from the public registry;
-- [ ] README, English README, changelog, compatibility matrix, and release receipt reflect the final publication state.
+- [x] npm `dsh-deepcanary@0.1.1-rc.1` is published with dist-tag `next` and verified from the public registry;
+- [x] README, English README, changelog, compatibility matrix, and release receipt reflect the final publication state.
 
 ## RC4 release: official DSH alpha.4
 

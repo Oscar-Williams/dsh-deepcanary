@@ -11,7 +11,7 @@
 
 ## Versions and compatibility
 
-**Current prerelease candidate:** `0.1.1-rc.1` targets the official DSH [`dsh-v0.1.2-alpha.5`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.5). The alpha.5 dependency update, source checks, and compatibility regression have passed, and the GitHub tag and prerelease Release are synchronized; npm `next` publication follows. The official release focuses on startup failures and missing session titles during upgrades from older DSH runtimes; the Gateway, client-module, WebServer, Session, Settings, and Tools surfaces used by this plugin remain compatible. The immutable alpha.5 commit is `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`, and the compatibility record is [`benchmark/alpha5-compatibility-receipt.json`](benchmark/alpha5-compatibility-receipt.json).
+**Current prerelease candidate:** `0.1.1-rc.1` targets the official DSH [`dsh-v0.1.2-alpha.5`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.5). The alpha.5 dependency update, source checks, and compatibility regression have passed, and the GitHub tag, prerelease Release, and npm `next` channel are synchronized. The official release focuses on startup failures and missing session titles during upgrades from older DSH runtimes; the Gateway, client-module, WebServer, Session, Settings, and Tools surfaces used by this plugin remain compatible. The immutable alpha.5 commit is `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`, and the compatibility record is [`benchmark/alpha5-compatibility-receipt.json`](benchmark/alpha5-compatibility-receipt.json).
 
 The public [`v0.1.0-rc.4 Release`](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.0-rc.4) remains available as the historical alpha.4 baseline, with its receipt in [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json). `0.1.1-rc.1` carries forward the verified RC4 Windows, WSL2, Node.js 22/24, and Web UI foundations while incorporating alpha.5 persistence compatibility, connection-stability maintenance, notification delivery evidence, policy replay, and Supervisor diagnostics.
 
@@ -38,7 +38,7 @@ The governing rule is evidence before escalation. C3 requires Host or Runtime au
 
 ## Install and start
 
-The three paths below serve different purposes: the GitHub tag and Release asset support daily trial use; source builds and the local tarball support development, reproduction, and issue reports. The npm `next` channel remains a later publication path.
+The four paths below serve different purposes: the GitHub tag, Release asset, and npm `next` channel support daily trial use; source builds and the local tarball support development, reproduction, and issue reports.
 
 ### Requirements
 
@@ -83,14 +83,16 @@ npx --yes pnpm@11.7.0 dsh plugin --profile web add C:\path\to\dsh-deepcanary-0.1
 
 Open the DSH Web page in a browser on the same machine. `0.1.1-rc.1` keeps only the sidebar entry visible at startup; the floating Inbox opens after the entry is clicked. If browser notification permission is denied, the panel and model-visible tools remain available.
 
-### npm `next` channel (available after this cycle's release)
+### npm `next` channel (available now)
 
-The package will be published to the official registry's `next` channel after the GitHub `0.1.1-rc.1` synchronization; then use:
+The package is published to the official registry's `next` channel; use:
 
 ```powershell
 $env:npm_config_registry = 'https://registry.npmjs.org/'
 npx --yes pnpm@11.7.0 dsh plugin --profile web add dsh-deepcanary@next
 ```
+
+This `next` channel currently resolves to `0.1.1-rc.1`; use the explicit `@next` selector when installing the prerelease candidate.
 
 To update an existing RC installation, rebuild only when using a local development checkout; for an installed profile use:
 

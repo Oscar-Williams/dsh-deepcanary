@@ -37,6 +37,9 @@
     "privacyGate": true,
     "distributionIntegrity": true,
     "publicTagInstall": true,
+    "npmPublication": true,
+    "npmRegistry": true,
+    "npmCleanInstall": true,
     "windowsE2E": true,
     "wslE2E": false,
     "modelE2E": true
@@ -99,6 +102,25 @@
       "source": "https://codeload.github.com/Oscar-Williams/dsh-deepcanary/tar.gz/refs/tags/v0.1.1-rc.1",
       "profile": "fresh Windows alpha.5 Web profile",
       "webHealth": "HTTP 200 with plugin state ready, Supervisor running, and nine tools"
+    },
+    "npmPublication": {
+      "status": "PASS",
+      "registry": "https://registry.npmjs.org/",
+      "version": "0.1.1-rc.1",
+      "distTag": "next",
+      "shasum": "5ac2b08d93927e5199d27dae104b6f717c6616ce",
+      "integrity": "sha512-RDvUMbvF7+H6/lv+rI2mIBZPZ+cQAcv4GXvJDT4dmYux1Pvyk38hwaTYsK1+wQlIIXRhvewGBpwhSZiICI1Mxg==",
+      "artifactSha256": "7fc55c59296a10d3d3742851e4aab8317cb2332a41c848f39cb5990a089a7b2f",
+      "fileCount": 110,
+      "unpackedSize": 937875,
+      "publicRegistryVersionCheck": "PASS"
+    },
+    "npmProfileInstall": {
+      "status": "PASS",
+      "source": "dsh-deepcanary@next",
+      "resolvedVersion": "0.1.1-rc.1",
+      "profile": "fresh isolated Windows alpha.5 Web profile",
+      "health": "HTTP 200 with plugin ready, Supervisor running, and nine tools"
     }
   },
   "publication": {
@@ -114,20 +136,24 @@
       "package": "dsh-deepcanary",
       "version": "0.1.1-rc.1",
       "distTags": {
-        "next": "pending",
-        "latest": "unchanged"
+        "next": "0.1.1-rc.1",
+        "latest": "0.1.1-rc.1"
       },
-      "packageUrl": "https://www.npmjs.com/package/dsh-deepcanary/v/0.1.1-rc.1"
+      "packageUrl": "https://www.npmjs.com/package/dsh-deepcanary/v/0.1.1-rc.1",
+      "shasum": "5ac2b08d93927e5199d27dae104b6f717c6616ce",
+      "integrity": "sha512-RDvUMbvF7+H6/lv+rI2mIBZPZ+cQAcv4GXvJDT4dmYux1Pvyk38hwaTYsK1+wQlIIXRhvewGBpwhSZiICI1Mxg==",
+      "fileCount": 110,
+      "unpackedSize": 937875,
+      "publishedAt": "2026-09-02T13:48:23.848Z"
     }
   },
   "pendingForPublicRelease": [
     "isolated WSL alpha.5 Web profile and plugin health check",
-    "npm next publication and public registry verification",
     "OS Toast, Notification Center retention, and native click-to-focus observation",
     "physical touch-device and real screen-reader verification"
   ],
   "artifact": "dsh-deepcanary-0.1.1-rc.1.tgz",
   "artifactSha256": "7fc55c59296a10d3d3742851e4aab8317cb2332a41c848f39cb5990a089a7b2f",
-  "verifiedAt": "2026-09-02T20:31:00+08:00",
-  "note": "This receipt records the alpha.5 compatibility candidate. The immutable GitHub tag, prerelease Release asset, and fresh public-tag Web profile have been verified. It contains sanitized release evidence only: no credentials, prompts, transcripts, raw model output, full workspace paths, session content, or private design material. The WSL alpha.5 profile, OS-level notification observation, and device-level touch or screen-reader checks remain separate evidence gates."
+  "verifiedAt": "2026-09-02T21:53:14+08:00",
+  "note": "This receipt records the alpha.5 compatibility candidate. The immutable GitHub tag, prerelease Release asset, fresh public-tag Web profile, npm next publication, public registry metadata, and clean npm profile installation have been verified. It contains sanitized release evidence only: no credentials, prompts, transcripts, raw model output, full workspace paths, session content, or private design material. The WSL alpha.5 profile, OS-level notification observation, and device-level touch or screen-reader checks remain separate evidence gates."
 }

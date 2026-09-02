@@ -11,7 +11,7 @@
 
 ## 版本与兼容性
 
-**当前候选版本**：`0.1.1-rc.1` 面向官方 DSH [`dsh-v0.1.2-alpha.5`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.5)，已完成 alpha.5 依赖切换、源码与测试回归，并已同步 GitHub tag 与预发布 Release；npm `next` 发布随后进行。alpha.5 的官方发布说明聚焦旧运行时升级时的启动失败与会话标题丢失修复；本插件使用的 Gateway、client-module、WebServer、Session、Settings 和 Tools 接口保持兼容。alpha.5 的不可变 commit 为 `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`，本轮兼容性记录见 [`benchmark/alpha5-compatibility-receipt.json`](benchmark/alpha5-compatibility-receipt.json)。
+**当前候选版本**：`0.1.1-rc.1` 面向官方 DSH [`dsh-v0.1.2-alpha.5`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.5)，已完成 alpha.5 依赖切换、源码与测试回归，并已同步 GitHub tag、预发布 Release 和 npm `next` 通道。alpha.5 的官方发布说明聚焦旧运行时升级时的启动失败与会话标题丢失修复；本插件使用的 Gateway、client-module、WebServer、Session、Settings 和 Tools 接口保持兼容。alpha.5 的不可变 commit 为 `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`，本轮兼容性记录见 [`benchmark/alpha5-compatibility-receipt.json`](benchmark/alpha5-compatibility-receipt.json)。
 
 公开 [`v0.1.0-rc.4 Release`](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.0-rc.4) 继续作为 alpha4 历史基线保存；其发布收据记录在 [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json)。`0.1.1-rc.1` 延续 RC4 已验证的 Windows、WSL2、Node.js 22/24 和 WebUI 交互基础，并吸收 alpha.5 的持久化兼容修复、连接稳定性维护、通知投递证据、策略回放与 Supervisor 诊断能力。
 
@@ -36,7 +36,7 @@ DeepCanary 只回答一个问题：当前是否值得用户看一眼？它不重
 
 ## 安装和启动
 
-下面提供 GitHub tag、Release 附件和源码重建三条路径。GitHub tag 与 Release 附件适合日常试用；源码重建和本地压缩包适合开发、复现与提交问题。npm `next` 通道保留为后续发布路径。
+下面提供 GitHub tag、Release 附件、npm `next` 和源码重建四条路径。GitHub tag、Release 附件和 npm `next` 适合日常试用；源码重建和本地压缩包适合开发、复现与提交问题。
 
 ### 环境要求
 
@@ -81,14 +81,16 @@ npx --yes pnpm@11.7.0 dsh plugin --profile web add C:\path\to\dsh-deepcanary-0.1
 
 启动后，在同一台机器的浏览器打开 DSH Web 页面。`0.1.1-rc.1` 默认只保留侧栏入口，不会遮挡页面；点击入口后才打开浮动 Inbox。浏览器通知权限被拒绝时，面板和模型可见工具仍然可用。
 
-### npm `next` 通道（本轮发布后可用）
+### npm `next` 通道（当前可用）
 
-npm 包将在本轮 GitHub 同步后发布到官方 registry 的 `next` 通道；发布完成后执行：
+npm 包已发布到官方 registry 的 `next` 通道，执行：
 
 ```powershell
 $env:npm_config_registry = 'https://registry.npmjs.org/'
 npx --yes pnpm@11.7.0 dsh plugin --profile web add dsh-deepcanary@next
 ```
+
+本次 `next` 指向 `0.1.1-rc.1`；安装候选版本时请显式使用 `@next`。
 
 更新已安装的 RC 时，先清理旧配置或执行：
 

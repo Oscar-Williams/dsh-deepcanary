@@ -19,7 +19,7 @@ The official upstream tag and Release for alpha.5 were verified on 2026-09-02. T
 | --- | --- | --- | --- |
 | DSH | `dsh-v0.1.2-alpha.5` | `dsh-v0.1.2-alpha.4` | Official source checkout; verify the matching `dsh --version` output |
 | DSH commit | `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5` | `4e84901e6471b79ec0338099867ebb4606d12bb5` | Immutable upstream commits used for reproducibility |
-| Plugin | `v0.1.1-rc.1` GitHub tag and Release asset; npm `next` pending | `v0.1.0-rc.4` GitHub tag and Release asset | Keep the plugin revision and DSH runtime in the same acceptance record |
+| Plugin | `v0.1.1-rc.1` GitHub tag, Release asset, and npm `next` | `v0.1.0-rc.4` GitHub tag and Release asset | Keep the plugin revision and DSH runtime in the same acceptance record |
 | Node.js | `22.19+` | `22.19+` | Local Windows verification uses `v24.19.0`; current DSH packages declare the same supported range |
 | pnpm | `11.7.0` | `11.7.0` | Invoke as `npx --yes pnpm@11.7.0` |
 | Windows x64 | supported | supported | Browser Notification and Web Inbox are the baseline sinks |
@@ -52,7 +52,7 @@ This RC deliberately keeps the Web path independent of a native toast dependency
 
 The Web UI uses the DSH alpha.5 client-module interfaces: the plugin manifest exposes `dsh.client` and `./client`, and the host provides the `sidebar.footer.action`, `shell.overlay`, and `settings.plugin.item` slots. A profile with the historical `v0.1.0-rc.1` package does not provide the current four interaction gates or the standard settings card.
 
-For `0.1.1-rc.1` verification, use either the locally generated `dsh-deepcanary-0.1.1-rc.1.tgz`, the immutable GitHub tag/Release asset, or npm `next` after publication. Verify `dsh --profile web --dump-config`, the DeepCanary health and OutcomeReceipt routes, the nine registered tools, and the client-module boot graph in a fresh isolated profile. The alpha.5 receipt records the exact runtime, profiles, package digest, public-tag installation, npm metadata, and regression result. The RC4 and RC2 installation commands remain tied to their historical runtimes and are retained for reproduction.
+For `0.1.1-rc.1` verification, use either the locally generated `dsh-deepcanary-0.1.1-rc.1.tgz`, the immutable GitHub tag/Release asset, or npm `next`. Verify `dsh --profile web --dump-config`, the DeepCanary health and OutcomeReceipt routes, the nine registered tools, and the client-module boot graph in a fresh isolated profile. The alpha.5 receipt records the exact runtime, profiles, package digest, public-tag installation, npm metadata, and regression result. The RC4 and RC2 installation commands remain tied to their historical runtimes and are retained for reproduction.
 
 ## Known limitations
 

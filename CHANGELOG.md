@@ -12,8 +12,9 @@ All notable changes to `dsh-deepcanary` are recorded here.
 - kept the alpha.4 compatibility and `0.1.0-rc.4` release records as immutable historical evidence;
 - retained the connection-stability maintenance from the RC4 follow-up, including host-probe outage epochs, bounded state polling, notification-attempt evidence, Persistent Supervisor standby retry, and bounded policy persistence;
 - regenerated the distribution from the alpha.5 dependency graph and verified type checks, tests, build, distribution integrity, and release-gate inputs.
+- published the exact verified tarball to the official npm registry with the `next` dist-tag, then verified its version, shasum, integrity metadata, and installation in a fresh alpha.5 profile;
 
-The GitHub `v0.1.1-rc.1` tag and prerelease Release are now synchronized with the verified artifact. npm publication to the `next` dist-tag follows the registry release step; the artifact-specific receipt records each resulting state.
+The GitHub `v0.1.1-rc.1` tag and prerelease Release are synchronized with the verified artifact. The same artifact is published as `dsh-deepcanary@0.1.1-rc.1` on npm with the `next` dist-tag; registry metadata and the clean npm installation are recorded in [`benchmark/alpha5-compatibility-receipt.json`](benchmark/alpha5-compatibility-receipt.json).
 
 ## Post-RC4 maintenance — historical alpha.4 notes (2026-09-02)
 
