@@ -5,7 +5,7 @@
   "scope": "0.1.1-rc.1 release candidate against the official DSH alpha.5 tag",
   "plugin": "dsh-deepcanary",
   "pluginVersion": "0.1.1-rc.1",
-  "pluginCommit": "source state verified before the immutable v0.1.1-rc.1 tag",
+  "pluginCommit": "2b912addd63a529e028ef638375f6aa234c87c52",
   "attentionFixtureVersion": 3,
   "runtime": {
     "tag": "dsh-v0.1.2-alpha.5",
