@@ -36,6 +36,14 @@
     "benchmark/attention-quality-report.schema.json",
     "benchmark/outcome-receipt.schema.json",
     "benchmark/outcome-report.schema.json",
+    "benchmark/dogfood.schema.json",
+    "benchmark/dogfood-aggregate.schema.json",
+    "benchmark/notification-evidence.schema.json",
+    "benchmark/supervisor-smoke-report.schema.json",
+    "benchmark/policy-replay.schema.json",
+    "benchmark/policy-replay-report.schema.json",
+    "benchmark/stable-gates-report.schema.json",
+    "benchmark/policy-replay.json",
     "LICENSE"
   ],
   "keywords": [
@@ -78,6 +86,14 @@
     "quality:report": "npm run build && node ./scripts/generate-attention-quality-report.mjs",
     "benchmark:attention": "npm run build && node ./scripts/benchmark-attention.mjs",
     "outcomes:report": "npm run build && node ./scripts/generate-outcome-report.mjs",
+    "dogfood:report": "npm run build && node ./scripts/validate-dogfood.mjs",
+    "dogfood:merge": "npm run build && node ./scripts/merge-dogfood.mjs",
+    "dogfood:capture": "npm run build && node ./scripts/capture-dogfood-run.mjs",
+    "notification:evidence": "npm run build && node ./scripts/validate-notification-evidence.mjs",
+    "supervisor:smoke": "npm run build && node ./scripts/supervisor-smoke.mjs",
+    "replay:policy": "npm run build && node ./scripts/replay-attention-policy.mjs",
+    "gate:stable": "npm run build && node ./scripts/replay-attention-policy.mjs && node ./scripts/supervisor-smoke.mjs && node ./scripts/evaluate-stable-gates.mjs",
+    "gates:report": "npm run gate:stable",
     "clean": "node ./scripts/clean.mjs"
   },
   "peerDependencies": {

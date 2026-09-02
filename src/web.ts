@@ -164,6 +164,20 @@ async function outcomeRecordHandler(req: IncomingMessage, res: ServerResponse, s
   }
 }
 
+function supervisorHandler(req: IncomingMessage, res: ServerResponse, service: DeepCanaryService): void {
+  if (req.method !== 'GET') {
+    sendJson(res, 405, { error: 'GET required', schemaVersion: ATTENTION_PROTOCOL_VERSION })
+    return
+  }
+  const status = service.supervisor.status()
+  sendJson(res, 200, {
+    schemaVersion: ATTENTION_PROTOCOL_VERSION,
+    supervisorSchemaVersion: status.schemaVersion,
+    status,
+    snapshot: service.supervisor.snapshot(),
+  })
+}
+
 export function installWebRoutes(ctx: unknown, service: DeepCanaryService): void {
   const context = ctx as {
     inject?: (services: string[], callback: (ctx: any) => unknown) => unknown
@@ -204,7 +218,7 @@ export function installWebRoutes(ctx: unknown, service: DeepCanaryService): void
         if (req.method !== 'GET') sendJson(res, 405, { error: 'GET required' })
         else {
           const status = service.status()
-          sendJson(res, 200, { ok: true, schemaVersion: ATTENTION_PROTOCOL_VERSION, revision: status.revision, plugin: status.plugin, sessions: status.sessions, tools: status.tools })
+          sendJson(res, 200, { ok: true, schemaVersion: ATTENTION_PROTOCOL_VERSION, revision: status.revision, plugin: status.plugin, sessions: status.sessions, tools: status.tools, supervisor: status.supervisor })
         }
       } }),
       server.register({ kind: 'exact', path: `${basePath}/action`, handler: (req, res) => actionHandler(req, res, service) }),
@@ -212,6 +226,7 @@ export function installWebRoutes(ctx: unknown, service: DeepCanaryService): void
       server.register({ kind: 'exact', path: `${basePath}/dry-run`, handler: (req, res) => dryRunHandler(req, res, service) }),
       server.register({ kind: 'exact', path: `${basePath}/outcomes`, handler: (req, res) => outcomeListHandler(req, res, service) }),
       server.register({ kind: 'exact', path: `${basePath}/outcome`, handler: (req, res) => outcomeRecordHandler(req, res, service) }),
+      server.register({ kind: 'exact', path: `${basePath}/supervisor`, handler: (req, res) => supervisorHandler(req, res, service) }),
     ]
 
     webCtx.on?.('dispose', () => { for (const dispose of disposers) dispose() })

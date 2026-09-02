@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DeepCanary Policy Replay Report",
+  "description": "Case-level results from the deterministic DeepCanary replay runner.",
+  "type": "object",
+  "required": ["reportSchemaVersion", "status", "pluginVersion", "policyVersion", "fixtureVersion", "caseCount", "expectedPassingCases", "expectedFailingCases", "changedCases", "cases", "generatedAt", "conclusion"],
+  "properties": {
+    "reportSchemaVersion": { "const": 1 },
+    "status": { "enum": ["baseline", "comparison"] },
+    "pluginVersion": { "type": "string", "minLength": 1 },
+    "policyVersion": { "type": "string", "minLength": 1 },
+    "fixtureVersion": { "type": "integer", "minimum": 1 },
+    "input": { "type": "string", "minLength": 1 },
+    "candidate": { "type": ["string", "null"] },
+    "clock": { "const": "deterministic-date-now" },
+    "caseCount": { "type": "integer", "minimum": 0 },
+    "expectedPassingCases": { "type": "integer", "minimum": 0 },
+    "expectedFailingCases": { "type": "integer", "minimum": 0 },
+    "changedCases": { "type": "array", "items": { "type": "string" } },
+    "cases": { "type": "array", "items": { "type": "object" } },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "conclusion": { "type": "string", "minLength": 1, "maxLength": 500 }
+  },
+  "additionalProperties": true
+}

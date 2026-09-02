@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DeepCanary Multi-run Dogfood Aggregate",
+  "description": "A privacy-safe aggregate of independently validated dogfood bundles. Each bundle remains one run, trial, provenance, runtime, and policy context.",
+  "type": "object",
+  "required": ["schemaVersion", "aggregateId", "generatedAt", "rawContentPersisted", "bundles"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "aggregateId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "rawContentPersisted": { "const": false },
+    "bundles": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "dogfood.schema.json" }
+    }
+  },
+  "additionalProperties": false
+}

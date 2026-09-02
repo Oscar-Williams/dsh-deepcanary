@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DeepCanary Policy Replay Fixture",
+  "description": "Sanitized event sequences for deterministic policy, dedupe, bundle, quiet-hours, budget, and recovery replay.",
+  "type": "object",
+  "required": ["schemaVersion", "fixtureVersion", "cases"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "fixtureVersion": { "type": "integer", "minimum": 1 },
+    "defaults": { "type": "object", "additionalProperties": true },
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "signals"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+          "suppressAfterIndex": { "type": "integer", "minimum": 0 },
+          "settings": { "type": "object", "additionalProperties": true },
+          "signals": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["source", "kind"],
+              "properties": {
+                "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+                "offsetMs": { "type": "integer" },
+                "source": { "enum": ["session", "agent", "subagent", "tool", "host", "windows", "usage", "external"] },
+                "kind": { "type": "string", "minLength": 1, "maxLength": 64 },
+                "authority": { "enum": ["host", "runtime", "derived", "heuristic"] },
+                "severityHint": { "enum": [0, 1, 2, 3] },
+                "sessionId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+                "workspaceId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+                "dedupeKey": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+                "bundleKey": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+                "data": {
+                  "type": "object",
+                  "maxProperties": 32,
+                  "propertyNames": { "pattern": "^[A-Za-z][A-Za-z0-9_.:-]{0,63}$" },
+                  "additionalProperties": { "type": ["string", "number", "boolean"] }
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "expected": {
+            "type": "object",
+            "properties": {
+              "steps": { "type": "array", "items": { "type": ["object", "null"] } },
+              "finalInboxCount": { "type": "integer", "minimum": 0 }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

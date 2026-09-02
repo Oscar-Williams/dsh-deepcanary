@@ -133,6 +133,15 @@ type Controller = {
   setTrigger: (element: HTMLButtonElement | null) => void
   setSize: (width: number, height: number) => void
   action: (id: string, payload: Record<string, unknown>) => Promise<void>
+  recordDelivery: (id: string, payload: {
+    notificationStage: 'attempted' | 'constructed' | 'click-handler-attached' | 'clicked' | 'error'
+    notificationAttemptId: string
+    notificationRef: string
+    tagRef: string
+    titleKey: string
+    bodyFingerprint: string
+    observedAt: string
+  }) => Promise<void>
   openSession: (sessionId: string) => boolean
   jump: (id: string) => Promise<void>
 }
@@ -142,7 +151,8 @@ const NS = 'deepcanary'
 const SETTINGS_NS = 'dsh-deepcanary'
 const STYLE_ID = 'dsh-deepcanary-client-style'
 const SIZE_KEY = 'dsh-deepcanary-ui'
-const SEEN_KEY = 'dsh-deepcanary-notified'
+const ATTEMPTED_NOTIFICATION_KEY = 'dsh-deepcanary-notification-attempted'
+const LEGACY_SEEN_KEY = 'dsh-deepcanary-notified'
 const AUTO_OPEN_KEY = 'dsh-deepcanary-auto-opened'
 const MIN_WIDTH = 320
 const MAX_WIDTH = 640
@@ -168,6 +178,7 @@ const zh = {
   'panel.sessions': '{count} 个活动会话',
   'panel.notification.enable': '启用浏览器通知',
   'panel.notification.enabled': '浏览器通知已启用',
+  'panel.notification.denied': '浏览器通知已被阻止，请在地址栏的站点权限中允许后重试',
   'panel.notification.unavailable': '当前浏览器不支持通知',
   'panel.settings': '提醒设置',
   'panel.settingsHint': '请在 DSH 设置 > Plugins 中调整提醒策略；这里不重复嵌入完整设置表单。',
@@ -358,6 +369,7 @@ const en = {
   'panel.sessions': '{count} active sessions',
   'panel.notification.enable': 'Enable browser notifications',
   'panel.notification.enabled': 'Browser notifications enabled',
+  'panel.notification.denied': 'Browser notifications are blocked; allow them in site permissions and try again',
   'panel.notification.unavailable': 'Notifications are not supported by this browser',
   'panel.settings': 'Alert settings',
   'panel.settingsHint': 'Adjust alert policy in DSH Settings > Plugins; the full form is not duplicated in this panel.',
@@ -652,6 +664,11 @@ function makeRequestId(): string {
   return generated ?? `dsc-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
+async function opaqueRef(value: string): Promise<string> {
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))
+  return [...new Uint8Array(digest)].slice(0, 8).map(byte => byte.toString(16).padStart(2, '0')).join('')
+}
+
 function createController(sessions: Pick<ISessions, 'open'>): Controller {
   const initial = safeSize()
   let state: ControllerState = {
@@ -711,8 +728,12 @@ function createController(sessions: Pick<ISessions, 'open'>): Controller {
   }
 
   const nextPollDelay = (): number => {
-    if (document.visibilityState === 'hidden') return 30_000
-    return Math.min(60_000, 5_000 * (2 ** Math.min(failureCount, 4)))
+    // DSH alpha.4 keeps its Gateway WebSocket alive with a 2s host Ping. The
+    // plugin's state view does not need a second-by-second refresh; a 15s
+    // foreground cadence avoids competing with the WebUI while preserving
+    // timely attention delivery. Hidden pages use a 60s maintenance cadence.
+    const base = document.visibilityState === 'hidden' ? 60_000 : 15_000
+    return Math.min(120_000, base * (2 ** Math.min(failureCount, 3)))
   }
 
   const controller: Controller = {
@@ -759,7 +780,9 @@ function createController(sessions: Pick<ISessions, 'open'>): Controller {
       inFlight = true
       abort?.abort()
       abort = new AbortController()
+      let requestTimeout: number | undefined
       try {
+        requestTimeout = window.setTimeout(() => { abort?.abort() }, 12_000)
         const response = await fetch('/dsh-deepcanary/state', {
           cache: 'no-store',
           signal: abort.signal,
@@ -787,6 +810,7 @@ function createController(sessions: Pick<ISessions, 'open'>): Controller {
           publish({ loading: false, failed: true })
         }
       } finally {
+        if (requestTimeout !== undefined) window.clearTimeout(requestTimeout)
         inFlight = false
         schedule(nextPollDelay())
       }
@@ -849,6 +873,17 @@ function createController(sessions: Pick<ISessions, 'open'>): Controller {
         const finished = new Set(state.pending)
         finished.delete(id)
         publish({ pending: finished })
+      }
+    },
+    recordDelivery: async (id, payload) => {
+      try {
+        await request('/dsh-deepcanary/action', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ id, action: 'notification-delivery', requestId: makeRequestId(), ...payload }),
+        })
+      } catch {
+        // Notification telemetry is best effort; Inbox delivery remains authoritative.
       }
     },
     jump: async id => {
@@ -1031,6 +1066,11 @@ function notificationTitle(item: ClientItem, t: Translate): string {
   return `${translate(t, 'item.levelLabel', { level: item.level, label: levelLabel(item.level, t) })} · ${title}`
 }
 
+function notificationTitleKey(item: ClientItem): string | undefined {
+  const key = notificationTitleKeys[item.reasonCode]
+  return key === undefined ? undefined : key
+}
+
 function reasonCodeText(reasonCode: string, t: Translate): string {
   const key = reasonKeys[reasonCode]
   return key === undefined ? translate(t, 'item.unknownReason', { code: reasonCode }) : translate(t, key)
@@ -1098,7 +1138,7 @@ function formatTime(value: string): string {
   }).format(date)
 }
 
-function notify(snapshot: ClientSnapshot, t: Translate, controller: Controller): void {
+async function notify(snapshot: ClientSnapshot, t: Translate, controller: Controller): Promise<void> {
   if (snapshot.settings.openOnCritical && !controller.getState().open) {
     let opened = new Set<string>()
     try {
@@ -1120,30 +1160,121 @@ function notify(snapshot: ClientSnapshot, t: Translate, controller: Controller):
     }
   }
   if (!('Notification' in globalThis) || Notification.permission !== 'granted') return
-  let seen = new Set<string>()
+  let attempted = new Set<string>()
   try {
-    seen = new Set(JSON.parse(window.localStorage.getItem(SEEN_KEY) ?? '[]') as string[])
+    const current = JSON.parse(window.localStorage.getItem(ATTEMPTED_NOTIFICATION_KEY) ?? '[]') as unknown
+    const legacy = JSON.parse(window.localStorage.getItem(LEGACY_SEEN_KEY) ?? '[]') as unknown
+    attempted = new Set([
+      ...(Array.isArray(current) ? current.filter((value): value is string => typeof value === 'string') : []),
+      ...(Array.isArray(legacy) ? legacy.filter((value): value is string => typeof value === 'string') : []),
+    ])
   } catch {
-    seen = new Set()
+    attempted = new Set()
   }
   for (const item of snapshot.inbox
     .filter(value => {
       const mutedUntil = value.mutedUntil === undefined ? Number.NaN : Date.parse(value.mutedUntil)
       return (value.action === 'INTERRUPT' || value.action === 'ESCALATE')
-        && !seen.has(value.id)
+        && !attempted.has(value.id)
         && (!Number.isFinite(mutedUntil) || mutedUntil <= Date.now())
     })
     .slice(0, 3)) {
+    const titleKey = notificationTitleKey(item)
+    if (titleKey === undefined) continue
     const navigationUrl = item.sessionId ? `/?session=${encodeURIComponent(item.sessionId)}` : undefined
-    const notification = new Notification(`DeepCanary · ${notificationTitle(item, t)}`, {
-      body: notificationBody(item, t),
-      tag: item.id,
-      data: {
-        itemId: item.id,
-        ...(navigationUrl === undefined ? {} : { navigationUrl }),
-      },
-    })
+    const body = notificationBody(item, t)
+    let delivery: {
+      notificationRef: string
+      tagRef: string
+      bodyFingerprint: string
+    } | undefined
+    try {
+      delivery = {
+        notificationRef: await opaqueRef(`${item.id}:notification`),
+        tagRef: await opaqueRef(`${item.id}:tag`),
+        bodyFingerprint: await opaqueRef(body),
+      }
+    } catch {
+      // Delivery telemetry is optional. A browser without Web Crypto still
+      // receives the user-facing notification through the authoritative Inbox.
+      delivery = undefined
+    }
+    const observedAt = new Date().toISOString()
+    attempted.add(item.id)
+    try {
+      window.localStorage.setItem(ATTEMPTED_NOTIFICATION_KEY, JSON.stringify([...attempted].slice(-100)))
+    } catch {
+      // Notification deduplication is best effort.
+    }
+    const notificationAttemptId = delivery === undefined ? undefined : await opaqueRef(`${item.id}:attempt:${Date.now()}:${Math.random()}`)
+    if (delivery !== undefined && notificationAttemptId !== undefined) {
+      void controller.recordDelivery(item.id, {
+        notificationStage: 'attempted',
+        notificationAttemptId,
+        notificationRef: delivery.notificationRef,
+        tagRef: delivery.tagRef,
+        titleKey,
+        bodyFingerprint: delivery.bodyFingerprint,
+        observedAt,
+      })
+    }
+    let notification: Notification
+    try {
+      const options: NotificationOptions = {
+        body,
+        data: {
+          itemId: item.id,
+          ...(delivery === undefined ? {} : { notificationRef: delivery.notificationRef, tagRef: delivery.tagRef }),
+          ...(navigationUrl === undefined ? {} : { navigationUrl }),
+        },
+      }
+      if (delivery !== undefined) options.tag = delivery.tagRef
+      notification = new Notification(`DeepCanary · ${notificationTitle(item, t)}`, options)
+    } catch {
+      // Permission can change between the guard above and construction. Keep
+      // the Inbox path authoritative and avoid breaking the overlay.
+      attempted.delete(item.id)
+      try {
+        window.localStorage.setItem(ATTEMPTED_NOTIFICATION_KEY, JSON.stringify([...attempted].slice(-100)))
+      } catch {
+        // Best effort; the next refresh can retry the Inbox item.
+      }
+      if (delivery !== undefined && notificationAttemptId !== undefined) {
+        void controller.recordDelivery(item.id, {
+          notificationStage: 'error',
+          notificationAttemptId,
+          notificationRef: delivery.notificationRef,
+          tagRef: delivery.tagRef,
+          titleKey,
+          bodyFingerprint: delivery.bodyFingerprint,
+          observedAt: new Date().toISOString(),
+        })
+      }
+      continue
+    }
+    if (delivery !== undefined && notificationAttemptId !== undefined) {
+      void controller.recordDelivery(item.id, {
+        notificationStage: 'constructed',
+        notificationAttemptId,
+        notificationRef: delivery.notificationRef,
+        tagRef: delivery.tagRef,
+        titleKey,
+        bodyFingerprint: delivery.bodyFingerprint,
+        observedAt,
+      })
+    }
     notification.onclick = () => {
+      if (delivery !== undefined && notificationAttemptId !== undefined) {
+        void controller.recordDelivery(item.id, {
+          notificationStage: 'clicked',
+          notificationAttemptId,
+          notificationRef: delivery.notificationRef,
+          tagRef: delivery.tagRef,
+          titleKey,
+          bodyFingerprint: delivery.bodyFingerprint,
+          observedAt: new Date().toISOString(),
+        })
+      }
       handleNotificationClick(
         notification,
         item.id,
@@ -1155,10 +1286,20 @@ function notify(snapshot: ClientSnapshot, t: Translate, controller: Controller):
         item.sessionId,
       )
     }
-    seen.add(item.id)
+    if (delivery !== undefined && notificationAttemptId !== undefined) {
+      void controller.recordDelivery(item.id, {
+        notificationStage: 'click-handler-attached',
+        notificationAttemptId,
+        notificationRef: delivery.notificationRef,
+        tagRef: delivery.tagRef,
+        titleKey,
+        bodyFingerprint: delivery.bodyFingerprint,
+        observedAt: new Date().toISOString(),
+      })
+    }
   }
   try {
-    window.localStorage.setItem(SEEN_KEY, JSON.stringify([...seen].slice(-100)))
+    window.localStorage.setItem(ATTEMPTED_NOTIFICATION_KEY, JSON.stringify([...attempted].slice(-100)))
   } catch {
     // Notification deduplication is best effort.
   }
@@ -1688,7 +1829,7 @@ function DeepCanaryOverlay(props: { t: Translate; controller: Controller }): Rea
     }
   }, [props.controller, state.open])
   useEffect(() => {
-    if (state.snapshot !== undefined) notify(state.snapshot, props.t, props.controller)
+    if (state.snapshot !== undefined) void notify(state.snapshot, props.t, props.controller)
   }, [props.controller, props.t, state.snapshot])
   if (!state.open) return null
 
@@ -1753,6 +1894,8 @@ function DeepCanaryOverlay(props: { t: Translate; controller: Controller }): Rea
     }
   }
   const notificationSupported = 'Notification' in globalThis
+  const notificationPermission = notificationSupported ? Notification.permission : 'unsupported'
+  const notificationBlocked = notificationPermission === 'denied'
   return createElement('div', { className: 'dsc-overlay-root', 'data-deepcanary-overlay': true },
     createElement('section', {
       ref: panelRef,
@@ -1797,7 +1940,7 @@ function DeepCanaryOverlay(props: { t: Translate; controller: Controller }): Rea
         createElement('button', {
           className: 'dsc-toolbar-button',
           type: 'button',
-          disabled: !notificationSupported,
+          disabled: !notificationSupported || notificationBlocked,
           onClick: () => {
             if (notificationSupported) {
               void Notification.requestPermission().then(() => { void props.controller.refresh() })
@@ -1805,7 +1948,9 @@ function DeepCanaryOverlay(props: { t: Translate; controller: Controller }): Rea
           },
         }, !notificationSupported
           ? translate(props.t, 'panel.notification.unavailable')
-          : Notification.permission === 'granted'
+          : notificationBlocked
+            ? translate(props.t, 'panel.notification.denied')
+            : notificationPermission === 'granted'
             ? translate(props.t, 'panel.notification.enabled')
             : translate(props.t, 'panel.notification.enable'))),
       createElement('div', {

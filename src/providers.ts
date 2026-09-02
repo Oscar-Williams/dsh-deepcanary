@@ -167,9 +167,9 @@ export function signalFromSubagentPressure(activeSubagents: number, threshold: n
   return signal('subagent', 'SUBAGENT_PRESSURE', undefined, { type: 'subagent/active', time: now }, undefined, evidence('subagent-state', 'runtime', `active:${threshold}`, `Active subagent count crossed the configured threshold (${threshold}).`), { activeSubagents, threshold }, threshold >= 24 ? 3 : threshold >= 12 ? 2 : 1, `host:subagent-pressure:${threshold}`)
 }
 
-export function signalFromHostProbe(ok: boolean, detail: string, now = Date.now()): CanarySignal | undefined {
+export function signalFromHostProbe(ok: boolean, detail: string, now = Date.now(), outageId?: string): CanarySignal | undefined {
   if (ok) return undefined
-  return signal('host', 'HOST_UNREACHABLE', undefined, { type: 'host/probe', time: now }, undefined, evidence('http-probe', 'host', 'webserver/probe', detail), {}, 3, 'host:unreachable')
+  return signal('host', 'HOST_UNREACHABLE', undefined, { type: 'host/probe', time: now }, undefined, evidence('http-probe', 'host', `webserver/probe:${outageId ?? 'legacy'}`, detail), outageId === undefined ? {} : { outageId }, 3, outageId === undefined ? 'host:unreachable' : `host:unreachable:${outageId}`)
 }
 
 export function signalFromStall(session: SessionLike, facts: SessionFacts, thresholdMs: number, now = Date.now()): CanarySignal | undefined {
@@ -181,6 +181,6 @@ export function signalFromStallRecovery(session: SessionLike, now = Date.now()):
   return signal('host', 'HOST_STALL_RECOVERED', session, { type: 'host/recovered', time: now }, undefined, evidence('runtime-probe', 'runtime', 'session/heartbeat', 'A new DSH session event arrived after a suspected stall.'), {}, 1, `${session.id}:stall`)
 }
 
-export function signalFromHostRecovery(now = Date.now()): CanarySignal {
-  return signal('host', 'HOST_STALL_RECOVERED', undefined, { type: 'host/recovered', time: now }, undefined, evidence('http-probe', 'host', 'webserver/probe', 'The local DSH WebServer responded after a failed probe.'), {}, 1, 'host:unreachable')
+export function signalFromHostRecovery(outageId?: string, now = Date.now()): CanarySignal {
+  return signal('host', 'HOST_STALL_RECOVERED', undefined, { type: 'host/recovered', time: now }, undefined, evidence('http-probe', 'host', `webserver/probe:${outageId ?? 'legacy'}`, 'The local DSH WebServer responded after a failed probe.'), outageId === undefined ? {} : { outageId }, 1, outageId === undefined ? 'host:unreachable' : `host:unreachable:${outageId}`)
 }

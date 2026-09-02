@@ -7,6 +7,9 @@ output/playwright/
 output/attention-quality-report.json
 output/attention-benchmark.json
 output/dogfood/
+output/gates/
+output/local-pack/
+output/replay/
 .ci-dsh-*
 .DS_Store
 .dsh-deepcanary-test/

@@ -3,6 +3,7 @@ import type { DeepCanaryConfigInput } from './config.js';
 import { ContextDshAdapter } from './adapters/dsh.js';
 import { MetadataStore, SuppressionStore } from './persistence.js';
 import { OutcomeStore } from './outcome.js';
+import { PersistentSupervisor } from './supervisor.js';
 import type { CanarySignal, DeepCanaryConfig, DryRunRequest, DryRunResult, FeedbackValue, InboxItem, PublicInboxItem, PublicSettings, PublicSnapshot, OutcomeReceipt, OutcomeDeleteFilter, OutcomeReceiptInput, RuntimeStatus, SuppressibleReasonCode } from './types.js';
 declare const PLUGIN_NAME = "dsh-deepcanary";
 declare const PLUGIN_VERSION = "0.1.0-rc.4";
@@ -33,8 +34,9 @@ export declare class DeepCanaryService {
     private interval;
     private hostProbeInterval;
     private hostProbePort;
-    private hostProbeFailures;
-    private hostProbeHealthy;
+    private hostProbeInFlight;
+    private readonly hostProbe;
+    private supervisorHostStatus;
     private settingsScope;
     private settingsProvider;
     private settingsSource;
@@ -44,10 +46,14 @@ export declare class DeepCanaryService {
     private disposed;
     private started;
     private revision;
+    private policyRestored;
     private readonly actionReceipts;
     private readonly outcomeReceipts;
+    private readonly dogfoodRecorder;
     private outcomeSaveChain;
     private suppressionSaveChain;
+    private supervisorStart;
+    readonly supervisor: PersistentSupervisor;
     constructor(ctx: Context, input?: DeepCanaryConfigInput);
     start(): void;
     setRegisteredTools(names: readonly string[]): void;
@@ -87,8 +93,17 @@ export declare class DeepCanaryService {
     };
     /** Apply one browser action exactly once for its request id. */
     performAction(requestId: string, id: string, action: string, payload?: Record<string, unknown>): Promise<ActionReceipt>;
-    recordHostProbe(ok: boolean, detail?: string): void;
+    /** Accept only redacted browser-sink facts for a known attention item. */
+    private recordNotificationDelivery;
+    private isNotificationDeliveryPayload;
+    recordHostProbe(ok: boolean, detail?: string): Promise<void>;
+    private startSupervisor;
+    private syncSupervisor;
+    private restoreSupervisorPolicy;
+    private supervisorPolicyState;
     private probeHost;
+    private hostProbeStatus;
+    private refreshSupervisorHealth;
     dispose(): Promise<void>;
     private hydrate;
     private onSessionCreated;
@@ -116,6 +131,8 @@ export declare class DeepCanaryService {
     private bumpRevision;
     private queueSave;
     private updateExistingOutcome;
+    private recordDogfood;
+    private syncDogfoodReceipts;
     private queueOutcomeSave;
     private queueSuppressionSave;
 }

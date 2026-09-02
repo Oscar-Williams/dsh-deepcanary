@@ -2,6 +2,21 @@
 
 All notable changes to `dsh-deepcanary` are recorded here.
 
+## Post-RC4 maintenance — 2026-09-02
+
+The public `0.1.0-rc.4` artifact remains unchanged. The current `main` branch contains a focused maintenance set for the alpha.4 compatibility baseline:
+
+- debounced the local WebServer probe into outage epochs with stable `outageId` correlation and explicit recovery state;
+- reduced foreground/background state polling and fixed request-timeout cleanup so a slow health request cannot leave a stale in-flight guard;
+- recorded browser notification attempts with a per-attempt ID and explicit attempted, constructed, click-handler, clicked, and error stages;
+- upgraded Windows notification evidence to schema v3 with run windows, browser receipts, screenshot/UIA hashes, and distinct `observed`, `not-observed`, and `not-tested` OS outcomes;
+- changed dogfood review coverage to use unique user-facing delivery units and added bounded persistence for dedupe and interrupt-budget state;
+- added Persistent Supervisor standby retry and versioned policy-state restoration;
+- added `npm run gate:stable`, which regenerates replay and Supervisor evidence and records package, git, source-digest, runtime, and tarball identity.
+- documented DSH launch-token rotation after restart and the alpha.4 Gateway heartbeat behavior in the connection troubleshooting guidance.
+
+The upstream alpha.5 reference was checked against the official public tags and Releases interfaces on 2026-09-02 and could not be resolved as an immutable public object. The alpha.4 tag and commit therefore remain the verified runtime baseline until alpha.5 is publicly available for a complete compatibility run. npm publication remains paused.
+
 ## 0.1.0-rc.4 — release candidate (2026-09-01)
 
 `0.1.0-rc.4` is a public prerelease for the official DSH `dsh-v0.1.2-alpha.4`. The GitHub tag and Release asset are available for installation and source review; npm publication remains paused for this cycle.

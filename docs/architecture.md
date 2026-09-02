@@ -13,6 +13,19 @@ DSH runtime facts
   -> local Inbox / browser notification / model-visible tools
 ```
 
+The Persistent Supervisor prototype adds a bounded local projection after the Core has committed a decision:
+
+```text
+DeepCanary Core commit
+  -> hashed session/pending projection
+  -> bounded policy state (dedupe hashes + interrupt timestamps)
+  -> atomic supervisor.json snapshot
+  -> fenced supervisor.lease heartbeat
+  -> read-only /dsh-deepcanary/supervisor diagnostics
+```
+
+The Supervisor provides restart-visible state, single-owner protection, standby retry, stale-lease takeover, and resource counters. The browser notification path records a per-attempt ledger with server-side stages; operating-system Toast, Notification Center, and click-back facts are added by the Windows evidence record. Authoritative session reconciliation remains a later adapter-dependent gate because the current alpha.4 adapter does not enumerate all sessions or expose a durable reconciliation cursor.
+
 The plugin observes DSH interfaces; it does not reimplement the agent loop. Session events are the primary runtime feed. Agent errors and Subagent lifecycle events add optional facts. Session heartbeat silence and WebServer probes provide conservative Host evidence.
 
 ## Shared data and interfaces
@@ -23,7 +36,8 @@ The plugin observes DSH interfaces; it does not reimplement the agent loop. Sess
 - `EvidenceRef` records the evidence type and authority: `host`, `runtime`, `derived`, or `heuristic`;
 - `AttentionVerdict` carries C0–C3, action, confidence, reason, evidence, a stable message key, the protocol/policy versions, and a privacy-safe `PolicyDecisionTrace`;
 - `InboxItem` adds reversible local status, feedback, Bundle count, lifecycle timestamps, and the reason-code set shown to users;
-- `OutcomeReceipt` links one redacted decision to observed user and task outcomes while preserving source (`real`, `controlled`, or `replay`), policy version, review flags, and bounded outcome enums;
+- `DogfoodNotificationDelivery` links `attempted`, `constructed`, `click-handler-attached`, `clicked`, and `error` stages to one opaque notification attempt; OS observation remains a separate evidence layer;
+- `OutcomeReceipt` links one redacted decision to observed user and task outcomes while preserving source (`real`, `controlled`, or `replay`), policy version, review flags, and bounded outcome enums. Separate source/trial pairs can coexist for the same attention reference;
 - `PublicSnapshot` is the data exposed to the Web client, carries a monotonic revision for conditional reads, and excludes internal hashes and raw evidence references.
 
 `PolicyDecisionTrace` records stable rule identifiers, applied scopes, suppression causes, evidence-authority counts, final delivery action, Bundle aggregation, and recovery correlation. It contains no prompt, transcript, tool payload, credential, or raw event reference. `deepcanary_explain` and the Web explain route expose this projection for user decisions and support diagnosis.
@@ -69,7 +83,7 @@ The entry point is `src/index.ts`:
 - `inject = ['tools', 'sessions']` expresses the required DSH services;
 - `session/created`, `session/event`, and `session/disposed` feed the adapter and Session providers;
 - optional `agents` and `subagents` injections observe live lifecycle facts;
-- optional `webServer` injection registers exact same-origin state, settings, health, action, and OutcomeReceipt routes;
+- optional `webServer` injection registers exact same-origin state, settings, health, action, OutcomeReceipt, and read-only Supervisor routes;
 - optional `settings` injection registers the `dsh-deepcanary` namespace through the DSH Settings `installSection` API used by alpha.4, with the composed configuration as its base and live user changes applied through the provider;
 - DSH Tools are registered with `defineTool`, explicit JSON output schemas, and text renderers.
 
@@ -81,7 +95,7 @@ The Web protocol is versioned independently from the persisted file format. Stat
 
 `Config` is a schemastery schema shared by bundle configuration and the optional Settings provider. Web updates pass through `sanitizeConfigPatch`; unknown keys, `stateDir`, invalid ranges, and malformed quiet-hour values are rejected. The state directory is restart-scoped. Notification level, budget, dedupe, Bundle window, liveness threshold, Subagent mode, quiet hours, privacy flag, health polling, and Inbox retention are bounded.
 
-The service queues persistence writes, uses atomic replace for `inbox.json`, disposes timers and adapter subscriptions, and leaves no process or route cleanup to the client. DSH Context owns the host-side event listener lifecycle.
+The service queues persistence writes, uses atomic replace for `inbox.json`, disposes timers and adapter subscriptions, and leaves no process or route cleanup to the client. The Supervisor uses atomic snapshot replacement, short-lived lease heartbeats, standby retry, stale-lease archival, bounded policy restoration, and a read-only route. DSH Context owns the host-side event listener lifecycle.
 
 ## Persistence and privacy
 

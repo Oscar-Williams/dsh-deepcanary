@@ -216,13 +216,17 @@ export function buildOutcomeReceipt(item: InboxItem, input: OutcomeReceiptInput,
     level: item.level,
     action: item.action,
     sourceAuthority: previous?.sourceAuthority ?? strongestEvidenceAuthority(item),
-    opened: input.opened ?? defaultOpened,
-    acknowledged: input.acknowledged ?? defaultAcknowledged,
-    snoozed: input.snoozed ?? defaultSnoozed,
-    muted: input.muted ?? defaultMuted,
+    // Outcome flags are historical observations. Once an action has been
+    // observed, a later partial update must not erase it (for example, a
+    // browser refresh reporting opened=false after the user already opened
+    // the item).
+    opened: Boolean(previous?.opened || input.opened || defaultOpened),
+    acknowledged: Boolean(previous?.acknowledged || input.acknowledged || defaultAcknowledged),
+    snoozed: Boolean(previous?.snoozed || input.snoozed || defaultSnoozed),
+    muted: Boolean(previous?.muted || input.muted || defaultMuted),
     feedback: input.feedback ?? defaultFeedback,
     laterOutcome: input.laterOutcome ?? previous?.laterOutcome ?? 'unknown',
-    recoveredBeforeOpen: input.recoveredBeforeOpen ?? defaultRecoveredBeforeOpen,
+    recoveredBeforeOpen: Boolean(previous?.recoveredBeforeOpen || input.recoveredBeforeOpen || defaultRecoveredBeforeOpen),
     latencyBucket: input.latencyBucket ?? previous?.latencyBucket ?? 'unknown',
     reviewFlags: input.reviewFlags ?? previous?.reviewFlags ?? [],
     recordedAt,

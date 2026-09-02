@@ -12,6 +12,8 @@ RC4 is the required baseline for new development and compatibility tests. The hi
 
 The previous v0.1.0-rc.3 tag remains historical for comparison; its npm version was withdrawn and cannot be reused.
 
+The official upstream tags and Releases endpoints were checked on 2026-09-02. The highest verifiable alpha remains `dsh-v0.1.2-alpha.4`; the repository keeps alpha.4 as the pinned test baseline until a public immutable alpha.5 object can be resolved and its package surface has been revalidated.
+
 | Component | RC.4 candidate | Historical RC.2 | Notes |
 | --- | --- | --- | --- |
 | DSH | `dsh-v0.1.2-alpha.4` | `dsh-v0.1.2-alpha.2` | Official source checkout; verify the matching `dsh --version` output |
@@ -31,7 +33,7 @@ The previous v0.1.0-rc.3 tag remains historical for comparison; its npm version 
 | `@deepseek-ai/dsh-tools` | yes for model tools | Registers the nine `deepcanary_*` tools, including explanation and read-only dry-run | Web and local service remain usable if tool registration is unavailable |
 | `@deepseek-ai/dsh-agent` | no | Agent error provider | Session facts remain available |
 | `@deepseek-ai/dsh-subagent` | no | Active Subagent pressure provider | Pressure signals remain inactive |
-| `@deepseek-ai/dsh-host-webserver` | no | State, settings, health, action, OutcomeReceipt, client routes | Model tools and local persistence remain available |
+| `@deepseek-ai/dsh-host-webserver` | no | State, settings, health, action, OutcomeReceipt, Supervisor, and client routes | Model tools and local persistence remain available |
 | `@deepseek-ai/dsh-settings` | no | Live `dsh-deepcanary` namespace | Bundle configuration remains authoritative |
 
 ## Windows and WSL behavior
@@ -57,6 +59,8 @@ For RC4 verification, use either the locally generated `dsh-deepcanary-0.1.0-rc.
 - New Inbox items retain a bounded opaque local DSH session handle when the host provides one. The jump action uses the native `sessions.open(SessionId)` contract; historical items created before the handle was stored remain available in Inbox and show that a direct session link is unavailable.
 - Liveness is conservative: session heartbeat silence produces a suspected-stall C2; a C3 host failure requires a failed local HTTP probe.
 - Native Windows Toast is not a hard dependency in this RC. Browser and Web fallback behavior is the supported cross-platform path.
+- Each `dsh web` start creates a fresh launch token. After restarting DSH, open the URL printed by the new process so the browser can exchange the new token for its session cookie. Alpha.4 Gateway also uses a 2-second Ping/Pong heartbeat; a brief host event-loop or network stall can therefore produce a reconnect indicator.
+- The Persistent Supervisor prototype writes a bounded snapshot and short-lived lease, exposes read-only diagnostics, retries while a fresh lease is held by another instance, and protects against competing owners. Its snapshot includes versioned dedupe hashes and interrupt-budget timestamps. The browser notification path records a per-attempt delivery ledger; operating-system evidence still requires a real Windows observation bound to that attempt.
 - The RC4 WebUI checks cover emulated touch input, forced-colors rendering, semantic roles, six viewport sizes, and the notification return handler with target-item positioning. Physical touch hardware, real Screen Reader output, and OS-level notification delivery remain post-release supplemental checks.
 - Model-assisted judgment, Done Verification, Watcher Swarm, tray persistence, and organization policy are intentionally deferred to later versions; deterministic policy is complete for this RC's defined feature set.
 - Alpha.4 introduces branded Session sequence types for internal session loading while keeping `sessions.open(SessionId)` available to this plugin. If a future DSH release changes an event payload, Settings scope, Tool contract, or WebServer API, update this matrix and `docs/dsh-surface-audit.md` before changing the provider, then rerun the full release receipt.

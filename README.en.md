@@ -11,7 +11,9 @@
 
 ## Versions and compatibility
 
-**Current prerelease:** `0.1.0-rc.4` has passed the local build, test, distribution, and public GitHub tag gates. The current acceptance baseline is the official DSH [`dsh-v0.1.2-alpha.4`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.4). The GitHub [`v0.1.0-rc.4 Release`](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.0-rc.4) provides the immutable source tag and RC4 tarball; the npm package remains outside the current publication cycle, so daily installation should use the GitHub tag or Release asset. RC4 carries forward the RC3 Windows, WSL2, Node.js 22/24, and Web UI foundations while adding alpha.4 compatibility, authoritative human-wait classification, native historical-session reopening, and explicit feedback and suppression behavior. The source commit, artifact digest, and publication status are recorded in [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json).
+**Current public prerelease:** `0.1.0-rc.4` has passed the local build, test, distribution, and public GitHub tag gates. The verified acceptance baseline is the official DSH [`dsh-v0.1.2-alpha.4`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.4). As of 2026-09-02, the official tags and Releases interfaces still expose alpha.4 as the highest verifiable alpha object; an immutable public alpha.5 Tag/Release is not yet available for this project to pin. The GitHub [`v0.1.0-rc.4 Release`](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.0-rc.4) provides the immutable source tag and RC4 tarball; npm publication is outside this cycle, so daily installation should use the GitHub tag or Release asset. RC4 carries forward the RC3 Windows, WSL2, Node.js 22/24, and Web UI foundations while adding alpha.4 compatibility, authoritative human-wait classification, native historical-session reopening, and explicit feedback and suppression behavior. The source commit, artifact digest, and publication status are recorded in [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json).
+
+The current `main` branch also contains post-RC4 connection-stability maintenance: debounced host-probe epochs, backoff and timeout cleanup for state requests, per-attempt notification telemetry, standby takeover for the Persistent Supervisor, and bounded persistence for dedupe and interrupt-budget state. The public RC4 Release remains immutable; use the source-rebuild flow to test these maintenance changes.
 
 RC4 remains a pre-release candidate for local trials, feedback, and plugin integration testing. Physical touch hardware, a real screen reader, and operating-system notification delivery after granting permission are post-release supplemental checks; browser automation, keyboard interaction, narrow viewports, forced colors, and the notification-denied branch already have automated evidence.
 
@@ -41,7 +43,7 @@ The three paths below serve different purposes: the GitHub tag and Release asset
 - Windows x64 or WSL2 Ubuntu;
 - Node.js `22.19+` (the release verification used Node.js `24.19.0`);
 - pnpm `11.7.0`;
-- an official DSH source runtime; RC4 uses `dsh-v0.1.2-alpha.4` at commit `4e84901e6471b79ec0338099867ebb4606d12bb5`.
+- an official DSH source runtime; the current verifiable baseline uses `dsh-v0.1.2-alpha.4` at commit `4e84901e6471b79ec0338099867ebb4606d12bb5`. When alpha.5 receives a public immutable Tag/Release, update the dependencies and rerun the full regression before changing this baseline.
 
 ### GitHub tag installation (available now): v0.1.0-rc.4
 
@@ -137,7 +139,7 @@ npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
 
-`dsh --version` should print `0.1.2-alpha.4`, `git rev-parse HEAD` should print `4e84901e6471b79ec0338099867ebb4606d12bb5`, and the local tarball should show version `0.1.0-rc.4`. The bundle patch uses DSH's `dshHomePath('dsh-deepcanary')`, so setting `DSH_HOME` keeps plugin state inside the isolated DSH home. Before opening the Web UI, confirm that the profile loaded the current tarball and that the page shows only the sidebar entry, with no fixed legacy card on the right.
+`dsh --version` should print `0.1.2-alpha.4`, `git rev-parse HEAD` should print `4e84901e6471b79ec0338099867ebb4606d12bb5`, and the local tarball should show version `0.1.0-rc.4`. The bundle patch uses DSH's `dshHomePath('dsh-deepcanary')`, so setting `DSH_HOME` keeps plugin state inside the isolated DSH home. Before opening the Web UI, confirm that the profile loaded the current tarball and that the page shows only the sidebar entry, with no fixed legacy card on the right. For the maintenance build, also inspect `/dsh-deepcanary/health` and `/dsh-deepcanary/state` for host-probe state, outageId, and Supervisor status.
 
 ### Web UI interactions
 
@@ -162,6 +164,7 @@ The plugin registers these same-origin local WebServer routes:
 | `/dsh-deepcanary/outcome` | record one redacted decision outcome for a local trial |
 | `/dsh-deepcanary/outcomes` | read filtered OutcomeReceipts without session content |
 | `DELETE /dsh-deepcanary/outcomes` | withdraw local outcome records by an explicit trial or time cutoff |
+| `/dsh-deepcanary/supervisor` | read the later-version Persistent Supervisor prototype snapshot, lease state, and resource counters |
 
 The DSH model can use nine tools: `deepcanary_status`, `deepcanary_inbox`, `deepcanary_acknowledge`, `deepcanary_snooze`, `deepcanary_mute`, `deepcanary_feedback`, `deepcanary_explain`, `deepcanary_dry_run`, and `deepcanary_jump`.
 
@@ -203,7 +206,7 @@ Normal completion is always classified as `C1`. Adjacent signals with the same r
 
 ## Privacy and safety
 
-The default state directory follows the DSH home through `dshHomePath('dsh-deepcanary')`; when `DSH_HOME` is not set, this normally resolves to `~/.dsh/dsh-deepcanary`. `inbox.json` stores alert metadata and `outcomes.json` stores redacted outcome records. They contain timestamps, levels, reason codes, hashed Session/Workspace references, evidence summaries, Bundle metadata, user feedback, and enumerated outcomes. When DSH provides a session entry point, `inbox.json` may also retain a bounded opaque local session handle so the native `sessions.open` API can reopen that thread. Prompts, model output, tool arguments, credentials, raw tool results, and full conversation content remain in DSH and are not written to DeepCanary state.
+The default state directory follows the DSH home through `dshHomePath('dsh-deepcanary')`; when `DSH_HOME` is not set, this normally resolves to `~/.dsh/dsh-deepcanary`. `inbox.json` stores alert metadata and `outcomes.json` stores redacted outcome records; the later-version prototype also creates a bounded `supervisor.json` and a short-lived `supervisor.lease`. These files contain timestamps, levels, reason codes, hashed Session/Workspace references, evidence summaries, Bundle metadata, user feedback, and enumerated outcomes. When DSH provides a session entry point, `inbox.json` may also retain a bounded opaque local session handle so the native `sessions.open` API can reopen that thread. Prompts, model output, tool arguments, credentials, raw tool results, and full conversation content remain in DSH and are not written to DeepCanary state.
 
 Web routes are same-origin local routes with `no-store` responses. The client renders dynamic values with DOM `textContent` rather than `innerHTML`. The plugin exposes no shell, file-write, terminate, restart, approval, or rejection tool. Do not put the DSH WebServer behind an unauthenticated public reverse proxy.
 
@@ -211,7 +214,7 @@ Web routes are same-origin local routes with `no-store` responses. The client re
 
 - **The sidebar entry or panel is missing:** stop any existing `dsh web`, then run `dsh plugin --profile web list` and `dsh --profile web --dump-config` in the same profile to confirm the intended version and the `dsh-deepcanary` bundle. Reinstall the intended package and restart the Web UI.
 - **An old card still covers the right side:** this usually comes from an older profile or the legacy page-injection plugin. Remove the old `dsh-deepcanary` entry from the test profile, reinstall the current package, and confirm that only the sidebar entry is visible at startup.
-- **The Web UI shows “Connecting” or “Connection error”:** first request `http://127.0.0.1:<port>/dsh-deepcanary/health`. HTTP 200 with `"ok": true` confirms that the plugin service is healthy; then compare `dsh --profile web --dump-config`, the DSH process port, and the browser URL. A short-lived state change can be resolved with a page refresh. For a persistent failure, stop the older DSH process and run `dsh web --no-open` again. Keep the local URL and one-time token in the terminal.
+- **The Web UI shows “Connecting” or “Connection error”:** the indicator combines DSH WebSocket state, plugin state requests, and the local host probe, so inspect them separately. First request `http://127.0.0.1:<port>/dsh-deepcanary/health`. HTTP 200 with `"ok": true` confirms that the plugin service is healthy; then compare `dsh --profile web --dump-config`, the DSH process port, and the browser URL. Inspect `delivery.hostProbe.state`, `consecutiveFailures`, `outageId`, and `lastCheckedAt` in `/dsh-deepcanary/state`: one failed sample remains in observation, the threshold opens one outage epoch, and recovery records the same outageId. Allow the next backoff refresh for a brief fluctuation. Every `dsh web` restart creates a fresh launch token; reopen or refresh the page with the URL printed by that start, because the old page session is tied to the previous token. Alpha.4 Gateway uses a 2-second Ping/Pong heartbeat, so a brief event-loop or network stall can trigger a reconnect. For a persistent failure, stop the older DSH process and run `dsh web --no-open` again. Keep the local URL and one-time token in the terminal.
 - **A model call is needed:** configure the API key in DSH itself. DeepCanary does not read or store credentials. Health checks, the panel, and offline tests remain available without an API key.
 
 ## Verification and release baseline
@@ -234,9 +237,16 @@ The repository also provides local quality and reliability checks:
 npm run quality:report
 npm run benchmark:attention
 npm run outcomes:report -- --input <path-to-outcomes.json> --source real
+npm run replay:policy
+npm run supervisor:smoke
+npm run dogfood:report -- --input <path-to-sanitized-dogfood.json>
+npm run gate:stable -- --dogfood <path-to-sanitized-dogfood.json>
+npm run dogfood:merge -- --input <run-a.json> --input <run-b.json> --out output/dogfood/aggregate.json
+npm run dogfood:capture -- --state-dir <isolated-dsh-state-dir> --run-id <run-id> --trial-id <trial-id> --task-family coding --scenario normal-completion --started-at <ISO-start> --ended-at <ISO-end> --out output/dogfood/run.json
+npm run notification:evidence -- --input <path-to-notification-evidence.json> --dogfood <path-to-sanitized-dogfood.json>
 ```
 
-The quality and Outcome reports store aggregate results only. Raw trial data should remain in the isolated test directory; see [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md) for the fields and privacy boundary. Outcome reports use [`benchmark/outcome-report.schema.json`](benchmark/outcome-report.schema.json) and accept one `source` per aggregate. The RC4 installation, test results, and release follow-ups are recorded in [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json); an earlier alpha.3 compatibility record remains in [`benchmark/alpha3-compatibility-receipt.json`](benchmark/alpha3-compatibility-receipt.json).
+The quality, outcome, policy-replay, and dogfood reports store aggregate results only. Raw trial data should remain in the isolated test directory; see [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md) for the fields and privacy boundary. Policy replay executes judgment, delivery policy, dedupe, Bundles, quiet hours, budget, and recovery with a deterministic clock; pass `--candidate <path-to-config.json>` to compare candidate settings. Dogfood reports accept sanitized opportunity records, including C0, deduplicated, suppressed, and missed-reminder opportunities that have no Inbox item, and calculate user-facing review coverage over unique delivery units. Keep each real task-family run independent, then use `dogfood:merge` for a traceable aggregate. Outcome reports use [`benchmark/outcome-report.schema.json`](benchmark/outcome-report.schema.json) and accept one `source` per aggregate. Windows notification acceptance uses [`benchmark/notification-evidence.schema.json`](benchmark/notification-evidence.schema.json); OS fields use `observed`, `not-observed`, and `not-tested`, with a run window, notification attempt ID, browser receipt, screenshot hash, and UIA hash. The RC4 installation, test results, and release follow-ups are recorded in [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json); an earlier alpha.3 compatibility record remains in [`benchmark/alpha3-compatibility-receipt.json`](benchmark/alpha3-compatibility-receipt.json).
 
 The regression fixture covers 20 AttentionGold v3 classification scenarios plus duplicate-event, shared-root Bundle, recovery-recurrence, and parallel-session scenarios; the public RC.2 receipt still records the historical v2 set of 15 classification scenarios. RC.2 evidence for the upstream runtime, Windows/WSL, public-tag installation, Web, settings, unload/restart, and distribution integrity is recorded in [`benchmark/release-receipt.json`](benchmark/release-receipt.json), whose status is `PASS`. Both that historical receipt and the RC4 receipt are intentionally excluded from the npm runtime package so their SHA-256 checks remain independent of the package contents. See [`docs/release-checklist.md`](docs/release-checklist.md) for the reproducible release procedure.
 
@@ -248,7 +258,7 @@ The regression fixture covers 20 AttentionGold v3 classification scenarios plus 
 - [`docs/compatibility.md`](docs/compatibility.md) — DSH versions, operating systems, Node.js, and known limitations;
 - [`docs/security.md`](docs/security.md) — stored data, available actions, and security considerations;
 - [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md) — privacy-safe trials, quality evaluation, and local performance checks;
-- [`benchmark/outcome-receipt.schema.json`](benchmark/outcome-receipt.schema.json) and [`benchmark/outcome-report.schema.json`](benchmark/outcome-report.schema.json) — public field constraints for outcome records and aggregate reports;
+- [`benchmark/outcome-receipt.schema.json`](benchmark/outcome-receipt.schema.json), [`benchmark/outcome-report.schema.json`](benchmark/outcome-report.schema.json), [`benchmark/dogfood-aggregate.schema.json`](benchmark/dogfood-aggregate.schema.json), and [`benchmark/notification-evidence.schema.json`](benchmark/notification-evidence.schema.json) — public field constraints for outcomes, multi-run trials, and Windows notification evidence;
 - [`docs/release-checklist.md`](docs/release-checklist.md) — the step-by-step pre-release verification checklist.
 
 ## Support and contributing

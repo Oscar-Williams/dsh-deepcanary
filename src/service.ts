@@ -9,6 +9,11 @@ import type { Disposable } from './adapters/dsh.js'
 import { getWorkspaceIdentity } from './adapters/windows.js'
 import { hashMetadata, MetadataStore, SuppressionStore } from './persistence.js'
 import { buildOutcomeReceipt, MAX_OUTCOME_RECEIPTS, normalizeOutcomeDeleteFilter, normalizeOutcomeInput, OutcomeStore } from './outcome.js'
+import { DogfoodRuntimeRecorder, dogfoodRunFromEnvironment } from './dogfoodRecorder.js'
+import type { DogfoodDecisionDisposition, DogfoodDeliveryChannel, DogfoodNotificationDelivery, DogfoodNotificationStage } from './dogfood.js'
+import { PersistentSupervisor, supervisorSnapshotFor } from './supervisor.js'
+import type { SupervisorHostStatus } from './supervisor.js'
+import { HostProbeEpoch } from './hostHealth.js'
 import {
   signalFromAgentError,
   signalFromHostRecovery,
@@ -41,7 +46,7 @@ import type {
   RuntimeStatus,
   SuppressibleReasonCode,
 } from './types.js'
-import { ATTENTION_PROTOCOL_VERSION as PROTOCOL_VERSION, SUPPRESSIBLE_REASON_CODES } from './types.js'
+import { ATTENTION_POLICY_VERSION, ATTENTION_PROTOCOL_VERSION as PROTOCOL_VERSION, SUPPRESSIBLE_REASON_CODES } from './types.js'
 
 const PLUGIN_NAME = 'dsh-deepcanary'
 const PLUGIN_VERSION = '0.1.0-rc.4'
@@ -54,12 +59,15 @@ interface LiveSession {
   startedAt: number
   lastEventAt: number
   active: boolean
+  running: boolean
   toolFailures: number
   activeSubagents: number
   stalled: boolean
+  waitingForHuman: boolean
   contextCompactions: number
   lastToolName?: string
   sameToolFailures: number
+  lastHealthyObservationAt?: number
 }
 
 interface LoggerLike {
@@ -99,6 +107,12 @@ interface ActionReceipt {
 
 const levelValue: Record<AttentionLevel, number> = { C0: 0, C1: 1, C2: 2, C3: 3 }
 const sensitiveSummaryPattern = /prompt|transcript|assistant\/(?:message|output)|user\/(?:message|prompt)|tool\s*(?:argument|input|payload)|api[-_ ]?key|access[-_ ]?token|bearer|password|secret|credential|authorization|private\s+key|```/i
+const opaqueRefPattern = /^[a-f0-9]{16}$/
+const notificationTitlePattern = /^notification\.title\.([A-Z0-9_]+)$/
+
+function outcomeStorageKey(receipt: Pick<OutcomeReceipt, 'attentionRef' | 'source' | 'trialId'>): string {
+  return `${receipt.source}:${receipt.trialId}:${receipt.attentionRef}`
+}
 
 function idOf(value: unknown): string | undefined {
   if (typeof value === 'string' && value.length > 0) return value
@@ -120,6 +134,24 @@ function safeFeedbackNote(note: string | undefined): string | undefined {
 
 function cloneOutcome(receipt: OutcomeReceipt): OutcomeReceipt {
   return { ...receipt, reviewFlags: [...receipt.reviewFlags] }
+}
+
+function dispositionForAction(action: AttentionAction): DogfoodDecisionDisposition {
+  switch (action) {
+    case 'IGNORE': return 'c0-silent'
+    case 'INBOX': return 'inbox'
+    case 'DIGEST': return 'digest'
+    case 'INTERRUPT': return 'interrupt'
+    case 'ESCALATE': return 'escalate'
+  }
+}
+
+function deliveryChannelForAction(action: AttentionAction): DogfoodDeliveryChannel {
+  return action === 'INTERRUPT' || action === 'ESCALATE'
+    ? 'browser-notification'
+    : action === 'INBOX' || action === 'DIGEST'
+      ? 'inbox'
+      : 'none'
 }
 
 export class DeepCanaryService {
@@ -145,8 +177,9 @@ export class DeepCanaryService {
   private interval: ReturnType<typeof setInterval> | undefined
   private hostProbeInterval: ReturnType<typeof setInterval> | undefined
   private hostProbePort: number | undefined
-  private hostProbeFailures = 0
-  private hostProbeHealthy = true
+  private hostProbeInFlight = false
+  private readonly hostProbe = new HostProbeEpoch(2, 'dsh-webserver')
+  private supervisorHostStatus: SupervisorHostStatus = 'degraded'
   private settingsScope: SettingsScopeLike | undefined
   private settingsProvider: SettingsProviderLike | undefined
   private settingsSource: (() => DeepCanaryConfig) | undefined
@@ -156,10 +189,14 @@ export class DeepCanaryService {
   private disposed = false
   private started = false
   private revision = 0
+  private policyRestored = false
   private readonly actionReceipts = new Map<string, ActionReceipt>()
   private readonly outcomeReceipts = new Map<string, OutcomeReceipt>()
+  private readonly dogfoodRecorder: DogfoodRuntimeRecorder | undefined
   private outcomeSaveChain = Promise.resolve()
   private suppressionSaveChain = Promise.resolve()
+  private supervisorStart = Promise.resolve()
+  readonly supervisor: PersistentSupervisor
 
   constructor(ctx: Context, input?: DeepCanaryConfigInput) {
     this.ctx = ctx as unknown as ContextLike
@@ -168,6 +205,9 @@ export class DeepCanaryService {
     this.store = new MetadataStore(this.config.stateDir)
     this.suppressionStore = new SuppressionStore(this.config.stateDir)
     this.outcomeStore = new OutcomeStore(this.config.stateDir)
+    this.supervisor = new PersistentSupervisor({ stateDir: this.config.stateDir, runtimeVersion: this.adapter.hostVersion, maxPending: this.config.maxInboxItems })
+    const dogfoodRun = dogfoodRunFromEnvironment(PLUGIN_VERSION, this.adapter.hostVersion)
+    this.dogfoodRecorder = dogfoodRun === undefined ? undefined : new DogfoodRuntimeRecorder(this.config.stateDir, dogfoodRun)
     this.dedupe = new DedupeLedger(this.config.dedupeWindowMinutes * 60 * 1000)
     this.budget = new InterruptBudget(this.config.maxInterruptsPerHour)
     this.logger = this.ctx.logger ?? {}
@@ -231,6 +271,7 @@ export class DeepCanaryService {
     })
 
     this.resetLivenessTimer()
+    this.supervisorStart = this.startSupervisor()
     this.logger.info?.(`${PLUGIN_NAME} mounted; evidence-first local attention supervision enabled`)
   }
 
@@ -244,17 +285,37 @@ export class DeepCanaryService {
     const now = Number.isFinite(Date.parse(signal.occurredAt)) ? Date.parse(signal.occurredAt) : Date.now()
     this.normalizeLifecycle(now)
     let verdict = this.safeVerdict(judgeSignal(signal))
-    if (verdict.level === 'C0') return undefined
+    if (verdict.level === 'C0') {
+      this.recordDogfood(signal, verdict, 'c0-silent', 'none')
+      return undefined
+    }
     // Persistent type suppression applies only to low-risk informational classes.
     // Human-needed, host, and failure signals can never be hidden by this preference.
-    if (verdict.level === 'C1' && this.suppressedReasons.has(verdict.reasonCode as SuppressibleReasonCode)) return undefined
+    if (verdict.level === 'C1' && this.suppressedReasons.has(verdict.reasonCode as SuppressibleReasonCode)) {
+      this.recordDogfood(signal, verdict, 'suppressed', 'none')
+      return undefined
+    }
     const dedupeKey = signal.dedupeKey ?? `${signal.kind}:${signal.sessionId ?? 'host'}`
-    if (!this.dedupe.accept(dedupeKey, now)) return undefined
+    // Recovery closes an already observed root cause. It must remain visible
+    // even when the recovery signal intentionally shares the root cause key;
+    // applying the normal dedupe window here would erase the recovery edge.
+    if (signal.kind !== 'HOST_STALL_RECOVERED' && !this.dedupe.accept(dedupeKey, now)) {
+      this.recordDogfood(signal, verdict, 'deduped', 'none')
+      return undefined
+    }
 
     if (signal.kind === 'HOST_STALL_RECOVERED') {
       const recovered = this.recover(signal, verdict, now)
-      if (recovered === undefined) return undefined
+      if (recovered === undefined) {
+        this.recordDogfood(signal, verdict, 'dropped-event', 'none')
+        return undefined
+      }
+      this.recordDogfood(signal, verdict, 'recovery-closed', 'none', {
+        recoveredBeforeOpen: recovered.seenAt === undefined && recovered.acknowledgedAt === undefined,
+        ...(signal.bundleKey === undefined ? {} : { bundleKey: signal.bundleKey }),
+      })
       this.queueSave()
+      this.syncSupervisor()
       return recovered
     }
 
@@ -270,8 +331,12 @@ export class DeepCanaryService {
         ? this.applyPolicy(verdict, now, existing.action === 'INTERRUPT')
         : verdict
       this.mergeBundle(existing, bundledVerdict, signal)
+      this.recordDogfood(signal, bundledVerdict, 'bundle-merged', 'none', {
+        ...(signal.bundleKey === undefined ? {} : { bundleKey: signal.bundleKey }),
+      })
       this.bumpRevision()
       this.queueSave()
+      this.syncSupervisor()
       return existing
     }
 
@@ -294,7 +359,13 @@ export class DeepCanaryService {
     this.items.unshift(item)
     if (this.items.length > this.config.maxInboxItems) this.items.length = this.config.maxInboxItems
     this.bumpRevision()
+    const disposition = dispositionForAction(item.action)
+    this.recordDogfood(signal, verdict, disposition, deliveryChannelForAction(item.action), {
+      ...(disposition === 'inbox' || disposition === 'digest' || disposition === 'interrupt' || disposition === 'escalate' ? { deliveryUnit: item.id } : {}),
+      ...(signal.bundleKey === undefined ? {} : { bundleKey: signal.bundleKey }),
+    })
     this.queueSave()
+    this.syncSupervisor()
     return item
   }
 
@@ -346,7 +417,12 @@ export class DeepCanaryService {
         },
         dedupeWindowMinutes: this.config.dedupeWindowMinutes,
         bundleWindowSeconds: this.config.bundleWindowSeconds,
+        hostProbe: {
+          ...(this.hostProbePort === undefined ? {} : { port: this.hostProbePort }),
+          ...this.hostProbeStatus(),
+        },
       },
+      supervisor: this.supervisor.status(),
     }
   }
 
@@ -385,9 +461,10 @@ export class DeepCanaryService {
     const item = this.find(id)
     if (item === undefined) return undefined
     const attentionRef = hashMetadata(item.id)
-    const previous = this.outcomeReceipts.get(attentionRef)
+    const previous = this.outcomeReceipts.get(outcomeStorageKey({ attentionRef, source: normalized.source, trialId: normalized.trialId }))
     const receipt = buildOutcomeReceipt(item, normalized, previous)
-    this.outcomeReceipts.set(attentionRef, receipt)
+    this.outcomeReceipts.set(outcomeStorageKey(receipt), receipt)
+    this.syncDogfoodReceipts()
     this.bumpRevision()
     this.queueOutcomeSave()
     return cloneOutcome(receipt)
@@ -409,12 +486,12 @@ export class DeepCanaryService {
     const normalized = normalizeOutcomeDeleteFilter(filter)
     const before = normalized.before === undefined ? undefined : Date.parse(normalized.before)
     let removed = 0
-    for (const [attentionRef, receipt] of this.outcomeReceipts) {
+    for (const [storageKey, receipt] of this.outcomeReceipts) {
       const matches = (normalized.source === undefined || receipt.source === normalized.source)
         && (normalized.trialId === undefined || receipt.trialId === normalized.trialId)
         && (before === undefined || Date.parse(receipt.recordedAt) < before)
       if (!matches) continue
-      this.outcomeReceipts.delete(attentionRef)
+      this.outcomeReceipts.delete(storageKey)
       removed += 1
     }
     if (removed > 0) {
@@ -433,6 +510,7 @@ export class DeepCanaryService {
     delete item.snoozedUntil
     this.bumpRevision()
     this.queueSave()
+    this.syncSupervisor()
     this.updateExistingOutcome(item, { opened: true })
     return true
   }
@@ -446,6 +524,7 @@ export class DeepCanaryService {
     delete item.mutedUntil
     this.bumpRevision()
     this.queueSave()
+    this.syncSupervisor()
     this.updateExistingOutcome(item, { opened: true, acknowledged: true })
     return true
   }
@@ -459,6 +538,7 @@ export class DeepCanaryService {
     delete item.mutedUntil
     this.bumpRevision()
     this.queueSave()
+    this.syncSupervisor()
     this.updateExistingOutcome(item, { opened: true, snoozed: true })
     return true
   }
@@ -474,6 +554,7 @@ export class DeepCanaryService {
     item.mutedUntil = new Date(now + DEFAULT_MUTE_MINUTES * 60 * 1000).toISOString()
     this.bumpRevision()
     this.queueSave()
+    this.syncSupervisor()
     this.updateExistingOutcome(item, { opened: true, muted: true })
     return true
   }
@@ -488,6 +569,7 @@ export class DeepCanaryService {
     delete item.mutedUntil
     this.bumpRevision()
     this.queueSave()
+    this.syncSupervisor()
     this.updateExistingOutcome(item, { opened: true, muted: false })
     return true
   }
@@ -505,6 +587,7 @@ export class DeepCanaryService {
     delete item.mutedUntil
     this.bumpRevision()
     this.queueSave()
+    this.syncSupervisor()
     this.queueSuppressionSave()
     this.updateExistingOutcome(item, { opened: true, muted: true })
     return { updated: true, reasonCode: item.reasonCode }
@@ -515,6 +598,7 @@ export class DeepCanaryService {
     if (!isSuppressibleReasonCode(reasonCode) || !this.suppressedReasons.delete(reasonCode)) return false
     this.bumpRevision()
     this.queueSuppressionSave()
+    this.syncSupervisor()
     return true
   }
 
@@ -530,6 +614,8 @@ export class DeepCanaryService {
     }
     this.bumpRevision()
     this.queueSave()
+    this.syncSupervisor()
+    this.dogfoodRecorder?.recordUserFeedback(item.id, useful, value)
     this.updateExistingOutcome(item, { opened: true, feedback: useful ? 'useful' : 'not-useful' })
     return true
   }
@@ -587,7 +673,7 @@ export class DeepCanaryService {
     if (typeof requestId !== 'string' || requestId.length === 0 || requestId.length > 128 || /[\u0000-\u001f]/.test(requestId)) {
       return { status: 400, body: { error: 'requestId must be a printable string of 1-128 characters' }, fingerprint: '' }
     }
-    const knownActions = new Set(['seen', 'acknowledge', 'snooze', 'mute', 'unmute', 'suppress', 'unsuppress', 'feedback', 'jump', 'retry'])
+    const knownActions = new Set(['seen', 'acknowledge', 'snooze', 'mute', 'unmute', 'suppress', 'unsuppress', 'feedback', 'jump', 'retry', 'notification-delivery'])
     if (!knownActions.has(action)) {
       return { status: 400, body: { error: 'unsupported action', schemaVersion: PROTOCOL_VERSION }, fingerprint: '' }
     }
@@ -606,6 +692,9 @@ export class DeepCanaryService {
     if (action === 'snooze' && payload.minutes !== undefined && (typeof payload.minutes !== 'number' || !Number.isFinite(payload.minutes))) {
       return { status: 400, body: { error: 'snooze.minutes must be a finite number', schemaVersion: PROTOCOL_VERSION }, fingerprint: '' }
     }
+    if (action === 'notification-delivery' && !this.isNotificationDeliveryPayload(payload)) {
+      return { status: 400, body: { error: 'notification delivery payload is invalid', schemaVersion: PROTOCOL_VERSION }, fingerprint: '' }
+    }
 
     const fingerprint = JSON.stringify({
       id,
@@ -615,6 +704,13 @@ export class DeepCanaryService {
       value: payload.value,
       note: payload.note,
       reasonCode: payload.reasonCode,
+      notificationStage: payload.notificationStage,
+      notificationAttemptId: payload.notificationAttemptId,
+      notificationRef: payload.notificationRef,
+      tagRef: payload.tagRef,
+      titleKey: payload.titleKey,
+      bodyFingerprint: payload.bodyFingerprint,
+      observedAt: payload.observedAt,
     })
     const previous = this.actionReceipts.get(requestId)
     if (previous !== undefined) {
@@ -636,6 +732,10 @@ export class DeepCanaryService {
       const updated = this.hostProbePort !== undefined
       result = { kind: updated ? 'host-probe-complete' : 'host-probe-unavailable' }
       body = { schemaVersion: PROTOCOL_VERSION, requestId, revision: this.revision, updated, result }
+    } else if (action === 'notification-delivery') {
+      const updated = this.recordNotificationDelivery(id, payload)
+      result = { kind: updated ? 'notification-delivery-recorded' : 'notification-delivery-unavailable' }
+      body = { schemaVersion: PROTOCOL_VERSION, requestId, revision: this.revision, updated: true, result }
     } else if (action === 'unsuppress') {
       const reasonCode = typeof payload.reasonCode === 'string' ? payload.reasonCode : id
       const updated = this.unsuppress(reasonCode)
@@ -695,30 +795,166 @@ export class DeepCanaryService {
     return receipt
   }
 
-  recordHostProbe(ok: boolean, detail = 'The local DSH host probe did not succeed.'): void {
-    const signal = signalFromHostProbe(ok, detail)
-    if (signal) void this.ingest(signal)
+  /** Accept only redacted browser-sink facts for a known attention item. */
+  private recordNotificationDelivery(id: string, payload: Record<string, unknown>): boolean {
+    const item = this.find(id)
+    if (item === undefined || this.dogfoodRecorder === undefined) return false
+    const stage = payload.notificationStage as DogfoodNotificationStage
+    const notificationAttemptId = payload.notificationAttemptId as string
+    const notificationRef = payload.notificationRef as string
+    const tagRef = payload.tagRef as string
+    const titleKey = payload.titleKey as string
+    if (notificationRef !== hashMetadata(`${item.id}:notification`)
+      || tagRef !== hashMetadata(`${item.id}:tag`)
+      || titleKey !== `notification.title.${item.reasonCode}`) return false
+    const delivery: DogfoodNotificationDelivery = {
+      notificationAttemptId,
+      notificationRef,
+      tagRef,
+      titleKey,
+      bodyFingerprint: payload.bodyFingerprint as string,
+      stages: [stage],
+      firstObservedAt: payload.observedAt as string,
+      ...(stage === 'clicked' ? { clickedAt: payload.observedAt as string } : {}),
+    }
+    this.dogfoodRecorder.recordNotificationDelivery(item.id, delivery)
+    return true
+  }
+
+  private isNotificationDeliveryPayload(payload: Record<string, unknown>): boolean {
+    const stage = payload.notificationStage
+    const notificationAttemptId = payload.notificationAttemptId
+    const notificationRef = payload.notificationRef
+    const tagRef = payload.tagRef
+    const titleKey = payload.titleKey
+    const bodyFingerprint = payload.bodyFingerprint
+    const observedAt = payload.observedAt
+    if (stage !== 'attempted' && stage !== 'constructed' && stage !== 'click-handler-attached' && stage !== 'clicked' && stage !== 'error') return false
+    if (typeof notificationAttemptId !== 'string' || !opaqueRefPattern.test(notificationAttemptId)) return false
+    if (typeof notificationRef !== 'string' || !opaqueRefPattern.test(notificationRef)) return false
+    if (typeof tagRef !== 'string' || !opaqueRefPattern.test(tagRef)) return false
+    if (typeof titleKey !== 'string' || !notificationTitlePattern.test(titleKey)) return false
+    if (typeof bodyFingerprint !== 'string' || !opaqueRefPattern.test(bodyFingerprint)) return false
+    if (typeof observedAt !== 'string' || !Number.isFinite(Date.parse(observedAt))) return false
+    return true
+  }
+
+  async recordHostProbe(ok: boolean, detail = 'The local DSH host probe did not succeed.'): Promise<void> {
+    const observation = this.hostProbe.observe(ok)
+    if (observation.transition === 'outage-opened') {
+      const signal = signalFromHostProbe(false, detail, Date.parse(observation.lastCheckedAt), observation.outageId)
+      if (signal) await this.ingest(signal)
+    } else if (observation.transition === 'recovered') {
+      await this.ingest(signalFromHostRecovery(observation.outageId, Date.parse(observation.lastCheckedAt)))
+    }
+  }
+
+  private async startSupervisor(): Promise<void> {
+    await this.ready
+    if (this.disposed) return
+    const started = await this.supervisor.start()
+    if (!started) this.logger.warn?.(`${PLUGIN_NAME}: persistent supervisor is waiting for its lease; standby retry is scheduled`)
+    await this.refreshSupervisorHealth()
+    this.restoreSupervisorPolicy()
+    this.revision = Math.max(this.revision, this.supervisor.snapshot().revision)
+    this.syncSupervisor()
+  }
+
+  private syncSupervisor(): void {
+    const now = Date.now()
+    const restoredRevision = this.supervisor.snapshot().revision
+    if (restoredRevision > this.revision) this.revision = restoredRevision
+    const pending = this.items.filter(item => this.isPending(item, now))
+    const sessions = [...this.sessions.values()]
+      .filter(session => session.active)
+      .map(session => {
+        const sessionItems = pending.filter(item => item.sessionId === session.id)
+        const attentionLevel = sessionItems.reduce<AttentionLevel>(
+          (current, item) => levelValue[item.level] > levelValue[current] ? item.level : current,
+          'C0',
+        )
+        return {
+          sessionRef: hashMetadata(session.id),
+          attentionLevel,
+          pendingCount: sessionItems.length,
+          lastEvidenceAt: new Date(session.lastEventAt).toISOString(),
+        }
+      })
+    this.supervisor.update(supervisorSnapshotFor(
+      this.adapter.hostVersion,
+      this.supervisorHostStatus,
+      this.revision,
+      sessions,
+      pending.map(item => hashMetadata(item.id)),
+      now,
+      this.config.maxInboxItems,
+      this.supervisorPolicyState(now),
+    ))
+  }
+
+  private restoreSupervisorPolicy(): void {
+    if (this.policyRestored) return
+    const policyState = this.supervisor.snapshot().policyState
+    if (policyState?.policyVersion === ATTENTION_POLICY_VERSION) {
+      this.dedupe.restore(policyState.dedupe)
+      this.budget.restore(policyState.interruptConsumedAt)
+    }
+    this.policyRestored = true
+  }
+
+  private supervisorPolicyState(now = Date.now()) {
+    return {
+      schemaVersion: 1 as const,
+      policyVersion: ATTENTION_POLICY_VERSION,
+      dedupe: this.dedupe.snapshot(now),
+      interruptConsumedAt: this.budget.snapshot(now),
+    }
   }
 
   private async probeHost(): Promise<void> {
     const port = this.hostProbePort
-    if (port === undefined || this.disposed) return
+    if (port === undefined || this.disposed || this.hostProbeInFlight) return
+    this.hostProbeInFlight = true
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 2_500)
     try {
-      await fetch(`http://127.0.0.1:${port}/`, { signal: controller.signal })
-      const recovered = !this.hostProbeHealthy
-      this.hostProbeFailures = 0
-      this.hostProbeHealthy = true
-      if (recovered) void this.ingest(signalFromHostRecovery())
+      // The DSH root page may require an authenticated browser session and
+      // legitimately return 401 to a local server-side fetch. Probe the
+      // plugin's public health route instead so host liveness is independent
+      // of WebUI authentication and conversation content.
+      const response = await fetch(`http://127.0.0.1:${port}/dsh-deepcanary/health`, { signal: controller.signal })
+      if (!response.ok) throw new Error(`host probe returned HTTP ${response.status}`)
+      const observation = this.hostProbe.observe(true)
+      if (observation.transition === 'recovered') {
+        await this.ingest(signalFromHostRecovery(observation.outageId, Date.parse(observation.lastCheckedAt)))
+      }
     } catch {
-      this.hostProbeFailures += 1
-      if (this.hostProbeFailures >= 2 && this.hostProbeHealthy) {
-        this.hostProbeHealthy = false
-        this.recordHostProbe(false, `The local DSH WebServer did not answer on port ${port}.`)
+      const observation = this.hostProbe.observe(false)
+      if (observation.transition === 'outage-opened') {
+        const signal = signalFromHostProbe(false, `The local DSH WebServer did not answer on port ${port}.`, Date.parse(observation.lastCheckedAt), observation.outageId)
+        if (signal) await this.ingest(signal)
       }
     } finally {
       clearTimeout(timeout)
+      this.hostProbeInFlight = false
+      await this.refreshSupervisorHealth()
+      this.syncSupervisor()
+    }
+  }
+
+  private hostProbeStatus(): Omit<ReturnType<HostProbeEpoch['status']>, 'transition'> {
+    const { transition: _transition, ...status } = this.hostProbe.status()
+    return status
+  }
+
+  private async refreshSupervisorHealth(): Promise<void> {
+    try {
+      const health = await this.adapter.getRuntimeHealth()
+      this.supervisorHostStatus = health.authoritative
+        ? health.status === 'healthy' ? 'ready' : health.status === 'unreachable' ? 'unreachable' : 'degraded'
+        : 'degraded'
+    } catch {
+      this.supervisorHostStatus = 'unreachable'
     }
   }
 
@@ -729,13 +965,22 @@ export class DeepCanaryService {
     this.settingsSubscription?.()
     if (this.interval !== undefined) clearInterval(this.interval)
     if (this.hostProbeInterval !== undefined) clearInterval(this.hostProbeInterval)
+    await this.supervisorStart.catch(() => undefined)
+    await this.supervisor.stop()
     await this.ready.catch(() => undefined)
     await this.saveChain
     await this.outcomeSaveChain
     await this.suppressionSaveChain
+    this.dogfoodRecorder?.finish()
+    await this.dogfoodRecorder?.flush()
   }
 
   private async hydrate(): Promise<void> {
+    try {
+      await this.dogfoodRecorder?.load()
+    } catch (error: unknown) {
+      this.logger.warn?.(`${PLUGIN_NAME}: dogfood observation state could not be loaded; starting with an empty trial ledger`, error)
+    }
     try {
       const restored = await this.store.load()
       this.items.splice(0, this.items.length, ...restored.slice(0, this.config.maxInboxItems))
@@ -745,7 +990,7 @@ export class DeepCanaryService {
     try {
       const restoredOutcomes = await this.outcomeStore.load()
       this.outcomeReceipts.clear()
-      for (const receipt of restoredOutcomes.slice(-MAX_OUTCOME_RECEIPTS)) this.outcomeReceipts.set(receipt.attentionRef, receipt)
+      for (const receipt of restoredOutcomes.slice(-MAX_OUTCOME_RECEIPTS)) this.outcomeReceipts.set(outcomeStorageKey(receipt), receipt)
     } catch (error: unknown) {
       this.logger.warn?.(`${PLUGIN_NAME}: outcome records could not be loaded; starting with an empty outcome set`, error)
     }
@@ -757,6 +1002,7 @@ export class DeepCanaryService {
       this.logger.warn?.(`${PLUGIN_NAME}: notification suppression preferences could not be loaded; starting with no suppressed types`, error)
     }
     this.hydrated = true
+    this.syncSupervisor()
   }
 
   private onSessionCreated(value: unknown): void {
@@ -772,9 +1018,11 @@ export class DeepCanaryService {
       startedAt: now,
       lastEventAt: now,
       active: true,
+      running: false,
       toolFailures: 0,
       activeSubagents: 0,
       stalled: false,
+      waitingForHuman: false,
       contextCompactions: 0,
       sameToolFailures: 0,
     })
@@ -788,6 +1036,7 @@ export class DeepCanaryService {
     }
     if (linkedHistoricalItem) this.queueSave()
     this.bumpRevision()
+    this.syncSupervisor()
   }
 
   private onSessionDisposed(value: unknown): void {
@@ -796,8 +1045,10 @@ export class DeepCanaryService {
     const session = this.sessions.get(id)
     if (session) {
       session.active = false
+      session.running = false
       this.expireSessionItems(id)
       this.bumpRevision()
+      this.syncSupervisor()
     }
   }
 
@@ -815,8 +1066,21 @@ export class DeepCanaryService {
     if (!session) return
     const previousEventAt = session.lastEventAt
     const now = Date.now()
+    if (event.type === 'turn/start') {
+      session.running = true
+      session.waitingForHuman = false
+      session.startedAt = now
+      delete session.lastHealthyObservationAt
+      session.stalled = false
+      session.toolFailures = 0
+      session.sameToolFailures = 0
+      session.contextCompactions = 0
+    }
     const wasStalled = session.stalled
-    if (wasStalled) session.stalled = false
+    if (wasStalled) {
+      session.stalled = false
+      delete session.lastHealthyObservationAt
+    }
     session.lastEventAt = now
     const eventData = asRecord(event.data)
     const observedToolName = typeof eventData.name === 'string'
@@ -824,6 +1088,13 @@ export class DeepCanaryService {
       : typeof eventData.toolName === 'string'
         ? eventData.toolName
         : session.lastToolName
+    const humanWaitResolved = event.type === 'approval/decided'
+      || event.type === 'user-questions/response'
+      || event.type === 'user-questions/answered'
+      || (event.type === 'tool/result' && typeof observedToolName === 'string' && /^ask[_-]user[_-]question$/i.test(observedToolName))
+      || eventData.humanNeeded === false
+      || eventData.requiresApproval === false
+    if (humanWaitResolved) session.waitingForHuman = false
     if (event.type === 'tool/call' && observedToolName !== undefined) session.lastToolName = observedToolName
     if (event.type === 'tool/result') {
       if (eventData.error !== undefined) {
@@ -855,7 +1126,18 @@ export class DeepCanaryService {
       { type: event.type, ...(typeof event.seq === 'number' ? { seq: event.seq } : {}), ...(typeof event.time === 'number' ? { time: event.time } : {}), ...(event.ignorable === true ? { ignorable: true } : {}), data: asRecord(event.data) },
       facts,
     ))
+    if (signals.some(signal => (signal.kind === 'HUMAN_APPROVAL_REQUIRED' || signal.kind === 'HUMAN_QUESTION_PENDING')
+      && signal.evidence.some(evidence => evidence.authority === 'runtime'))) {
+      session.waitingForHuman = true
+    }
     for (const signal of signals) void this.ingest(signal)
+    if (event.type === 'turn/end') {
+      session.running = false
+      session.stalled = false
+      session.waitingForHuman = false
+      delete session.lastHealthyObservationAt
+    }
+    this.syncSupervisor()
   }
 
   private onSubagentDelta(delta: 1 | -1): void {
@@ -871,12 +1153,18 @@ export class DeepCanaryService {
         this.pressureSeen.delete(threshold)
       }
     }
+    this.syncSupervisor()
   }
 
   private checkStalls(): void {
+    const now = Date.now()
     const thresholdMs = this.config.longRunThresholdMinutes * 60 * 1000
     for (const session of this.sessions.values()) {
-      if (!session.active) continue
+      if (!session.active || !session.running) continue
+      // An authoritative human boundary already explains the absence of
+      // runtime events. Waiting for the answer must not create a competing
+      // stall alert or consume the user's notification budget.
+      if (session.waitingForHuman) continue
       const signal = signalFromStall({ id: session.id, ...(session.cwd ? { header: { cwd: session.cwd } } : {}) }, {
         toolFailures: session.toolFailures,
         activeSubagents: session.activeSubagents,
@@ -886,8 +1174,14 @@ export class DeepCanaryService {
       if (signal) {
         session.stalled = true
         void this.ingest(signal)
+      } else if (this.dogfoodRecorder !== undefined
+        && now - session.startedAt >= thresholdMs
+        && (session.lastHealthyObservationAt === undefined || now - session.lastHealthyObservationAt >= thresholdMs)) {
+        session.lastHealthyObservationAt = now
+        this.dogfoodRecorder.recordHealthyHeartbeat(session.id, new Date(now).toISOString())
       }
     }
+    this.syncSupervisor()
   }
 
   private findBundle(bundleKey: string, now: number): InboxItem | undefined {
@@ -952,6 +1246,7 @@ export class DeepCanaryService {
     const item = this.items.find(candidate => {
       if (candidate.status !== 'open' && candidate.status !== 'seen' && candidate.status !== 'snoozed') return false
       if (bundleKey !== undefined && candidate.bundleKey === bundleKey) return true
+      if (signal.sessionId === undefined && bundleKey === undefined && candidate.reasonCode === 'HOST_UNREACHABLE') return true
       return signal.sessionId !== undefined
         && candidate.sessionId === signal.sessionId
         && (candidate.reasonCode === 'HOST_SUSPECTED_STALL' || candidate.reasonCode === 'HOST_UNREACHABLE')
@@ -970,7 +1265,7 @@ export class DeepCanaryService {
     else {
       item.decisionTrace = { ...recoveryTrace, finalLevel: item.level, finalAction: item.action }
     }
-    const previousOutcome = this.outcomeReceipts.get(hashMetadata(item.id))
+    const previousOutcome = [...this.outcomeReceipts.values()].find(receipt => receipt.attentionRef === hashMetadata(item.id))
     if (previousOutcome !== undefined) {
       this.updateExistingOutcome(item, { laterOutcome: 'recovered', recoveredBeforeOpen: !previousOutcome.opened })
     }
@@ -990,6 +1285,7 @@ export class DeepCanaryService {
     if (changed) {
       this.bumpRevision()
       this.queueSave()
+      this.syncSupervisor()
     }
   }
 
@@ -1022,6 +1318,7 @@ export class DeepCanaryService {
       this.resetLivenessTimer()
       this.resetHostProbeTimer()
     }
+    this.syncSupervisor()
   }
 
   private resetLivenessTimer(): void {
@@ -1137,6 +1434,7 @@ export class DeepCanaryService {
     if (changed) {
       this.bumpRevision()
       this.queueSave()
+      this.syncSupervisor()
     }
   }
 
@@ -1156,15 +1454,33 @@ export class DeepCanaryService {
 
   private updateExistingOutcome(item: InboxItem, patch: Omit<Partial<OutcomeReceiptInput>, 'source' | 'trialId'>): void {
     const attentionRef = hashMetadata(item.id)
-    const previous = this.outcomeReceipts.get(attentionRef)
-    if (previous === undefined) return
-    try {
-      const receipt = buildOutcomeReceipt(item, { source: previous.source, trialId: previous.trialId, ...patch }, previous)
-      this.outcomeReceipts.set(attentionRef, receipt)
-      this.queueOutcomeSave()
-    } catch (error: unknown) {
-      this.logger.warn?.(`${PLUGIN_NAME}: outcome record could not be updated`, error)
+    const previousReceipts = [...this.outcomeReceipts.values()].filter(receipt => receipt.attentionRef === attentionRef)
+    if (previousReceipts.length === 0) return
+    for (const previous of previousReceipts) {
+      try {
+        const receipt = buildOutcomeReceipt(item, { source: previous.source, trialId: previous.trialId, ...patch }, previous)
+        this.outcomeReceipts.set(outcomeStorageKey(receipt), receipt)
+      } catch (error: unknown) {
+        this.logger.warn?.(`${PLUGIN_NAME}: outcome record could not be updated`, error)
+      }
     }
+    this.syncDogfoodReceipts()
+    this.queueOutcomeSave()
+  }
+
+  private recordDogfood(
+    signal: CanarySignal,
+    verdict: AttentionVerdict,
+    disposition: DogfoodDecisionDisposition,
+    deliveryChannel: DogfoodDeliveryChannel,
+    options: { deliveryUnit?: string; bundleKey?: string; recoveredBeforeOpen?: boolean } = {},
+  ): void {
+    this.dogfoodRecorder?.record({ signal, verdict, disposition, deliveryChannel, ...options })
+  }
+
+  private syncDogfoodReceipts(): void {
+    if (this.dogfoodRecorder === undefined) return
+    this.dogfoodRecorder.setReceipts([...this.outcomeReceipts.values()])
   }
 
   private queueOutcomeSave(): Promise<void> {

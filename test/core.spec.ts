@@ -105,4 +105,20 @@ describe('dedupe and budget', () => {
     expect(budget.consume(4)).toBe(false)
     expect(budget.remaining(4)).toBe(0)
   })
+
+  it('restores only unexpired hashed dedupe entries and interrupt timestamps', () => {
+    const ledger = new DedupeLedger(10_000)
+    ledger.accept('persisted-key', 1_000)
+    const saved = ledger.snapshot(2_000)
+    const restored = new DedupeLedger(10_000)
+    restored.restore(saved, 2_000)
+    expect(restored.accept('persisted-key', 3_000)).toBe(false)
+    expect(saved[0]?.keyHash).toMatch(/^[a-f0-9]{16}$/)
+
+    const budget = new InterruptBudget(2)
+    budget.consume(1_000)
+    const budgetRestored = new InterruptBudget(2)
+    budgetRestored.restore(budget.snapshot(2_000), 2_000)
+    expect(budgetRestored.used(2_000)).toBe(1)
+  })
 })

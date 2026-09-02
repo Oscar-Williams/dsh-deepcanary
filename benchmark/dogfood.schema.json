@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DeepCanary Sanitized Dogfood Bundle",
+  "description": "A privacy-safe run, opportunity ledger, and outcome receipts for one real, controlled, or replay trial. Review coverage is calculated over unique user-facing delivery units.",
+  "type": "object",
+  "required": ["schemaVersion", "run", "observations", "receipts"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "run": {
+      "type": "object",
+      "required": ["schemaVersion", "runId", "trialId", "provenance", "taskFamily", "scenario", "pluginVersion", "runtimeTag", "policyVersion", "startedAt", "captureMode", "rawContentPersisted"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "runId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+        "trialId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+        "provenance": { "enum": ["real", "controlled", "replay"] },
+        "taskFamily": { "enum": ["coding", "build-test", "research", "multi-stage", "subagent"] },
+        "scenario": { "enum": ["approval-boundary", "network-recovery", "healthy-long-run", "normal-completion", "explicit-failure", "recovery-continued"] },
+        "pluginVersion": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "runtimeTag": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "policyVersion": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "endedAt": { "type": "string", "format": "date-time" },
+        "captureMode": { "enum": ["service", "manual", "replay"] },
+        "rawContentPersisted": { "const": false }
+      },
+      "additionalProperties": false
+    },
+    "observations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["schemaVersion", "observationRef", "runId", "occurredAt", "eventClass", "eventSubtype", "eventSource", "authority", "phase", "decisionDisposition", "deliveryChannel"],
+        "properties": {
+          "schemaVersion": { "const": 1 },
+          "observationRef": { "type": "string", "pattern": "^[a-f0-9]{16}$" },
+          "runId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+          "attentionRef": { "type": "string", "pattern": "^[a-f0-9]{16}$" },
+          "occurredAt": { "type": "string", "format": "date-time" },
+          "eventClass": { "enum": ["human-needed", "host-health", "stuck-progress", "subagent-pressure", "context-pressure", "completion", "healthy-run"] },
+          "eventSubtype": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "eventSource": { "enum": ["session", "agent", "subagent", "tool", "host", "windows", "usage", "external"] },
+          "authority": { "enum": ["host", "runtime", "derived", "heuristic"] },
+          "phase": { "enum": ["startup", "running", "human-wait", "recovery", "completion"] },
+          "decisionDisposition": { "enum": ["c0-silent", "deduped", "bundle-merged", "suppressed", "inbox", "digest", "interrupt", "escalate", "recovery-closed", "provider-error", "sink-error", "dropped-event"] },
+          "observedDecision": { "$ref": "#/$defs/decision" },
+          "expectedDecision": { "$ref": "#/$defs/decision" },
+          "deliveryChannel": { "enum": ["none", "inbox", "browser-notification", "native-toast"] },
+          "deliveryUnitRef": { "type": "string", "pattern": "^[a-f0-9]{16}$" },
+          "bundleRef": { "type": "string", "pattern": "^[a-f0-9]{16}$" },
+          "reviewLabel": { "enum": ["correct-useful", "correct-low-value", "not-relevant", "already-resolved", "wrong-level", "false-stall", "missed-human-needed", "duplicate-final-interrupt", "too-late", "provider-error", "sink-error", "dropped-event", "uncertain"] },
+          "policyReview": { "enum": ["correct", "wrong-level", "false-stall", "missed-human-needed", "duplicate-final-interrupt", "too-late", "uncertain"] },
+          "userFeedback": { "enum": ["useful", "not-useful", "unrated", "not-applicable"] },
+          "usefulnessReason": { "enum": ["actionable", "prevented-block", "status-only", "not-relevant", "already-resolved", "wrong-level", "too-late", "duplicate"] },
+          "notificationDelivery": { "$ref": "#/$defs/notificationDelivery" },
+          "recoveredBeforeOpen": { "type": "boolean" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "receipts": {
+      "type": "array",
+      "items": { "$ref": "outcome-receipt.schema.json" }
+    }
+  },
+  "$defs": {
+    "decision": {
+      "type": "object",
+      "required": ["level", "action", "reasonCode"],
+      "properties": {
+        "level": { "enum": ["C0", "C1", "C2", "C3"] },
+        "action": { "enum": ["IGNORE", "INBOX", "DIGEST", "INTERRUPT", "ESCALATE"] },
+        "reasonCode": { "type": "string", "minLength": 1, "maxLength": 128 }
+      },
+      "additionalProperties": false
+    },
+    "notificationDelivery": {
+      "type": "object",
+      "required": ["notificationAttemptId", "notificationRef", "tagRef", "titleKey", "bodyFingerprint", "stages", "firstObservedAt"],
+      "properties": {
+        "notificationAttemptId": { "type": "string", "pattern": "^[a-f0-9]{16}$" },
+        "notificationRef": { "type": "string", "pattern": "^[a-f0-9]{16}$" },
+        "tagRef": { "type": "string", "pattern": "^[a-f0-9]{16}$" },
+        "titleKey": { "type": "string", "pattern": "^notification\\.title\\.[A-Z0-9_]+$" },
+        "bodyFingerprint": { "type": "string", "pattern": "^[a-f0-9]{16}$" },
+        "stages": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["attempted", "constructed", "click-handler-attached", "clicked", "error"] } },
+        "notificationAttemptId": { "type": "string", "pattern": "^[a-f0-9]{16}$" },
+        "firstObservedAt": { "type": "string", "format": "date-time" },
+        "clickedAt": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

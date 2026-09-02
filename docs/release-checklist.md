@@ -21,6 +21,32 @@ The version must be `0.1.2-alpha.4` and the checkout must resolve to `4e84901e64
 
 RC4 also runs `npm run quality:report` and `npm run benchmark:attention`. These commands provide the frozen replay and local resource baseline. A sanitized trial records OutcomeReceipts through `/dsh-deepcanary/outcome` and produces a source-filtered report with `npm run outcomes:report`; the public schemas are [`benchmark/outcome-receipt.schema.json`](../benchmark/outcome-receipt.schema.json) and [`benchmark/outcome-report.schema.json`](../benchmark/outcome-report.schema.json). The RC4 public receipt is [`benchmark/release-candidate-receipt.json`](../benchmark/release-candidate-receipt.json); the earlier alpha.3 compatibility record remains separate and does not replace the historical RC2 receipt.
 
+## 2A. Stable Gate D: real usefulness and delivery evidence
+
+Gate D is the product-quality gate. Run the checked-in policy replay first:
+
+```powershell
+npm run replay:policy
+```
+
+The report must pass every expected case for judgment, deduplication, Bundle escalation, budget downgrade, quiet hours, and recovery. Then collect a sanitized dogfood bundle with [`benchmark/dogfood.schema.json`](../benchmark/dogfood.schema.json) across the task families and scenarios in [`docs/dogfood-protocol.md`](dogfood-protocol.md), including positive decisions and negative opportunities. Generate its report with `npm run dogfood:report -- --input <path-to-sanitized-dogfood.json>`. Review labels, numerators, denominators, and sample-status values are part of the gate evidence.
+
+Gate D requires a validated multi-run real dogfood aggregate covering coding, build/test, research, multi-stage, and Subagent work plus concrete opportunity evidence for every declared scenario. It also requires reviewed Human Needed opportunities, separate policy and usefulness labels for delivered C2/C3 decisions, false-stall and wrong-level review, duplicate-final-interrupt review, recovery-before-open observations, negative opportunities for C0/dedupe/suppression, and a real Edge/Windows notification observation. Browser permission and client callback evidence can be automated; the actual Windows Toast appearance, notification-center retention, and native click-to-focus behavior require a schema-validated record bound to the matching dogfood observation and delivery unit. A small single-task sample or the legacy `--native-toast-observed` flag remains diagnostic evidence and does not pass Gate D.
+
+## 2B. Stable Gate E: release integrity and operational continuity
+
+Gate E combines a reproducible package with the Persistent Supervisor prototype. In addition to the standard checks above, run:
+
+```powershell
+npm run replay:policy
+npm run supervisor:smoke
+npm run verify:distribution
+npm run verify:release-receipt
+npm pack --dry-run
+```
+
+Inspect `GET /dsh-deepcanary/supervisor` on the exact alpha.4 profile and confirm that `supervisor.json` is bounded, `supervisor.lease` is released after shutdown, a competing process enters `standby` and retries after the active lease is released, a stale lease is archived before takeover, and a previous owner cannot overwrite the active owner's snapshot. The lease mutations and owned snapshot commits use the same local operation lock, so fencing is checked within one serialized filesystem operation. Record startup, restore, write, heartbeat, wake, state-directory-size, RSS counters, policy-state version, and restored dedupe/budget entries. The browser delivery ledger is present at the attempt stage; authoritative post-restart session reconciliation and Windows OS observation remain separate evidence gates.
+
 The repository CI workflow starts the pinned alpha.4 Web profile in an isolated home and exercises the panel through Playwright CLI. Run [33557376591](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33557376591) passed on the final RC4 main commit across Windows and Ubuntu with Node 22 and 24, including the alpha.4 WebUI smoke. Automated checks cover the computer interaction surface; physical touch and real Screen Reader evaluation remain separate device checks.
 
 ## 1. Source and documentation

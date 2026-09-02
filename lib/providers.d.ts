@@ -31,8 +31,8 @@ export declare function signalFromAgentError(payload: {
     step?: number;
 }): CanarySignal;
 export declare function signalFromSubagentPressure(activeSubagents: number, threshold: number, now?: number): CanarySignal;
-export declare function signalFromHostProbe(ok: boolean, detail: string, now?: number): CanarySignal | undefined;
+export declare function signalFromHostProbe(ok: boolean, detail: string, now?: number, outageId?: string): CanarySignal | undefined;
 export declare function signalFromStall(session: SessionLike, facts: SessionFacts, thresholdMs: number, now?: number): CanarySignal | undefined;
 export declare function signalFromStallRecovery(session: SessionLike, now?: number): CanarySignal;
-export declare function signalFromHostRecovery(now?: number): CanarySignal;
+export declare function signalFromHostRecovery(outageId?: string, now?: number): CanarySignal;
 //# sourceMappingURL=providers.d.ts.map

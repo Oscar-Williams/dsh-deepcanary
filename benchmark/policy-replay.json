@@ -1,0 +1,171 @@
+{
+  "schemaVersion": 1,
+  "fixtureVersion": 1,
+  "defaults": {
+    "dedupeWindowMinutes": 10,
+    "bundleWindowSeconds": 60,
+    "maxInterruptsPerHour": 3,
+    "healthPollSeconds": 300
+  },
+  "cases": [
+    {
+      "id": "normal-completion",
+      "signals": [
+        { "id": "completion-1", "offsetMs": 0, "source": "session", "kind": "TASK_COMPLETED", "authority": "runtime", "severityHint": 1, "sessionId": "replay-session-1", "dedupeKey": "completion-1", "data": { "userViewing": false, "idleMs": 120000 } }
+      ],
+      "expected": {
+        "steps": [
+          { "level": "C1", "action": "INBOX", "reasonCode": "TASK_COMPLETED", "status": "open", "bundleCount": 1 }
+        ],
+        "finalInboxCount": 1
+      }
+    },
+    {
+      "id": "c0-healthy-silence",
+      "signals": [
+        { "id": "healthy-1", "offsetMs": 0, "source": "session", "kind": "CONTEXT_PRESSURE", "authority": "runtime", "severityHint": 1, "sessionId": "replay-session-healthy", "dedupeKey": "healthy-1", "data": { "healthy": true } }
+      ],
+      "expected": {
+        "steps": [null],
+        "finalInboxCount": 0
+      }
+    },
+    {
+      "id": "explicit-failure",
+      "signals": [
+        { "id": "failure-1", "offsetMs": 0, "source": "session", "kind": "TASK_FAILED", "authority": "runtime", "severityHint": 2, "sessionId": "replay-session-failure", "dedupeKey": "failure-1" }
+      ],
+      "expected": {
+        "steps": [
+          { "level": "C2", "action": "INTERRUPT", "reasonCode": "TASK_FAILED", "status": "open", "bundleCount": 1 }
+        ],
+        "finalInboxCount": 1
+      }
+    },
+    {
+      "id": "human-approval",
+      "signals": [
+        { "id": "approval-1", "offsetMs": 0, "source": "tool", "kind": "HUMAN_APPROVAL_REQUIRED", "authority": "runtime", "severityHint": 2, "sessionId": "replay-session-2", "dedupeKey": "approval-1" }
+      ],
+      "expected": {
+        "steps": [
+          { "level": "C2", "action": "INTERRUPT", "reasonCode": "HUMAN_APPROVAL_REQUIRED", "status": "open", "bundleCount": 1 }
+        ],
+        "finalInboxCount": 1
+      }
+    },
+    {
+      "id": "host-critical",
+      "signals": [
+        { "id": "host-1", "offsetMs": 0, "source": "host", "kind": "HOST_UNREACHABLE", "authority": "host", "severityHint": 3, "dedupeKey": "host-1", "bundleKey": "host-root" }
+      ],
+      "expected": {
+        "steps": [
+          { "level": "C3", "action": "ESCALATE", "reasonCode": "HOST_UNREACHABLE", "status": "open", "bundleCount": 1 }
+        ],
+        "finalInboxCount": 1
+      }
+    },
+    {
+      "id": "dedupe-repeat",
+      "signals": [
+        { "id": "repeat-1", "offsetMs": 0, "source": "session", "kind": "TASK_COMPLETED", "authority": "runtime", "severityHint": 1, "dedupeKey": "same-event" },
+        { "id": "repeat-2", "offsetMs": 1000, "source": "session", "kind": "TASK_COMPLETED", "authority": "runtime", "severityHint": 1, "dedupeKey": "same-event" }
+      ],
+      "expected": {
+        "steps": [
+          { "level": "C1", "action": "INBOX", "reasonCode": "TASK_COMPLETED", "status": "open", "bundleCount": 1 },
+          null
+        ],
+        "finalInboxCount": 1
+      }
+    },
+    {
+      "id": "persistent-suppression",
+      "suppressAfterIndex": 0,
+      "signals": [
+        { "id": "suppression-1", "offsetMs": 0, "source": "session", "kind": "TASK_COMPLETED", "authority": "runtime", "severityHint": 1, "dedupeKey": "suppression-1" },
+        { "id": "suppression-2", "offsetMs": 1000, "source": "session", "kind": "TASK_COMPLETED", "authority": "runtime", "severityHint": 1, "dedupeKey": "suppression-2" }
+      ],
+      "expected": {
+        "steps": [
+          { "level": "C1", "action": "INBOX", "reasonCode": "TASK_COMPLETED", "status": "open", "bundleCount": 1 },
+          null
+        ],
+        "finalInboxCount": 0
+      }
+    },
+    {
+      "id": "bundle-escalation",
+      "signals": [
+        { "id": "bundle-1", "offsetMs": 0, "source": "session", "kind": "TASK_COMPLETED", "authority": "runtime", "severityHint": 1, "dedupeKey": "bundle-1", "bundleKey": "same-root" },
+        { "id": "bundle-2", "offsetMs": 1000, "source": "tool", "kind": "HUMAN_APPROVAL_REQUIRED", "authority": "runtime", "severityHint": 2, "dedupeKey": "bundle-2", "bundleKey": "same-root" }
+      ],
+      "expected": {
+        "steps": [
+          { "level": "C1", "action": "INBOX", "reasonCode": "TASK_COMPLETED", "status": "open", "bundleCount": 1 },
+          { "level": "C2", "action": "INTERRUPT", "reasonCode": "HUMAN_APPROVAL_REQUIRED", "status": "open", "bundleCount": 2 }
+        ],
+        "finalInboxCount": 1
+      }
+    },
+    {
+      "id": "budget-downgrade",
+      "settings": { "maxInterruptsPerHour": 1, "bundleWindowSeconds": 0 },
+      "signals": [
+        { "id": "budget-1", "offsetMs": 0, "source": "tool", "kind": "HUMAN_APPROVAL_REQUIRED", "authority": "runtime", "severityHint": 2, "dedupeKey": "budget-1" },
+        { "id": "budget-2", "offsetMs": 1000, "source": "tool", "kind": "HUMAN_APPROVAL_REQUIRED", "authority": "runtime", "severityHint": 2, "dedupeKey": "budget-2" }
+      ],
+      "expected": {
+        "steps": [
+          { "level": "C2", "action": "INTERRUPT", "reasonCode": "HUMAN_APPROVAL_REQUIRED", "status": "open", "bundleCount": 1 },
+          { "level": "C2", "action": "DIGEST", "reasonCode": "HUMAN_APPROVAL_REQUIRED", "status": "open", "bundleCount": 1 }
+        ],
+        "finalInboxCount": 2
+      }
+    },
+    {
+      "id": "quiet-hours",
+      "settings": { "quietHours": { "enabled": true, "start": "00:00", "end": "00:00" } },
+      "signals": [
+        { "id": "quiet-1", "offsetMs": 0, "source": "tool", "kind": "HUMAN_APPROVAL_REQUIRED", "authority": "runtime", "severityHint": 2, "dedupeKey": "quiet-1" }
+      ],
+      "expected": {
+        "steps": [
+          { "level": "C2", "action": "DIGEST", "reasonCode": "HUMAN_APPROVAL_REQUIRED", "status": "open", "bundleCount": 1 }
+        ],
+        "finalInboxCount": 1
+      }
+    },
+    {
+      "id": "recovery-closes-root",
+      "signals": [
+        { "id": "stall-1", "offsetMs": 0, "source": "host", "kind": "HOST_SUSPECTED_STALL", "authority": "runtime", "severityHint": 2, "sessionId": "replay-session-recovery", "dedupeKey": "stall-1", "bundleKey": "recovery-root" },
+        { "id": "recovery-1", "offsetMs": 1000, "source": "host", "kind": "HOST_STALL_RECOVERED", "authority": "runtime", "severityHint": 1, "sessionId": "replay-session-recovery", "dedupeKey": "recovery-1", "bundleKey": "recovery-root" }
+      ],
+      "expected": {
+        "steps": [
+          { "level": "C2", "action": "INTERRUPT", "reasonCode": "HOST_SUSPECTED_STALL", "status": "open", "bundleCount": 1 },
+          { "level": "C2", "action": "INTERRUPT", "reasonCode": "HOST_SUSPECTED_STALL", "status": "recovered", "bundleCount": 1 }
+        ],
+        "finalInboxCount": 0
+      }
+    },
+    {
+      "id": "recovery-continued-progress",
+      "signals": [
+        { "id": "stall-continued-1", "offsetMs": 0, "source": "host", "kind": "HOST_SUSPECTED_STALL", "authority": "runtime", "severityHint": 2, "sessionId": "replay-session-continued", "dedupeKey": "stall-continued-1", "bundleKey": "continued-root" },
+        { "id": "recovery-continued-1", "offsetMs": 1000, "source": "host", "kind": "HOST_STALL_RECOVERED", "authority": "runtime", "severityHint": 1, "sessionId": "replay-session-continued", "dedupeKey": "recovery-continued-1", "bundleKey": "continued-root" },
+        { "id": "continued-progress-1", "offsetMs": 2000, "source": "session", "kind": "TASK_FAILED", "authority": "runtime", "severityHint": 2, "sessionId": "replay-session-continued", "dedupeKey": "continued-progress-1" }
+      ],
+      "expected": {
+        "steps": [
+          { "level": "C2", "action": "INTERRUPT", "reasonCode": "HOST_SUSPECTED_STALL", "status": "open", "bundleCount": 1 },
+          { "level": "C2", "action": "INTERRUPT", "reasonCode": "HOST_SUSPECTED_STALL", "status": "recovered", "bundleCount": 1 },
+          { "level": "C2", "action": "INTERRUPT", "reasonCode": "TASK_FAILED", "status": "open", "bundleCount": 1 }
+        ],
+        "finalInboxCount": 1
+      }
+    }
+  ]
+}

@@ -46,6 +46,13 @@ const feedbackCounts = countBy(receipts, receipt => receipt.feedback)
 const laterOutcomeCounts = countBy(receipts, receipt => receipt.laterOutcome)
 const latencyBuckets = countBy(receipts, receipt => receipt.latencyBucket)
 const reviewFlags = countBy(receipts.flatMap(receipt => receipt.reviewFlags), flag => flag)
+const dataQualityIssues = receipts.flatMap(receipt => [
+  ...(receipt.opened && receipt.latencyBucket === 'not-opened' ? ['opened-with-not-opened-latency'] : []),
+  ...(!receipt.opened && ['under-1m', '1-5m', '5-15m', 'over-15m'].includes(receipt.latencyBucket) ? ['not-opened-with-action-latency'] : []),
+  ...(!receipt.opened && receipt.acknowledged ? ['acknowledged-before-open'] : []),
+  ...(!receipt.opened && (receipt.snoozed || receipt.muted) ? ['delivery-action-before-open'] : []),
+].map(issue => ({ issue, receipt })))
+const dataQuality = countBy(dataQualityIssues, value => value.issue)
 const report = {
   reportSchemaVersion: 1,
   status: source === 'real' ? 'dogfood' : source === 'controlled' ? 'controlled' : source === 'replay' ? 'replay' : 'empty',
@@ -67,6 +74,11 @@ const report = {
   byReasonCode: countBy(receipts, receipt => receipt.reasonCode),
   byLevel: countBy(receipts, receipt => receipt.level),
   byAction: countBy(receipts, receipt => receipt.action),
+  dataQuality: {
+    issueCounts: dataQuality,
+    issueCount: dataQualityIssues.length,
+    status: dataQualityIssues.length === 0 ? 'consistent' : 'review-required',
+  },
   fieldCompleteness: {
     feedback: receipts.length === 0 ? null : receipts.filter(receipt => receipt.feedback !== 'unrated').length / receipts.length,
     laterOutcome: receipts.length === 0 ? null : receipts.filter(receipt => receipt.laterOutcome !== 'unknown').length / receipts.length,
@@ -75,7 +87,9 @@ const report = {
   generatedAt: new Date().toISOString(),
   conclusion: receipts.length === 0
     ? 'No receipts matched the selected source.'
-    : 'Outcome aggregate contains redacted metadata only; interpret value together with scenario coverage and reviewed missed or false-positive cases.',
+    : dataQualityIssues.length === 0
+      ? 'Outcome aggregate contains redacted metadata only; interpret value together with scenario coverage and reviewed missed or false-positive cases.'
+      : 'Outcome aggregate contains redacted metadata and semantic inconsistencies that require review before using the metrics as release evidence.',
 }
 
 await mkdir(path.dirname(outputPath), { recursive: true })

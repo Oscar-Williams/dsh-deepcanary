@@ -14,7 +14,19 @@ export { applyDeliveryPolicy, mergeBundleTrace, withBundleTrace, withRecoveryTra
 export { getWorkspaceIdentity, probeWindowsInterop, windowsPathToWsl, wslPathToWindows } from './adapters/windows.js';
 export { ContextDshAdapter } from './adapters/dsh.js';
 export type { DeepCanaryEvent, DshAdapter, RuntimeHealth, SessionSnapshot } from './adapters/dsh.js';
+export { HostProbeEpoch } from './hostHealth.js';
+export type { HostProbeObservation, HostProbeState, HostProbeTransition } from './hostHealth.js';
 export { OutcomeStore, buildOutcomeReceipt, eventClassForReason, isOutcomeReceipt, normalizeOutcomeDeleteFilter, normalizeOutcomeInput, strongestEvidenceAuthority } from './outcome.js';
 export { DeepCanaryService } from './service.js';
+export { DOGFOOD_SCHEMA_VERSION, DogfoodLedger, isDogfoodBundle, summarizeDogfood } from './dogfood.js';
+export type { DogfoodBundle, DogfoodDecision, DogfoodDecisionDisposition, DogfoodDeliveryChannel, DogfoodEventClass, DogfoodEventSource, DogfoodMetric, DogfoodNotificationDelivery, DogfoodNotificationStage, DogfoodObservation, DogfoodPhase, DogfoodPolicyReview, DogfoodProvenance, DogfoodReport, DogfoodReviewLabel, DogfoodRun, DogfoodScenario, DogfoodTaskFamily, DogfoodUserFeedback, DogfoodUsefulnessReason } from './dogfood.js';
+export { DOGFOOD_AGGREGATE_SCHEMA_VERSION, createDogfoodAggregate, isDogfoodAggregate, summarizeDogfoodAggregate } from './dogfoodAggregate.js';
+export type { DogfoodAggregate, DogfoodAggregateReport, DogfoodRunSummary } from './dogfoodAggregate.js';
+export { DOGFOOD_ENVIRONMENT, DogfoodRuntimeRecorder, dogfoodRunFromEnvironment } from './dogfoodRecorder.js';
+export type { DogfoodRuntimeRecord } from './dogfoodRecorder.js';
+export { PersistentSupervisor, SupervisorStore, supervisorSnapshotFor } from './supervisor.js';
+export type { PersistentSupervisorOptions, PersistentSupervisorStatus, SupervisorHostStatus, SupervisorLease, SupervisorMetrics, SupervisorSessionState, SupervisorSnapshot, SupervisorState } from './supervisor.js';
+export { NOTIFICATION_EVIDENCE_SCHEMA_VERSION, evaluateNotificationEvidence, evaluateNotificationEvidenceBinding, isNotificationEvidence } from './notificationEvidence.js';
+export type { NotificationEvidence, NotificationEvidenceResult, NotificationEvidenceSource, NotificationPageVisibility, NotificationPermission } from './notificationEvidence.js';
 export declare function apply(ctx: Context, config?: DeepCanaryConfigInput): void;
 //# sourceMappingURL=index.d.ts.map

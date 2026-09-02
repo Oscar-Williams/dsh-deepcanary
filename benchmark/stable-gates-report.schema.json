@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DeepCanary Stable Gate D/E Report",
+  "description": "Evidence status for real dogfood, OS notification acceptance, replay, and the Persistent Supervisor prototype.",
+  "type": "object",
+  "required": ["reportSchemaVersion", "pluginVersion", "runtimeBaseline", "identity", "gateD", "gateE", "files", "generatedAt", "conclusion"],
+  "properties": {
+    "reportSchemaVersion": { "const": 1 },
+    "pluginVersion": { "type": "string", "minLength": 1 },
+    "runtimeBaseline": { "type": "string", "minLength": 1 },
+    "identity": {
+      "type": "object",
+      "required": ["gitCommit", "worktree", "packageVersion", "tarballSha256", "sourceDigest"],
+      "properties": {
+        "gitCommit": { "type": "string", "minLength": 1 },
+        "worktree": { "enum": ["clean", "dirty"] },
+        "packageVersion": { "type": "string", "minLength": 1 },
+        "tarballSha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+        "sourceDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      },
+      "additionalProperties": false
+    },
+    "gateD": {
+      "type": "object",
+      "required": ["status", "policyReplay", "realDogfood", "osNativeNotification", "note"],
+      "properties": {
+        "status": { "enum": ["pending", "pass"] },
+        "policyReplay": { "enum": ["pending", "pass"] },
+        "realDogfood": {
+          "type": "object",
+          "required": ["status"],
+          "properties": {
+            "status": { "enum": ["not-evaluated", "invalid-provenance", "insufficient-sample", "pass"] },
+            "observationCount": { "type": "integer", "minimum": 0 },
+            "bundleCount": { "type": "integer", "minimum": 0 },
+            "trialCount": { "type": "integer", "minimum": 0 },
+            "metrics": { "type": "object" },
+            "taskFamilies": { "type": "object" },
+            "scenarios": { "type": "object" },
+            "scenarioEvidence": { "type": "array", "items": { "type": "object" } },
+            "negativeOpportunityCoverage": { "type": "object" },
+            "inputKind": { "enum": ["none", "report", "bundle", "aggregate"] }
+          },
+          "additionalProperties": false
+        },
+        "osNativeNotification": {
+          "type": "object",
+          "required": ["status", "reasons"],
+          "properties": {
+            "status": { "enum": ["pending", "pass"] },
+            "reasons": { "type": "array", "items": { "type": "string" } },
+            "binding": {
+              "type": "object",
+              "required": ["status", "reasons"],
+              "properties": {
+                "status": { "enum": ["pending", "pass"] },
+                "reasons": { "type": "array", "items": { "type": "string" } }
+              },
+              "additionalProperties": false
+            },
+            "input": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "note": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "gateE": {
+      "type": "object",
+      "required": ["status", "implementation", "policyReplay", "supervisorSmoke", "authoritativeSessionReconciliation", "crossSinkDeliveryLedger", "packageVersion", "note"],
+      "properties": {
+        "status": { "enum": ["pending", "prototype-ready"] },
+        "implementation": { "enum": ["incomplete", "present"] },
+        "policyReplay": { "enum": ["pending", "pass"] },
+        "supervisorSmoke": { "enum": ["not-evaluated", "pending", "pass"] },
+        "authoritativeSessionReconciliation": { "const": "pending-adapter-surface" },
+        "crossSinkDeliveryLedger": { "const": "browser-attempt-ledger-present-os-observation-pending" },
+        "packageVersion": { "type": "string", "minLength": 1 },
+        "note": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "files": { "type": "array", "items": { "type": "object", "required": ["file", "present"], "properties": { "file": { "type": "string" }, "present": { "type": "boolean" } }, "additionalProperties": false } },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "conclusion": { "type": "string", "minLength": 1, "maxLength": 500 }
+  },
+  "additionalProperties": false
+}

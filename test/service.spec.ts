@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DeepCanaryService } from '../src/service.js'
 import type { CanarySignal } from '../src/types.js'
 
@@ -242,6 +242,147 @@ describe('DeepCanaryService', () => {
     expect(service.status().sessions).toBe(0)
     await service.dispose()
     expect(service.status().plugin.state).toBe('ready')
+    await rm(directory, { recursive: true, force: true })
+  })
+
+  it('limits liveness checks to an active turn and measures from turn start', async () => {
+    vi.useFakeTimers()
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-running-state-'))
+    const listeners = new Map<string, (...args: any[]) => void>()
+    try {
+      vi.setSystemTime(new Date('2026-09-02T08:00:00.000Z'))
+      const service = new DeepCanaryService({
+        logger: {},
+        on: (name: string, listener: (...args: any[]) => void) => { listeners.set(name, listener) },
+      } as never, { stateDir: directory, longRunThresholdMinutes: 1, maxInboxItems: 50 })
+      services.push(service)
+      await service.ready
+      service.start()
+      const session = { id: 'running-state-session', header: { cwd: 'C:\\work' } }
+      listeners.get('session/created')?.(session)
+      listeners.get('session/event')?.(session, { type: 'turn/end', seq: 1, data: { reason: { kind: 'completed' } } })
+      vi.setSystemTime(new Date('2026-09-02T08:05:00.000Z'))
+      ;(service as unknown as { checkStalls: () => void }).checkStalls()
+      await Promise.resolve()
+      await Promise.resolve()
+      expect(service.inbox(20).some(item => item.reasonCode === 'HOST_SUSPECTED_STALL')).toBe(false)
+
+      listeners.get('session/event')?.(session, { type: 'turn/start', seq: 2, data: { turn: 2 } })
+      vi.setSystemTime(new Date('2026-09-02T08:07:00.000Z'))
+      ;(service as unknown as { checkStalls: () => void }).checkStalls()
+      await Promise.resolve()
+      await Promise.resolve()
+      expect(service.inbox(20).some(item => item.reasonCode === 'HOST_SUSPECTED_STALL')).toBe(true)
+      await service.dispose()
+    } finally {
+      vi.useRealTimers()
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
+  it('does not create a competing stall alert while an authoritative question is waiting', async () => {
+    vi.useFakeTimers()
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-human-wait-'))
+    const listeners = new Map<string, (...args: any[]) => void>()
+    try {
+      vi.setSystemTime(new Date('2026-09-02T08:00:00.000Z'))
+      const service = new DeepCanaryService({
+        logger: {},
+        on: (name: string, listener: (...args: any[]) => void) => { listeners.set(name, listener) },
+      } as never, { stateDir: directory, longRunThresholdMinutes: 1, maxInboxItems: 50 })
+      services.push(service)
+      await service.ready
+      service.start()
+      const session = { id: 'human-wait-session', header: { cwd: 'C:\\work' } }
+      listeners.get('session/created')?.(session)
+      listeners.get('session/event')?.(session, { type: 'turn/start', seq: 1, data: {} })
+      listeners.get('session/event')?.(session, { type: 'tool/call', seq: 2, data: { name: 'ask_user_question' } })
+      await Promise.resolve()
+      await Promise.resolve()
+
+      vi.setSystemTime(new Date('2026-09-02T08:05:00.000Z'))
+      ;(service as unknown as { checkStalls: () => void }).checkStalls()
+      await Promise.resolve()
+      await Promise.resolve()
+      expect(service.inbox(20).some(item => item.reasonCode === 'HUMAN_QUESTION_PENDING')).toBe(true)
+      expect(service.inbox(20).some(item => item.reasonCode === 'HOST_SUSPECTED_STALL')).toBe(false)
+
+      listeners.get('session/event')?.(session, { type: 'tool/result', seq: 3, data: { name: 'ask_user_question' } })
+      vi.setSystemTime(new Date('2026-09-02T08:07:00.000Z'))
+      ;(service as unknown as { checkStalls: () => void }).checkStalls()
+      await Promise.resolve()
+      await Promise.resolve()
+      expect(service.inbox(20).some(item => item.reasonCode === 'HOST_SUSPECTED_STALL')).toBe(true)
+      await service.dispose()
+    } finally {
+      vi.useRealTimers()
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
+  it('does not dedupe a host recovery against the unreachable root cause', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-host-recovery-'))
+    const service = new DeepCanaryService({ logger: {} } as never, { stateDir: directory, dedupeWindowMinutes: 10 })
+    services.push(service)
+    await service.ready
+
+    const hostSignal = (id: string, kind: 'HOST_UNREACHABLE' | 'HOST_STALL_RECOVERED', severityHint: 1 | 3): CanarySignal => {
+      const result = { ...testSignal(), id, kind, dedupeKey: 'host:unreachable', severityHint }
+      delete result.sessionId
+      return result
+    }
+    await service.ingest(hostSignal('host-down', 'HOST_UNREACHABLE', 3))
+    const recovered = await service.ingest(hostSignal('host-up', 'HOST_STALL_RECOVERED', 1))
+
+    expect(recovered).toBeDefined()
+    expect(recovered?.status).toBe('recovered')
+    expect(service.inbox(20).some(item => item.status === 'recovered')).toBe(true)
+    await service.dispose()
+  })
+
+  it('exposes only safe host probe diagnostics in runtime status', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-host-probe-status-'))
+    const service = new DeepCanaryService({ logger: {} } as never, { stateDir: directory, maxInboxItems: 50 })
+    services.push(service)
+    await service.ready
+    expect(service.status().delivery.hostProbe).toMatchObject({ healthy: true, consecutiveFailures: 0, state: 'healthy' })
+    await service.dispose()
+  })
+
+  it('probes the public health route and serializes failure recovery', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-host-probe-flow-'))
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: false, status: 503 })
+      .mockResolvedValueOnce({ ok: false, status: 503 })
+      .mockResolvedValueOnce({ ok: true, status: 200 })
+    vi.stubGlobal('fetch', fetchMock)
+    let injectWebServer: ((value: unknown) => void) | undefined
+    const service = new DeepCanaryService({
+      logger: {},
+      inject: (_services: string[], callback: (value: unknown) => unknown) => { injectWebServer = callback },
+    } as never, { stateDir: directory, maxInboxItems: 50 })
+    services.push(service)
+    await service.ready
+    service.start()
+    injectWebServer?.({ webServer: { port: 43131 } })
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+
+    const probe = (service as unknown as { probeHost: () => Promise<void> }).probeHost.bind(service)
+    await probe()
+    expect(service.status().delivery.hostProbe).toMatchObject({ port: 43131, healthy: false, consecutiveFailures: 2 })
+    expect(service.inbox(20).some(item => item.reasonCode === 'HOST_UNREACHABLE')).toBe(true)
+
+    await probe()
+    expect(fetchMock.mock.calls.map(call => call[0])).toEqual([
+      'http://127.0.0.1:43131/dsh-deepcanary/health',
+      'http://127.0.0.1:43131/dsh-deepcanary/health',
+      'http://127.0.0.1:43131/dsh-deepcanary/health',
+    ])
+    expect(service.status().delivery.hostProbe).toMatchObject({ port: 43131, healthy: true, consecutiveFailures: 0 })
+    expect(service.inbox(20).some(item => item.status === 'recovered')).toBe(true)
+
+    await service.dispose()
+    vi.unstubAllGlobals()
     await rm(directory, { recursive: true, force: true })
   })
 

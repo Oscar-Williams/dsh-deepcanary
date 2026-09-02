@@ -6,7 +6,7 @@ DeepCanary is a local observer. It receives structured DSH runtime facts, normal
 
 ## Stored data
 
-The bundle stores state below the DSH home with `dshHomePath('dsh-deepcanary')`; when `DSH_HOME` is not set, this normally resolves to `~/.dsh/dsh-deepcanary`. The files are `inbox.json` and `outcomes.json`; the second file contains only redacted decision-to-outcome records. The Inbox file contains:
+The bundle stores state below the DSH home with `dshHomePath('dsh-deepcanary')`; when `DSH_HOME` is not set, this normally resolves to `~/.dsh/dsh-deepcanary`. The files are `inbox.json`, `outcomes.json`, and, when the Persistent Supervisor prototype is active, `supervisor.json` plus the short-lived `supervisor.lease`. The second file contains only redacted decision-to-outcome records; the Supervisor files contain bounded state projections and lease metadata.
 
 - schema version, item ID, timestamp, level, action, status, reason code, and bounded feedback;
 - hashed Session and Workspace references;
@@ -17,7 +17,9 @@ The bundle stores state below the DSH home with `dshHomePath('dsh-deepcanary')`;
 
 It does not contain prompts, assistant output, tool arguments, raw tool results, environment variables, API keys, credentials, arbitrary file contents, or a session transcript. The provider contract rejects the use of raw conversation content as an input to the local state path; new providers must use structured facts and short summaries.
 
-Outcome records add an explicit source (`real`, `controlled`, or `replay`), a bounded trial identifier, event class, policy version, derived attention fields, user-action booleans, feedback, later outcome, latency bucket, and allowlisted review flags. The service derives the attention fields from the matching Inbox item and rejects unknown fields, path-shaped trial identifiers, unsupported enum values, and mixed provenance within one receipt. The OutcomeStore caps records and replaces `outcomes.json` atomically.
+Outcome records add an explicit source (`real`, `controlled`, or `replay`), a bounded trial identifier, event class, policy version, derived attention fields, user-action booleans, feedback, later outcome, latency bucket, and allowlisted review flags. The service derives the attention fields from the matching Inbox item and rejects unknown fields, path-shaped trial identifiers, and unsupported enum values. The same Inbox item can have independent records for separate source/trial pairs; filtered reports keep those aggregates separate. The OutcomeStore caps records and replaces `outcomes.json` atomically.
+
+The optional Supervisor snapshot retains only a schema version, monotonic revision, runtime version, host status, hashed session references, bounded pending references, and resource counters. Its lease contains an instance identifier, process identifier, start time, and heartbeat time. A fresh lease blocks a second owner; an expired lease is archived before takeover, and the previous owner is fenced when it no longer owns the current heartbeat token. The Supervisor is a local projection and diagnostic surface; it does not execute shell commands, control processes, approve requests, or close an alert without Core evidence.
 
 Persistence uses an atomic temporary file and rename within the configured state directory. The plugin does not create files elsewhere.
 
@@ -25,7 +27,7 @@ Persistence uses an atomic temporary file and rename within the configured state
 
 The Web routes are registered on DSH's local same-origin WebServer and send `cache-control: no-store`. The action endpoint accepts `seen`, `acknowledge`, `snooze`, `mute`, `unmute`, `feedback`, `suppress`, `unsuppress`, `retry`, and `jump`. The OutcomeReceipt endpoints accept bounded metadata and return redacted records; `GET /dsh-deepcanary/outcomes` can filter by one source and trial, while `DELETE /dsh-deepcanary/outcomes` requires an explicit `trialId` or `before` cutoff for local withdrawal and retention cleanup. Model-visible tools continue to expose the bounded read and action operations. `jump` uses the native DSH session-open path when an opaque local session handle is available; an older item without that handle remains in Inbox with a clear unavailable-link state.
 
-`deepcanary_explain` returns the same privacy-safe trace for one Inbox item. `deepcanary_dry_run` and `POST /dsh-deepcanary/dry-run` accept only bounded structured signal fields and an allowlisted notification-policy candidate. Dry-run never writes state, consumes an interrupt budget, sends a notification, or mutates a DSH Session.
+`deepcanary_explain` returns the same privacy-safe trace for one Inbox item. `deepcanary_dry_run` and `POST /dsh-deepcanary/dry-run` accept only bounded structured signal fields and an allowlisted notification-policy candidate. `GET /dsh-deepcanary/supervisor` is read-only and returns the bounded snapshot, lease ownership state, and resource counters. Dry-run and Supervisor reads never write state, consume an interrupt budget, send a notification, or mutate a DSH Session.
 
 The plugin has no shell, file-write, process-control, approval, rejection, arbitrary network, or destructive tool. It does not terminate or restart DSH or any Agent.
 

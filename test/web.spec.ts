@@ -77,6 +77,14 @@ describe('DeepCanary Web contract', () => {
       expect(state.status).toBe(200)
       expect((await state.json()).settings.maxInterruptsPerHour).toBe(3)
       expect(state.headers.get('etag')).toMatch(/^W\/"dc-\d+"$/)
+      const supervisor = await fetch(`http://127.0.0.1:${port}/dsh-deepcanary/supervisor`)
+      expect(supervisor.status).toBe(200)
+      expect(await supervisor.json()).toMatchObject({
+        schemaVersion: 2,
+        supervisorSchemaVersion: 1,
+        status: { state: 'inactive', leaseHeld: false },
+        snapshot: { schemaVersion: 1, pending: expect.any(Array) },
+      })
       const unchanged = await fetch(`http://127.0.0.1:${port}/dsh-deepcanary/state`, { headers: { 'if-none-match': state.headers.get('etag') ?? '' } })
       expect(unchanged.status).toBe(304)
 
@@ -119,11 +127,11 @@ describe('DeepCanary Web contract', () => {
       expect(clientSource).toContain('ResizeHandle')
       expect(clientSource).toContain('satisfies Record<keyof typeof zh, string>')
       expect(injected).toHaveLength(0)
-      expect(routes.size).toBe(8)
+      expect(routes.size).toBe(9)
       disposeRoutes?.()
       expect(routes.size).toBe(0)
       installWebRoutes(context, service)
-      expect(routes.size).toBe(8)
+      expect(routes.size).toBe(9)
       disposeRoutes?.()
       expect(routes.size).toBe(0)
     } finally {

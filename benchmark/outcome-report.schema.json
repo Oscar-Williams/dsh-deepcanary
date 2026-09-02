@@ -19,6 +19,7 @@
     "byReasonCode",
     "byLevel",
     "byAction",
+    "dataQuality",
     "fieldCompleteness",
     "generatedAt",
     "conclusion"
@@ -44,6 +45,16 @@
     "byReasonCode": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
     "byLevel": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
     "byAction": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+    "dataQuality": {
+      "type": "object",
+      "required": ["issueCounts", "issueCount", "status"],
+      "properties": {
+        "issueCounts": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+        "issueCount": { "type": "integer", "minimum": 0 },
+        "status": { "enum": ["consistent", "review-required"] }
+      },
+      "additionalProperties": false
+    },
     "fieldCompleteness": {
       "type": "object",
       "required": ["feedback", "laterOutcome", "latency"],

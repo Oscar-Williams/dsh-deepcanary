@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DeepCanary Persistent Supervisor smoke report",
+  "description": "Machine-readable local behavior evidence for lease, restore, fencing, shutdown, and corruption handling.",
+  "type": "object",
+  "required": ["reportSchemaVersion", "runtimeBaseline", "checks", "passed", "generatedAt", "conclusion"],
+  "properties": {
+    "reportSchemaVersion": { "const": 1 },
+    "runtimeBaseline": { "const": "dsh-v0.1.2-alpha.4" },
+    "checks": {
+      "type": "object",
+      "properties": {
+        "firstLeaseAcquired": { "const": true },
+        "shutdownLeaseReleased": { "const": true },
+        "restoreWorked": { "const": true },
+        "restoreRevision": { "const": true },
+        "freshLeaseStandby": { "const": true },
+        "staleLeaseTakenOver": { "const": true },
+        "previousOwnerFenced": { "const": true },
+        "takeoverLeaseHeld": { "const": true },
+        "corruptSnapshotQuarantined": { "const": true },
+        "corruptLeaseRecovered": { "const": true }
+      },
+      "required": [
+        "firstLeaseAcquired",
+        "shutdownLeaseReleased",
+        "restoreWorked",
+        "restoreRevision",
+        "freshLeaseStandby",
+        "staleLeaseTakenOver",
+        "previousOwnerFenced",
+        "takeoverLeaseHeld",
+        "corruptSnapshotQuarantined",
+        "corruptLeaseRecovered"
+      ],
+      "additionalProperties": false
+    },
+    "passed": { "type": "boolean" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "conclusion": { "type": "string", "minLength": 1, "maxLength": 500 }
+  },
+  "additionalProperties": false
+}

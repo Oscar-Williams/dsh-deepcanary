@@ -1,3 +1,5 @@
+import type { PersistentSupervisorStatus } from './supervisor.js'
+
 /** Stable reason codes emitted by DeepCanary providers. */
 export type ReasonCode =
   | 'HUMAN_APPROVAL_REQUIRED'
@@ -194,6 +196,15 @@ export interface DeliveryStatus {
   quietHours: QuietHours & { active: boolean }
   dedupeWindowMinutes: number
   bundleWindowSeconds: number
+  hostProbe: {
+    port?: number
+    healthy: boolean
+    consecutiveFailures: number
+    state: 'healthy' | 'outage-open' | 'recovered' | 'recovery-continued'
+    outageId?: string
+    lastCheckedAt?: string
+    recoveredAt?: string
+  }
 }
 
 export interface RuntimeStatus {
@@ -219,6 +230,7 @@ export interface RuntimeStatus {
     destructiveActions: false
   }
   delivery: DeliveryStatus
+  supervisor: PersistentSupervisorStatus
 }
 
 export interface PublicInboxItem {

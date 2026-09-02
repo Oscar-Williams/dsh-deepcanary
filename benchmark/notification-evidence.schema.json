@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DeepCanary Windows notification evidence",
+  "description": "A developer-observed, privacy-safe record for one concrete Edge and Windows notification delivery. Browser permission and constructor calls alone do not satisfy this contract; every OS fact distinguishes observed, not-observed, and not-tested.",
+  "type": "object",
+  "required": ["schemaVersion", "evidenceId", "source", "runId", "trialId", "provenance", "pluginVersion", "runtimeTag", "runWindow", "observedAt", "decision", "notification", "browser", "operatingSystem", "evidenceArtifacts", "rawContentPersisted"],
+  "properties": {
+    "schemaVersion": { "const": 3 },
+    "evidenceId": { "type": "string", "pattern": "^evidence-[a-f0-9]{16}$" },
+    "source": { "const": "manual-windows-observation" },
+    "runId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+    "trialId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+    "provenance": { "enum": ["real", "controlled"] },
+    "pluginVersion": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "runtimeTag": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "runWindow": {
+      "type": "object",
+      "required": ["startedAt", "endedAt"],
+      "properties": {
+        "startedAt": { "type": "string", "format": "date-time" },
+        "endedAt": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "observedAt": { "type": "string", "format": "date-time" },
+    "decision": {
+      "type": "object",
+      "required": ["observationRef", "deliveryUnitRef", "level", "action", "reasonCode"],
+      "properties": {
+        "observationRef": { "type": "string", "pattern": "^[a-f0-9]{16}$" },
+        "deliveryUnitRef": { "type": "string", "pattern": "^[a-f0-9]{16}$" },
+        "level": { "enum": ["C2", "C3"] },
+        "action": { "enum": ["INTERRUPT", "ESCALATE"] },
+        "reasonCode": { "type": "string", "minLength": 1, "maxLength": 128 }
+      },
+      "additionalProperties": false
+    },
+    "notification": {
+      "type": "object",
+      "required": ["channel", "notificationAttemptId", "notificationRef", "tagRef", "titleKey", "bodyFingerprint", "minimalContentOnly"],
+      "properties": {
+        "channel": { "const": "browser-notification" },
+        "notificationAttemptId": { "type": "string", "pattern": "^[a-f0-9]{16}$" },
+        "notificationRef": { "type": "string", "pattern": "^[a-f0-9]{16}$" },
+        "tagRef": { "type": "string", "pattern": "^[a-f0-9]{16}$" },
+        "titleKey": { "type": "string", "pattern": "^notification\\.title\\.[A-Z0-9_]+$" },
+        "bodyFingerprint": { "type": "string", "pattern": "^[a-f0-9]{16}$" },
+        "minimalContentOnly": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "browser": {
+      "type": "object",
+      "required": ["name", "version", "notificationApi", "permission", "pageVisibility", "browserReceiptRef", "constructorObserved", "clickHandlerObserved"],
+      "properties": {
+        "name": { "const": "edge" },
+        "version": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "notificationApi": { "enum": ["supported", "unsupported"] },
+        "permission": { "enum": ["granted", "denied", "default", "unsupported"] },
+        "pageVisibility": { "enum": ["foreground", "background", "minimized", "unknown"] },
+        "browserReceiptRef": { "type": "string", "pattern": "^[a-f0-9]{16}$" },
+        "constructorObserved": { "type": "boolean" },
+        "clickHandlerObserved": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "operatingSystem": {
+      "type": "object",
+      "required": ["name", "build", "notificationsEnabled", "edgeNotificationsEnabled", "focusAssistOff", "toastObserved", "notificationCenterObserved", "toastClicked", "edgeFocusedAfterClick", "returnedToDsh", "targetVisibleInDsh"],
+      "properties": {
+        "name": { "const": "windows" },
+        "build": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "notificationsEnabled": { "$ref": "#/$defs/observationStatus" },
+        "edgeNotificationsEnabled": { "$ref": "#/$defs/observationStatus" },
+        "focusAssistOff": { "$ref": "#/$defs/observationStatus" },
+        "toastObserved": { "$ref": "#/$defs/observationStatus" },
+        "notificationCenterObserved": { "$ref": "#/$defs/observationStatus" },
+        "toastClicked": { "$ref": "#/$defs/observationStatus" },
+        "edgeFocusedAfterClick": { "$ref": "#/$defs/observationStatus" },
+        "returnedToDsh": { "$ref": "#/$defs/observationStatus" },
+        "targetVisibleInDsh": { "$ref": "#/$defs/observationStatus" }
+      },
+      "additionalProperties": false
+    },
+    "evidenceArtifacts": { "$ref": "#/$defs/evidenceArtifacts" },
+    "rawContentPersisted": { "const": false }
+  },
+  "$defs": {
+    "observationStatus": { "enum": ["observed", "not-observed", "not-tested"] },
+    "evidenceArtifacts": {
+      "type": "object",
+      "required": ["screenshotSha256", "automationTreeSha256"],
+      "properties": {
+        "screenshotSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "automationTreeSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
