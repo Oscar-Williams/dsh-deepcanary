@@ -1,6 +1,6 @@
 # DSH interfaces used by DeepCanary
 
-This document records the DSH interfaces used by `dsh-deepcanary`. The historical RC.2 audit targets the official `dsh-v0.1.2-alpha.2` source tag at commit `0a53fb55bea101816fa226bb964ae2bed71c343b`; the current RC4 audit targets immutable `dsh-v0.1.2-alpha.4` at commit `4e84901e6471b79ec0338099867ebb4606d12bb5`. A 2026-09-02 upstream check did not resolve a public immutable alpha.5 Tag/Release, so alpha.4 remains the reproducible runtime baseline.
+This document records the DSH interfaces used by `dsh-deepcanary`. The historical RC.2 audit targets the official `dsh-v0.1.2-alpha.2` source tag at commit `0a53fb55bea101816fa226bb964ae2bed71c343b`; the historical RC4 audit targets immutable `dsh-v0.1.2-alpha.4` at commit `4e84901e6471b79ec0338099867ebb4606d12bb5`. The current `0.1.1-rc.1` audit targets the official immutable `dsh-v0.1.2-alpha.5` tag at commit `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`.
 
 ## Services and lifecycle events
 
@@ -24,7 +24,7 @@ The adapter deliberately exposes only lifecycle events, a session snapshot looku
 
 ## Event vocabulary consumed
 
-The alpha.2 and alpha.4 Session packages expose these relevant core events:
+The alpha.2, alpha.4, and alpha.5 Session packages expose these relevant core events:
 
 - `turn/end` with `{ reason: { kind: 'completed' | 'blocked' | 'aborted' | 'interrupted' | 'error' | 'max-tokens' } }`;
 - `tool/call` and `tool/result`, including structured result errors;
@@ -74,9 +74,9 @@ Route disposers belong to the WebServer injection context, so unload does not le
 
 ## Browser client
 
-The package manifest declares `dsh.client.platform = "web"`, requests the alpha.4-compatible UI dependencies through `dsh.client.inject`, and exposes `./client` as `lib/client.js`. The browser artifact is a lazy-CJS factory that registers with `window.__ModuleLoader__.load`; DSH's client-module loader owns the `/plugins/.../client.js` transport and module-table lifecycle.
+The package manifest declares `dsh.client.platform = "web"`, requests the alpha.5-compatible UI dependencies through `dsh.client.inject`, and exposes `./client` as `lib/client.js`. The browser artifact is a lazy-CJS factory that registers with `window.__ModuleLoader__.load`; DSH's client-module loader owns the `/plugins/.../client.js` transport and module-table lifecycle.
 
-The client contributes the sidebar entry through the additive `sidebar.footer.action` slot, the floating Inbox through the additive `shell.overlay` slot, and the standard keyed settings card through `settings.plugin.item`. The overlay is click-through outside the panel. The panel starts hidden, supports close/reopen, pointer and keyboard resizing, and uses the DSH locale seat for Chinese/English updates. The client uses the alpha.4 module-loading surface and avoids permanent body injection, so the host shell remains available while the panel is closed. Alpha.4's `SessionSeq` changes do not affect the native `sessions.open(SessionId)` navigation contract used by DeepCanary.
+The client contributes the sidebar entry through the additive `sidebar.footer.action` slot, the floating Inbox through the additive `shell.overlay` slot, and the standard keyed settings card through `settings.plugin.item`. The overlay is click-through outside the panel. The panel starts hidden, supports close/reopen, pointer and keyboard resizing, and uses the DSH locale seat for Chinese/English updates. The client uses the alpha.5 module-loading surface and avoids permanent body injection, so the host shell remains available while the panel is closed. Alpha.5's `SessionSeq` changes do not affect the native `sessions.open(SessionId)` navigation contract used by DeepCanary.
 
 ## Audit rule
 

@@ -11,11 +11,13 @@
 
 ## 版本与兼容性
 
-**当前公开预发布版本**：`0.1.0-rc.4` 已完成本地构建、测试、分发和公开 GitHub tag 验证，公开验收基线为官方 DSH [`dsh-v0.1.2-alpha.4`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.4)。截至 2026-09-02，本项目通过官方 tags 与 Releases 接口核对到的最高公开 alpha 版本仍为 alpha.4；alpha.5 的不可变 Tag/Release 尚未获得可验证的公开对象，因此当前依赖、测试与文档继续固定在 alpha.4。GitHub [`v0.1.0-rc.4 Release`](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.0-rc.4) 提供不可变源码 tag 和 RC4 压缩包；npm 包继续等待单独授权，本轮不发布。RC4 延续 RC3 已验证的 Windows、WSL2、Node.js 22/24 和 WebUI 交互基础，并补齐 alpha.4 兼容性、权威人工等待分级、历史会话回跳、反馈与抑制策略；提交、包摘要和发布状态见 [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json)。
+**当前候选版本**：`0.1.1-rc.1` 面向官方 DSH [`dsh-v0.1.2-alpha.5`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.5)，已完成 alpha.5 依赖切换、源码与测试回归，正在完成本轮 GitHub 与 npm `next` 发布。alpha.5 的官方发布说明聚焦旧运行时升级时的启动失败与会话标题丢失修复；本插件使用的 Gateway、client-module、WebServer、Session、Settings 和 Tools 接口保持兼容。alpha.5 的不可变 commit 为 `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`，本轮兼容性记录见 [`benchmark/alpha5-compatibility-receipt.json`](benchmark/alpha5-compatibility-receipt.json)。
+
+公开 [`v0.1.0-rc.4 Release`](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.0-rc.4) 继续作为 alpha4 历史基线保存；其发布收据记录在 [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json)。`0.1.1-rc.1` 延续 RC4 已验证的 Windows、WSL2、Node.js 22/24 和 WebUI 交互基础，并吸收 alpha.5 的持久化兼容修复、连接稳定性维护、通知投递证据、策略回放与 Supervisor 诊断能力。
 
 当前 `main` 包含 RC4 之后的连接稳定性维护：主机探针按 outage epoch 去抖、前端状态请求采用退避与超时清理、通知记录绑定独立尝试 ID、Supervisor 支持 standby 自动接管、去重与打断预算写入有界快照。上述维护代码已完成本地构建和测试，公开 RC4 Release 文件保持不可变；需要验证这些维护内容时请按“从源码重建并验证”执行。
 
-RC4 适合本地试用、反馈和插件集成验证。物理触摸设备、真实屏幕阅读器和允许通知权限后的操作系统级通知属于独立的设备验收项；浏览器自动化、键盘操作、窄视口、强制颜色和通知拒绝分支已有自动化证据。
+`0.1.1-rc.1` 适合本地试用、反馈和插件集成验证。物理触摸设备、真实屏幕阅读器和允许通知权限后的操作系统级通知属于独立的设备验收项；浏览器自动化、键盘操作、窄视口、强制颜色和通知拒绝分支已有自动化证据。
 
 历史 [`v0.1.0-rc.3`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.3) Git tag 保留用于版本对照；对应 npm 版本已撤销，npm 规则不允许复用。历史 [`v0.1.0-rc.2`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.2) 与官方 DSH `dsh-v0.1.2-alpha.2` 的组合仍保留用于复现。`v0.1.0-rc.1` 以及 DSH npm `0.1.1-rc.2` 仅用于历史环境排查，不属于当前安装或测试基线。测试前请先停止 DSH，移除测试配置中的旧插件，再安装目标版本。
 
@@ -41,32 +43,32 @@ DeepCanary 只回答一个问题：当前是否值得用户看一眼？它不重
 - Windows x64 或 WSL2 Ubuntu；
 - Node.js `22.19+`（本次 RC 验证使用 Node.js `24.19.0`）；
 - pnpm `11.7.0`；
-- 已安装官方 DSH 源码运行时；当前可验证基线使用 `dsh-v0.1.2-alpha.4`，commit 为 `4e84901e6471b79ec0338099867ebb4606d12bb5`。待 alpha.5 获得公开 Tag/Release 后，再更新依赖并重新运行完整回归。
+- 已安装官方 DSH 源码运行时；当前兼容性基线使用 `dsh-v0.1.2-alpha.5`，commit 为 `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`。历史 RC4 验收仍固定在 alpha.4。
 
-### GitHub tag 安装（当前可用）：v0.1.0-rc.4
+### GitHub tag 安装（当前候选）：v0.1.1-rc.1
 
-以下命令从不可变 GitHub tag 安装 RC4，适用于当前公开试用和验收。Release 页面同时提供相同版本的压缩包附件。
+以下命令从不可变 GitHub tag 安装 `0.1.1-rc.1`，适用于当前试用和验收。Release 页面同时提供相同版本的压缩包附件。
 
-#### 1. 准备官方 DSH alpha.4
+#### 1. 准备官方 DSH alpha.5
 
 ```powershell
-git clone --depth 1 --branch dsh-v0.1.2-alpha.4 https://github.com/deepseek-ai/deepseek-harness.git dsh-runtime-alpha4
-Set-Location .\dsh-runtime-alpha4
+git clone --depth 1 --branch dsh-v0.1.2-alpha.5 https://github.com/deepseek-ai/deepseek-harness.git dsh-runtime-alpha5
+Set-Location .\dsh-runtime-alpha5
 npx --yes pnpm@11.7.0 install
 npx --yes pnpm@11.7.0 run build
 npx --yes pnpm@11.7.0 dsh --version
 git rev-parse HEAD
 ```
 
-版本命令应输出 `0.1.2-alpha.4`，commit 命令应输出 `4e84901e6471b79ec0338099867ebb4606d12bb5`。已有本地 checkout 即使目录名仍为 `dsh-runtime-alpha1`，也应先确认 tag、commit 和 `dsh --version` 均符合上述值。
+版本命令应输出 `0.1.2-alpha.5`，commit 命令应输出 `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`。已有本地 checkout 即使目录名仍为 `dsh-runtime-alpha1`，也应先确认 tag、commit 和 `dsh --version` 均符合上述值。
 
 #### 2. 安装插件
 
 推荐使用不可变 GitHub tag；需要离线验收时，可下载 Release 附件并使用本地压缩包安装。个人设计资料目录不属于安装来源。
 
 ```powershell
-Set-Location .\dsh-runtime-alpha4
-npx --yes pnpm@11.7.0 dsh plugin --profile web add https://codeload.github.com/Oscar-Williams/dsh-deepcanary/tar.gz/refs/tags/v0.1.0-rc.4
+Set-Location .\dsh-runtime-alpha5
+npx --yes pnpm@11.7.0 dsh plugin --profile web add https://codeload.github.com/Oscar-Williams/dsh-deepcanary/tar.gz/refs/tags/v0.1.1-rc.1
 npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
@@ -74,14 +76,14 @@ npx --yes pnpm@11.7.0 dsh web --no-open
 需要使用 Release 附件时，将下载后的压缩包路径传给同一条安装命令：
 
 ```powershell
-npx --yes pnpm@11.7.0 dsh plugin --profile web add C:\path\to\dsh-deepcanary-0.1.0-rc.4.tgz
+npx --yes pnpm@11.7.0 dsh plugin --profile web add C:\path\to\dsh-deepcanary-0.1.1-rc.1.tgz
 ```
 
-启动后，在同一台机器的浏览器打开 DSH Web 页面。RC4 默认只保留侧栏入口，不会遮挡页面；点击入口后才打开浮动 Inbox。浏览器通知权限被拒绝时，面板和模型可见工具仍然可用。
+启动后，在同一台机器的浏览器打开 DSH Web 页面。`0.1.1-rc.1` 默认只保留侧栏入口，不会遮挡页面；点击入口后才打开浮动 Inbox。浏览器通知权限被拒绝时，面板和模型可见工具仍然可用。
 
-### npm `next` 通道（待发布）
+### npm `next` 通道（本轮发布后可用）
 
-npm 包当前尚未发布。获得发布通知后，可在官方 registry 上执行：
+npm 包将在本轮 GitHub 同步后发布到官方 registry 的 `next` 通道；发布完成后执行：
 
 ```powershell
 $env:npm_config_registry = 'https://registry.npmjs.org/'
@@ -102,18 +104,18 @@ npx --yes pnpm@11.7.0 dsh plugin --profile web update dsh-deepcanary
 npx --yes pnpm@11.7.0 dsh plugin --profile web remove dsh-deepcanary
 ```
 
-需要重新安装当前版本时，重新执行相应的 RC4 安装命令；需要复现 RC3 或 RC2 时，分别使用对应 tag 和匹配的 DSH 运行时。完成替换后重启 `dsh web`，并用 `dsh plugin --profile web list` 确认 profile 中只保留目标版本。
+需要重新安装当前版本时，重新执行相应的 `0.1.1-rc.1` 安装命令；需要复现 RC4、RC3 或 RC2 时，分别使用对应 tag 和匹配的 DSH 运行时。完成替换后重启 `dsh web`，并用 `dsh plugin --profile web list` 确认 profile 中只保留目标版本。
 
-### 从源码重建并验证 RC4
+### 从源码重建并验证 0.1.1-rc.1
 
-需要调试源码或复现构建时，可使用官方 DSH `dsh-v0.1.2-alpha.4` 和独立测试配置；请将 `$pluginDir`、`$dshDir` 改为本机路径。该流程生成的本地压缩包是当前最可靠的验收来源，也可在公共发布完成后继续用于比对。
+需要调试源码或复现构建时，可使用官方 DSH `dsh-v0.1.2-alpha.5` 和独立测试配置；请将 `$pluginDir`、`$dshDir` 改为本机路径。该流程生成的本地压缩包是当前最可靠的验收来源，也可在公共发布完成后继续用于比对。
 
 ```powershell
 $pluginDir = 'C:\path\to\dsh-deepcanary'
-$dshDir = 'C:\path\to\dsh-runtime-alpha4'
+$dshDir = 'C:\path\to\dsh-runtime-alpha5'
 $testHome = Join-Path $env:USERPROFILE '.dsh-deepcanary-test'
 
-git clone --depth 1 --branch dsh-v0.1.2-alpha.4 https://github.com/deepseek-ai/deepseek-harness.git $dshDir
+git clone --depth 1 --branch dsh-v0.1.2-alpha.5 https://github.com/deepseek-ai/deepseek-harness.git $dshDir
 Set-Location $dshDir
 npx --yes pnpm@11.7.0 install --frozen-lockfile
 npx --yes pnpm@11.7.0 run build
@@ -137,7 +139,7 @@ npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
 
-`dsh --version` 应输出 `0.1.2-alpha.4`，`git rev-parse HEAD` 应输出 `4e84901e6471b79ec0338099867ebb4606d12bb5`，本地压缩包应显示 `0.1.0-rc.4`。`cordis.patch.yml` 使用 DSH 的 `dshHomePath('dsh-deepcanary')`，因此设置 `DSH_HOME` 后，插件状态会跟随独立 DSH home 保存。开始 Web UI 手测前，请确认测试配置已加载当前压缩包，并且页面只显示侧栏入口，不再出现固定在右侧的旧卡片。源码维护版本还应检查 `/dsh-deepcanary/health`、`/dsh-deepcanary/state` 中的探针状态、outageId 和 Supervisor 状态。
+`dsh --version` 应输出 `0.1.2-alpha.5`，`git rev-parse HEAD` 应输出 `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`，本地压缩包应显示 `0.1.1-rc.1`。`cordis.patch.yml` 使用 DSH 的 `dshHomePath('dsh-deepcanary')`，因此设置 `DSH_HOME` 后，插件状态会跟随独立 DSH home 保存。开始 Web UI 手测前，请确认测试配置已加载当前压缩包，并且页面只显示侧栏入口，不再出现固定在右侧的旧卡片。源码维护版本还应检查 `/dsh-deepcanary/health`、`/dsh-deepcanary/state` 中的探针状态、outageId 和 Supervisor 状态。
 
 ### WebUI 交互
 
@@ -176,7 +178,7 @@ dogfood 或受控试验可以在产生提醒后，使用 Inbox 条目的 `id` �
 {
   "id": "<Inbox item id>",
   "source": "real",
-  "trialId": "manual-alpha4-01",
+  "trialId": "manual-alpha5-01",
   "opened": true,
   "acknowledged": true,
   "feedback": "useful",
@@ -187,11 +189,11 @@ dogfood 或受控试验可以在产生提醒后，使用 Inbox 条目的 `id` �
 }
 ```
 
-随后使用 `GET /dsh-deepcanary/outcomes?source=real&trialId=manual-alpha4-01` 读取结果。记录文件为本地状态目录中的 `outcomes.json`；真实、受控和回放数据应使用不同的 `trialId` 或独立状态目录，并通过 [`benchmark/outcome-receipt.schema.json`](benchmark/outcome-receipt.schema.json) 约束字段。试验撤回或达到保留期限后，可使用 `DELETE /dsh-deepcanary/outcomes?source=real&trialId=manual-alpha4-01`，或提供明确的 `before=<ISO 日期>` 进行定点清理；删除请求必须包含 trial 或时间边界。
+随后使用 `GET /dsh-deepcanary/outcomes?source=real&trialId=manual-alpha5-01` 读取结果。记录文件为本地状态目录中的 `outcomes.json`；真实、受控和回放数据应使用不同的 `trialId` 或独立状态目录，并通过 [`benchmark/outcome-receipt.schema.json`](benchmark/outcome-receipt.schema.json) 约束字段。试验撤回或达到保留期限后，可使用 `DELETE /dsh-deepcanary/outcomes?source=real&trialId=manual-alpha5-01`，或提供明确的 `before=<ISO 日期>` 进行定点清理；删除请求必须包含 trial 或时间边界。
 
 设置卡片通过 DSH 标准 `settings.plugin.item` 位置暴露通知级别、自动唤起策略、每小时打断预算、静默时段、长时间阈值、Subagent 压力档位、相邻事件合并窗口和隐私安全摘要选项。挂载 `@deepseek-ai/dsh-settings` 后，设置通过 `dsh-deepcanary` namespace 实时生效；没有该 provider 时，插件仍按 bundle 配置工作。
 
-客户端通过包 manifest 的 `dsh.client` 声明和 `./client` 导出接入 DSH alpha.4 客户端模块加载器；面板入口贡献到 `sidebar.footer.action`，浮动面板贡献到 `shell.overlay`，设置卡贡献到标准 `settings.plugin.item`。alpha.4 引入的 `SessionSeq` 内部类型变化不影响本插件使用的 `sessions.open(SessionId)` 导航接口。
+客户端通过包 manifest 的 `dsh.client` 声明和 `./client` 导出接入 DSH alpha.5 客户端模块加载器；面板入口贡献到 `sidebar.footer.action`，浮动面板贡献到 `shell.overlay`，设置卡贡献到标准 `settings.plugin.item`。alpha.5 保留的 `SessionSeq` 内部类型变化不影响本插件使用的 `sessions.open(SessionId)` 导航接口。
 
 ## 注意力策略
 
@@ -214,7 +216,7 @@ Web 接口使用同源本地 WebServer 和 `no-store` 响应；客户端通过 D
 
 - **侧栏入口或面板没有出现**：先停止已有的 `dsh web`，在相同 profile 执行 `dsh plugin --profile web list` 和 `dsh --profile web --dump-config`，确认目标版本与 `dsh-deepcanary` bundle 都已加载；随后重新安装目标包并启动 Web UI。
 - **页面右侧仍有旧卡片**：这通常来自旧 profile 或旧版页面注入插件。移除测试 profile 中的旧 `dsh-deepcanary` 条目，使用当前版本重新安装，并确认页面只保留侧栏入口。
-- **Web UI 显示“连接中”或“连接异常”**：连接状态由 DSH WebSocket、插件状态请求和本地主机探针共同影响，三者需要分别定位。先访问 `http://127.0.0.1:<端口>/dsh-deepcanary/health`，HTTP 200 且返回 `"ok": true` 表示插件服务正常；再检查 `dsh --profile web --dump-config`、终端中的 DSH 进程和浏览器页面是否使用同一端口。打开 `/dsh-deepcanary/state` 查看 `delivery.hostProbe.state`、`consecutiveFailures`、`outageId` 和 `lastCheckedAt`：单次失败会继续观察，连续达到阈值才打开一条 outage epoch，恢复后会记录同一 outageId 的 recovery。短暂状态波动可先等待下一轮退避同步。每次重新启动 `dsh web` 都会生成新的启动 token；请使用本次启动终端打印的新 URL 重新打开或刷新页面，旧页面的会话凭据会随旧 token 失效。alpha.4 的 Gateway 使用 2 秒 Ping/Pong 心跳，主机事件循环或网络短暂阻塞时可能触发重连。持续失败时关闭旧的 DSH 进程后重新运行 `dsh web --no-open`，并保留终端显示的本机访问地址和一次性 token。
+- **Web UI 显示“连接中”或“连接异常”**：连接状态由 DSH WebSocket、插件状态请求和本地主机探针共同影响，三者需要分别定位。先访问 `http://127.0.0.1:<端口>/dsh-deepcanary/health`，HTTP 200 且返回 `"ok": true` 表示插件服务正常；再检查 `dsh --profile web --dump-config`、终端中的 DSH 进程和浏览器页面是否使用同一端口。打开 `/dsh-deepcanary/state` 查看 `delivery.hostProbe.state`、`consecutiveFailures`、`outageId` 和 `lastCheckedAt`：单次失败会继续观察，连续达到阈值才打开一条 outage epoch，恢复后会记录同一 outageId 的 recovery。短暂状态波动可先等待下一轮退避同步。每次重新启动 `dsh web` 都会生成新的启动 token；请使用本次启动终端打印的新 URL 重新打开或刷新页面，旧页面的会话凭据会随旧 token 失效。alpha.5 的 Gateway 使用 2 秒 Ping/Pong 心跳，主机事件循环或网络短暂阻塞时可能触发重连。持续失败时关闭旧的 DSH 进程后重新运行 `dsh web --no-open`，并保留终端显示的本机访问地址和一次性 token。
 - **需要模型调用**：在 DSH 自己的设置中配置 API key；DeepCanary 不读取或保存凭据。无 API key 时，健康检查、面板和离线测试仍可运行。
 
 ## 验证与发布基线

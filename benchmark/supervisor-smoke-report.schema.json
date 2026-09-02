@@ -6,7 +6,7 @@
   "required": ["reportSchemaVersion", "runtimeBaseline", "checks", "passed", "generatedAt", "conclusion"],
   "properties": {
     "reportSchemaVersion": { "const": 1 },
-    "runtimeBaseline": { "const": "dsh-v0.1.2-alpha.4" },
+    "runtimeBaseline": { "const": "dsh-v0.1.2-alpha.5" },
     "checks": {
       "type": "object",
       "properties": {

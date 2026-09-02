@@ -4,6 +4,38 @@ This checklist records the `dsh-deepcanary` `v0.1.0-rc.4` prerelease and preserv
 
 RC4 npm publication is currently paused. The immutable GitHub tag, Release asset, local tarball, and exact alpha.4 source checkout provide the active acceptance paths; the public tag and Release checks below are complete, while npm dist-tag work remains pending.
 
+## 0.1.1-rc.1 release: official DSH alpha.5
+
+The active release candidate is `0.1.1-rc.1`, tested against the official `dsh-v0.1.2-alpha.5` tag at commit `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`. The alpha.5 runtime is the current development and compatibility baseline. RC4 and RC2 sections below preserve their original evidence and reproduction commands.
+
+The Windows alpha.5 Web profile, isolated headless model smoke, and package gates passed. The Ubuntu-26.04 profile has a separate pending WSL gate because the isolated npm installation did not complete during this run; the alpha.4 WSL result remains historical evidence and is not promoted to alpha.5.
+
+Run the following sequence from the plugin repository after confirming the alpha.5 DSH checkout:
+
+```powershell
+npm ci
+npm run typecheck
+npm run typecheck:tests
+npm test
+npm run build
+npm run verify:distribution
+npm run pack:check
+npm run gate:stable
+npm pack --pack-destination output/local-pack
+```
+
+The generated artifact must be `dsh-deepcanary-0.1.1-rc.1.tgz`. Record its SHA-256 in [`benchmark/alpha5-compatibility-receipt.json`](../benchmark/alpha5-compatibility-receipt.json) together with the package digest, source commit, alpha.5 runtime identity, local WebUI result, and the stable-gate report. Keep OS-level Toast observations separate from browser delivery evidence; the receipt should mark Gate D or native-notification work according to the evidence actually collected.
+
+The public synchronization order is: commit and push `main`, create and push the immutable `v0.1.1-rc.1` tag, create the prerelease Release with the exact tarball, verify the remote tag and Release asset, then publish the same tarball to npm with dist-tag `next`. After npm publication, verify the package version and dist-tag from the public registry and update the receipt and bilingual README publication status in a follow-up commit. The GitHub tag remains immutable throughout this process.
+
+- [x] alpha.5 source checkout, CLI version, package lock, and plugin version agree;
+- [x] local unit, type, build, distribution, package, and stable-gate checks pass;
+- [x] fresh alpha.5 Web profile loads the exact local artifact and passes the WebUI smoke;
+- [ ] isolated Ubuntu-26.04 WSL alpha.5 profile completes the package install and Web health check;
+- [ ] `main`, tag `v0.1.1-rc.1`, and GitHub Release are synchronized;
+- [ ] npm `dsh-deepcanary@0.1.1-rc.1` is published with dist-tag `next` and verified from the public registry;
+- [ ] README, English README, changelog, compatibility matrix, and release receipt reflect the final publication state.
+
 ## RC4 release: official DSH alpha.4
 
 Run the following from a clean or verified checkout before evaluating a new plugin tag:

@@ -24,7 +24,7 @@ DeepCanary Core commit
   -> read-only /dsh-deepcanary/supervisor diagnostics
 ```
 
-The Supervisor provides restart-visible state, single-owner protection, standby retry, stale-lease takeover, and resource counters. The browser notification path records a per-attempt ledger with server-side stages; operating-system Toast, Notification Center, and click-back facts are added by the Windows evidence record. Authoritative session reconciliation remains a later adapter-dependent gate because the current alpha.4 adapter does not enumerate all sessions or expose a durable reconciliation cursor.
+The Supervisor provides restart-visible state, single-owner protection, standby retry, stale-lease takeover, and resource counters. The browser notification path records a per-attempt ledger with server-side stages; operating-system Toast, Notification Center, and click-back facts are added by the Windows evidence record. Authoritative session reconciliation remains a later adapter-dependent gate because the current alpha.5 adapter does not enumerate all sessions or expose a durable reconciliation cursor.
 
 The plugin observes DSH interfaces; it does not reimplement the agent loop. Session events are the primary runtime feed. Agent errors and Subagent lifecycle events add optional facts. Session heartbeat silence and WebServer probes provide conservative Host evidence.
 
@@ -42,7 +42,7 @@ The plugin observes DSH interfaces; it does not reimplement the agent loop. Sess
 
 `PolicyDecisionTrace` records stable rule identifiers, applied scopes, suppression causes, evidence-authority counts, final delivery action, Bundle aggregation, and recovery correlation. It contains no prompt, transcript, tool payload, credential, or raw event reference. `deepcanary_explain` and the Web explain route expose this projection for user decisions and support diagnosis.
 
-`src/adapters/dsh.ts` owns the DSH-facing adapter. `ContextDshAdapter` translates the alpha.4 Context events into a small lifecycle interface and keeps session snapshots in memory. Providers do not depend on Web UI or persistence details.
+`src/adapters/dsh.ts` owns the DSH-facing adapter. `ContextDshAdapter` translates the alpha.5 Context events into a small lifecycle interface and keeps session snapshots in memory. Providers do not depend on Web UI or persistence details.
 
 ## Provider coverage
 
@@ -84,10 +84,10 @@ The entry point is `src/index.ts`:
 - `session/created`, `session/event`, and `session/disposed` feed the adapter and Session providers;
 - optional `agents` and `subagents` injections observe live lifecycle facts;
 - optional `webServer` injection registers exact same-origin state, settings, health, action, OutcomeReceipt, and read-only Supervisor routes;
-- optional `settings` injection registers the `dsh-deepcanary` namespace through the DSH Settings `installSection` API used by alpha.4, with the composed configuration as its base and live user changes applied through the provider;
+- optional `settings` injection registers the `dsh-deepcanary` namespace through the DSH Settings `installSection` API used by alpha.5, with the composed configuration as its base and live user changes applied through the provider;
 - DSH Tools are registered with `defineTool`, explicit JSON output schemas, and text renderers.
 
-The browser client is a DSH alpha.4 `dsh.client` module. Its `./client` export is built as a lazy-CJS factory for the client-module loader, then contributes the sidebar entry through `sidebar.footer.action`, the floating Inbox through `shell.overlay`, and the settings card through `settings.plugin.item`. The state route remains the source of truth; the overlay opens on demand. The Inbox renders the decision trace in a bilingual details section so policy reasoning remains available without opening another page.
+The browser client is a DSH alpha.5 `dsh.client` module. Its `./client` export is built as a lazy-CJS factory for the client-module loader, then contributes the sidebar entry through `sidebar.footer.action`, the floating Inbox through `shell.overlay`, and the settings card through `settings.plugin.item`. The state route remains the source of truth; the overlay opens on demand. The Inbox renders the decision trace in a bilingual details section so policy reasoning remains available without opening another page.
 
 The Web protocol is versioned independently from the persisted file format. State and action responses expose `schemaVersion` and a monotonic `revision`; state reads use an ETag and may return `304 Not Modified`. Actions require a client-generated `requestId`, and identical replays return the original receipt without applying the mutation twice. `GET /dsh-deepcanary/explain?id=...` returns one public trace projection, while `POST /dsh-deepcanary/dry-run` returns a read-only current/candidate comparison. `POST /dsh-deepcanary/outcome` records one bounded OutcomeReceipt, and `GET /dsh-deepcanary/outcomes` returns filtered receipts for one source and trial. Inbox entries move through explicit `open`, `seen`, `acknowledged`, `snoozed`, `muted`, `recovered`, and `expired` states so a transient host recovery cannot create a second alert for the same root cause.
 

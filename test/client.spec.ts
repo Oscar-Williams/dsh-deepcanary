@@ -25,7 +25,7 @@ describe('DeepCanary attention navigation', () => {
     expect(calls).toEqual([{ id: 'alert-2', options: { block: 'nearest', inline: 'nearest' } }])
   })
 
-  it('keeps the Inbox visible when alpha4 rejects an older session id', () => {
+  it('keeps the Inbox visible when alpha5 rejects an older session id', () => {
     const order: string[] = []
     handleNotificationClick(
       { close: () => { order.push('close') } },

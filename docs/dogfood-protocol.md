@@ -39,7 +39,7 @@ Record one redacted `OutcomeReceipt` for each reviewed attention decision. The s
 {
   "id": "<Inbox item id>",
   "source": "real",
-  "trialId": "manual-alpha4-01",
+  "trialId": "manual-alpha5-01",
   "opened": true,
   "acknowledged": true,
   "snoozed": false,
@@ -85,13 +85,13 @@ memoryOverhead
 
 `decisionLatency` is measured from the first delivered C2/C3 item to the first user action on that item. Store counts, levels, reason codes, time buckets, versions, and privacy-safe references. Keep real runs, controlled fixtures, and replay runs in separate aggregates.
 
-The local state directory stores receipts in `outcomes.json`. Read a filtered set through `GET /dsh-deepcanary/outcomes?source=real&trialId=manual-alpha4-01`. Generate a report after building the plugin:
+The local state directory stores receipts in `outcomes.json`. Read a filtered set through `GET /dsh-deepcanary/outcomes?source=real&trialId=manual-alpha5-01`. Generate a report after building the plugin:
 
 ```powershell
 npm run outcomes:report -- --input <path-to-outcomes.json> --source real
 ```
 
-The command writes `output/dogfood/outcome-report.json`, which is ignored by Git and follows [`../benchmark/outcome-report.schema.json`](../benchmark/outcome-report.schema.json). It rejects mixed-source aggregates unless `--source` selects one source explicitly. When a trial is withdrawn or its retention window expires, remove it with `DELETE /dsh-deepcanary/outcomes?source=real&trialId=manual-alpha4-01` or an explicit `before=<ISO date>` cutoff. The endpoint always requires an explicit trial or time boundary.
+The command writes `output/dogfood/outcome-report.json`, which is ignored by Git and follows [`../benchmark/outcome-report.schema.json`](../benchmark/outcome-report.schema.json). It rejects mixed-source aggregates unless `--source` selects one source explicitly. When a trial is withdrawn or its retention window expires, remove it with `DELETE /dsh-deepcanary/outcomes?source=real&trialId=manual-alpha5-01` or an explicit `before=<ISO date>` cutoff. The endpoint always requires an explicit trial or time boundary.
 
 ## Opportunity taxonomy and sanitized dogfood bundle
 
@@ -136,11 +136,11 @@ For a real DSH run, enable the recorder explicitly for that run. The recorder wr
 
 ```powershell
 $env:DSH_DEEPCANARY_DOGFOOD = '1'
-$env:DSH_DEEPCANARY_DOGFOOD_RUN_ID = 'real-coding-alpha4-01'
-$env:DSH_DEEPCANARY_DOGFOOD_TRIAL_ID = 'real-alpha4-01'
+$env:DSH_DEEPCANARY_DOGFOOD_RUN_ID = 'real-coding-alpha5-01'
+$env:DSH_DEEPCANARY_DOGFOOD_TRIAL_ID = 'real-alpha5-01'
 $env:DSH_DEEPCANARY_DOGFOOD_TASK_FAMILY = 'coding'
 $env:DSH_DEEPCANARY_DOGFOOD_SCENARIO = 'normal-completion'
-$env:DSH_DEEPCANARY_DOGFOOD_RUNTIME_TAG = 'dsh-v0.1.2-alpha.4'
+$env:DSH_DEEPCANARY_DOGFOOD_RUNTIME_TAG = 'dsh-v0.1.2-alpha.5'
 dsh --profile headless "Run the selected read-only coding task"
 Remove-Item Env:DSH_DEEPCANARY_DOGFOOD,Env:DSH_DEEPCANARY_DOGFOOD_RUN_ID,Env:DSH_DEEPCANARY_DOGFOOD_TRIAL_ID,Env:DSH_DEEPCANARY_DOGFOOD_TASK_FAMILY,Env:DSH_DEEPCANARY_DOGFOOD_SCENARIO,Env:DSH_DEEPCANARY_DOGFOOD_RUNTIME_TAG -ErrorAction SilentlyContinue
 ```
@@ -151,13 +151,13 @@ Every accepted runtime signal is recorded, including C0 silence, suppression, de
 npm run dogfood:capture -- `
   --state-dir <isolated-dsh-state-dir> `
   --dogfood-file <dogfood-<run-id-hash>.json> `
-  --run-id real-coding-alpha4-01 `
-  --trial-id real-alpha4-01 `
+  --run-id real-coding-alpha5-01 `
+  --trial-id real-alpha5-01 `
   --task-family coding `
   --scenario normal-completion `
   --started-at <ISO-start> `
   --ended-at <ISO-end> `
-  --out output/dogfood/real-coding-alpha4-01.json
+  --out output/dogfood/real-coding-alpha5-01.json
 ```
 
 An authoritative DSH human question or approval request sets the session phase to `human-wait`. Stall evaluation pauses for that session until the runtime records the corresponding answer, approval, decision, or terminal state. This keeps a deliberate wait for user input separate from a session that has stopped progressing. The browser notification sink records `attempted`, `constructed`, `click-handler-attached`, `clicked`, or `error` stages under one opaque `notificationAttemptId`. These stages contain only opaque notification references, the safe title key, a body fingerprint, and timestamps. The Windows observation record separately binds the attempt to the browser receipt, run window, screenshot hash, UIA hash, Toast, Notification Center, focus, DSH return, and target visibility.
@@ -170,7 +170,7 @@ When a DSH state directory contains the selected run, the capture helper can cre
 npm run dogfood:capture -- `
   --state-dir <isolated-dsh-state-dir> `
   --run-id real-coding-01 `
-  --trial-id real-alpha4-01 `
+  --trial-id real-alpha5-01 `
   --task-family coding `
   --scenario normal-completion `
   --started-at <ISO-start> `

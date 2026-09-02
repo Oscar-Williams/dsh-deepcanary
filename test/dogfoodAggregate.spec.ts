@@ -11,8 +11,8 @@ const makeBundle = (runId: string, taskFamily: DogfoodRun['taskFamily'], scenari
     provenance: 'real',
     taskFamily,
     scenario,
-    pluginVersion: '0.1.0-rc.4',
-    runtimeTag: 'dsh-v0.1.2-alpha.4',
+    pluginVersion: '0.1.1-rc.1',
+    runtimeTag: 'dsh-v0.1.2-alpha.5',
     policyVersion: 'attention-policy.v1',
     startedAt: '2026-09-02T00:00:00.000Z',
     captureMode: 'manual',
@@ -33,7 +33,7 @@ describe('dogfood aggregate contract', () => {
     expect(report).toMatchObject({ bundleCount: 2, runCount: 2, trialCount: 2, provenance: 'real' })
     expect(report.quality.requiredTaskFamilies.missing).toContain('subagent')
     expect(report.quality.requiredScenarios.missing).toContain('approval-boundary')
-    expect(report.runtimeTags).toEqual(['dsh-v0.1.2-alpha.4'])
+    expect(report.runtimeTags).toEqual(['dsh-v0.1.2-alpha.5'])
   })
 
   it('rejects duplicate run identities', () => {

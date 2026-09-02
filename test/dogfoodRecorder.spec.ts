@@ -48,9 +48,9 @@ function signal(kind: ReasonCode, id: string, dedupeKey: string, options: Partia
 
 describe('runtime dogfood recorder', () => {
   it('is disabled without an explicit complete run contract', () => {
-    expect(dogfoodRunFromEnvironment('0.1.0-rc.4', 'dsh-v0.1.2-alpha.4')).toBeUndefined()
+    expect(dogfoodRunFromEnvironment('0.1.1-rc.1', 'dsh-v0.1.2-alpha.5')).toBeUndefined()
     setDogfoodEnvironment({})
-    expect(dogfoodRunFromEnvironment('0.1.0-rc.4', 'dsh-v0.1.2-alpha.4')).toMatchObject({
+    expect(dogfoodRunFromEnvironment('0.1.1-rc.1', 'dsh-v0.1.2-alpha.5')).toMatchObject({
       provenance: 'real',
       taskFamily: 'coding',
       scenario: 'normal-completion',
@@ -103,7 +103,7 @@ describe('runtime dogfood recorder', () => {
       [DOGFOOD_ENVIRONMENT.scenario]: 'healthy-long-run',
     })
     const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-healthy-recorder-'))
-    const run = dogfoodRunFromEnvironment('0.1.0-rc.4', 'dsh-v0.1.2-alpha.4')!
+    const run = dogfoodRunFromEnvironment('0.1.1-rc.1', 'dsh-v0.1.2-alpha.5')!
     const recorder = new DogfoodRuntimeRecorder(directory, run)
     recorder.recordHealthyHeartbeat('session-healthy-test', '2026-09-02T12:00:00.000Z')
     await recorder.flush()
@@ -131,7 +131,7 @@ describe('runtime dogfood recorder', () => {
       [DOGFOOD_ENVIRONMENT.trialId]: 'finish-runtime-trial',
     })
     const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-finish-recorder-'))
-    const run = dogfoodRunFromEnvironment('0.1.0-rc.4', 'dsh-v0.1.2-alpha.4')!
+    const run = dogfoodRunFromEnvironment('0.1.1-rc.1', 'dsh-v0.1.2-alpha.5', '2026-09-02T12:00:00.000Z')!
     const recorder = new DogfoodRuntimeRecorder(directory, run)
     recorder.finish('2026-09-02T12:01:00.000Z')
     await recorder.flush()

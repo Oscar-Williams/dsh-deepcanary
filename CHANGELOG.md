@@ -2,9 +2,22 @@
 
 All notable changes to `dsh-deepcanary` are recorded here.
 
-## Post-RC4 maintenance — 2026-09-02
+## 0.1.1-rc.1 — DSH alpha.5 compatibility candidate (2026-09-02)
 
-The public `0.1.0-rc.4` artifact remains unchanged. The current `main` branch contains a focused maintenance set for the alpha.4 compatibility baseline:
+`0.1.1-rc.1` updates the compatibility baseline to the official DSH `dsh-v0.1.2-alpha.5` tag at commit `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`. The alpha.5 release addresses upgrade-time startup failures and missing session titles; the DSH interfaces consumed by DeepCanary remain compatible.
+
+### Changed
+
+- updated all current package, lockfile, source, test, installation, and compatibility references to plugin version `0.1.1-rc.1` and DSH alpha.5;
+- kept the alpha.4 compatibility and `0.1.0-rc.4` release records as immutable historical evidence;
+- retained the connection-stability maintenance from the RC4 follow-up, including host-probe outage epochs, bounded state polling, notification-attempt evidence, Persistent Supervisor standby retry, and bounded policy persistence;
+- regenerated the distribution from the alpha.5 dependency graph and verified type checks, tests, build, distribution integrity, and release-gate inputs.
+
+GitHub synchronization and npm publication to the `next` dist-tag are performed after the final local acceptance run. The artifact-specific receipt records the resulting tag, Release asset, package digest, registry version, and dist-tag.
+
+## Post-RC4 maintenance — historical alpha.4 notes (2026-09-02)
+
+The public `0.1.0-rc.4` artifact remains unchanged. The maintenance set below was first developed against the alpha.4 compatibility baseline and is carried into the current alpha.5 candidate:
 
 - debounced the local WebServer probe into outage epochs with stable `outageId` correlation and explicit recovery state;
 - reduced foreground/background state polling and fixed request-timeout cleanup so a slow health request cannot leave a stale in-flight guard;
@@ -15,7 +28,7 @@ The public `0.1.0-rc.4` artifact remains unchanged. The current `main` branch co
 - added `npm run gate:stable`, which regenerates replay and Supervisor evidence and records package, git, source-digest, runtime, and tarball identity.
 - documented DSH launch-token rotation after restart and the alpha.4 Gateway heartbeat behavior in the connection troubleshooting guidance.
 
-The upstream alpha.5 reference was checked against the official public tags and Releases interfaces on 2026-09-02 and could not be resolved as an immutable public object. The alpha.4 tag and commit therefore remain the verified runtime baseline until alpha.5 is publicly available for a complete compatibility run. npm publication remains paused.
+The alpha.4 tag and commit remain the historical runtime baseline for this maintenance note. The current compatibility and release candidate are documented above against alpha.5.
 
 ## 0.1.0-rc.4 — release candidate (2026-09-01)
 

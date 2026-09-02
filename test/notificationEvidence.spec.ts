@@ -9,8 +9,8 @@ const evidence = {
   runId: 'real-run-01',
   trialId: 'real-trial-01',
   provenance: 'real',
-  pluginVersion: '0.1.0-rc.4',
-  runtimeTag: 'dsh-v0.1.2-alpha.4',
+  pluginVersion: '0.1.1-rc.1',
+  runtimeTag: 'dsh-v0.1.2-alpha.5',
   runWindow: {
     startedAt: '2026-09-02T11:59:00.000Z',
     endedAt: '2026-09-02T12:01:00.000Z',

@@ -6,7 +6,7 @@ import { PersistentSupervisor, supervisorSnapshotFor } from '../src/supervisor.j
 
 function snapshot(now: number, revision = 7) {
   return supervisorSnapshotFor(
-    '0.1.2-alpha.4',
+    '0.1.2-alpha.5',
     'ready',
     revision,
     [{ sessionRef: 'session-hash', attentionLevel: 'C2', pendingCount: 1, lastEvidenceAt: new Date(now).toISOString() }],
@@ -22,7 +22,7 @@ describe('PersistentSupervisor', () => {
       const now = 1_756_800_000_000
       const first = new PersistentSupervisor({
         stateDir: directory,
-        runtimeVersion: '0.1.2-alpha.4',
+        runtimeVersion: '0.1.2-alpha.5',
         now: () => now,
         pid: 101,
         instanceId: 'first-instance',
@@ -38,7 +38,7 @@ describe('PersistentSupervisor', () => {
 
       const restored = new PersistentSupervisor({
         stateDir: directory,
-        runtimeVersion: '0.1.2-alpha.4',
+        runtimeVersion: '0.1.2-alpha.5',
         now: () => now,
         pid: 102,
         instanceId: 'restored-instance',
@@ -59,7 +59,7 @@ describe('PersistentSupervisor', () => {
       const now = 1_756_800_000_000
       const first = new PersistentSupervisor({
         stateDir: directory,
-        runtimeVersion: '0.1.2-alpha.4',
+        runtimeVersion: '0.1.2-alpha.5',
         now: () => now,
         pid: 201,
         instanceId: 'lease-owner',
@@ -67,7 +67,7 @@ describe('PersistentSupervisor', () => {
       })
       const contender = new PersistentSupervisor({
         stateDir: directory,
-        runtimeVersion: '0.1.2-alpha.4',
+        runtimeVersion: '0.1.2-alpha.5',
         now: () => now,
         pid: 202,
         instanceId: 'lease-contender',
@@ -89,7 +89,7 @@ describe('PersistentSupervisor', () => {
       const now = 1_756_800_000_000
       const first = new PersistentSupervisor({
         stateDir: directory,
-        runtimeVersion: '0.1.2-alpha.4',
+        runtimeVersion: '0.1.2-alpha.5',
         now: () => now,
         pid: 251,
         instanceId: 'standby-owner',
@@ -98,7 +98,7 @@ describe('PersistentSupervisor', () => {
       })
       const contender = new PersistentSupervisor({
         stateDir: directory,
-        runtimeVersion: '0.1.2-alpha.4',
+        runtimeVersion: '0.1.2-alpha.5',
         now: () => now,
         pid: 252,
         instanceId: 'standby-contender',
@@ -123,7 +123,7 @@ describe('PersistentSupervisor', () => {
       let now = 1_756_800_000_000
       const previous = new PersistentSupervisor({
         stateDir: directory,
-        runtimeVersion: '0.1.2-alpha.4',
+        runtimeVersion: '0.1.2-alpha.5',
         now: () => now,
         pid: 301,
         instanceId: 'stale-instance',
@@ -134,7 +134,7 @@ describe('PersistentSupervisor', () => {
       now += 101
       const takeover = new PersistentSupervisor({
         stateDir: directory,
-        runtimeVersion: '0.1.2-alpha.4',
+        runtimeVersion: '0.1.2-alpha.5',
         now: () => now,
         pid: 302,
         instanceId: 'takeover-instance',
@@ -165,7 +165,7 @@ describe('PersistentSupervisor', () => {
       const now = 1_756_800_000_000
       const owner = new PersistentSupervisor({
         stateDir: directory,
-        runtimeVersion: '0.1.2-alpha.4',
+        runtimeVersion: '0.1.2-alpha.5',
         now: () => now,
         pid: 351,
         instanceId: 'derived-retry-owner',
@@ -174,7 +174,7 @@ describe('PersistentSupervisor', () => {
       })
       const contender = new PersistentSupervisor({
         stateDir: directory,
-        runtimeVersion: '0.1.2-alpha.4',
+        runtimeVersion: '0.1.2-alpha.5',
         now: () => now,
         pid: 352,
         instanceId: 'derived-retry-contender',
@@ -197,7 +197,7 @@ describe('PersistentSupervisor', () => {
     try {
       const supervisor = new PersistentSupervisor({
         stateDir: directory,
-        runtimeVersion: '0.1.2-alpha.4',
+        runtimeVersion: '0.1.2-alpha.5',
         instanceId: 'corrupt-recovery',
         pid: 401,
       })
@@ -217,7 +217,7 @@ describe('PersistentSupervisor', () => {
     try {
       const supervisor = new PersistentSupervisor({
         stateDir: directory,
-        runtimeVersion: '0.1.2-alpha.4',
+        runtimeVersion: '0.1.2-alpha.5',
         instanceId: 'corrupt-lease-recovery',
         pid: 402,
       })
@@ -238,7 +238,7 @@ describe('PersistentSupervisor', () => {
     try {
       const supervisor = new PersistentSupervisor({
         stateDir: directory,
-        runtimeVersion: '0.1.2-alpha.4',
+        runtimeVersion: '0.1.2-alpha.5',
         instanceId: 'lease-token-owner',
         pid: 403,
       })

@@ -12,7 +12,7 @@ const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-supervisor-sm
 let now = 1_756_800_000_000
 const options = (stateDir, instanceId, pid) => ({
   stateDir,
-  runtimeVersion: '0.1.2-alpha.4',
+  runtimeVersion: '0.1.2-alpha.5',
   now: () => now,
   pid,
   instanceId,
@@ -20,7 +20,7 @@ const options = (stateDir, instanceId, pid) => ({
   staleLeaseMs: 100,
 })
 const makeSnapshot = (revision, timestamp = now) => supervisorSnapshotFor(
-  '0.1.2-alpha.4',
+  '0.1.2-alpha.5',
   'ready',
   revision,
   [{ sessionRef: 'session-hash', attentionLevel: 'C2', pendingCount: 1, lastEvidenceAt: new Date(timestamp).toISOString() }],
@@ -99,7 +99,7 @@ const requiredCheckNames = [
 ]
 const report = {
   reportSchemaVersion: 1,
-  runtimeBaseline: 'dsh-v0.1.2-alpha.4',
+  runtimeBaseline: 'dsh-v0.1.2-alpha.5',
   checks,
   passed: requiredCheckNames.length === Object.keys(checks).length
     && requiredCheckNames.every(name => checks[name] === true),

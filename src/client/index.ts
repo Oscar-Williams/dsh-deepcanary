@@ -728,7 +728,7 @@ function createController(sessions: Pick<ISessions, 'open'>): Controller {
   }
 
   const nextPollDelay = (): number => {
-    // DSH alpha.4 keeps its Gateway WebSocket alive with a 2s host Ping. The
+    // DSH alpha.5 keeps its Gateway WebSocket alive with a 2s host Ping. The
     // plugin's state view does not need a second-by-second refresh; a 15s
     // foreground cadence avoids competing with the WebUI while preserving
     // timely attention delivery. Hidden pages use a 60s maintenance cadence.
@@ -838,7 +838,7 @@ function createController(sessions: Pick<ISessions, 'open'>): Controller {
         sessions.open(sessionId as Parameters<ISessions['open']>[0])
         return true
       } catch {
-        // The alpha4 Session API rejects unknown ids. Keeping the panel in
+        // The alpha5 Session API rejects unknown ids. Keeping the panel in
         // place makes that failure visible instead of sending the user to a
         // guessed URL that may open a different session.
         return false

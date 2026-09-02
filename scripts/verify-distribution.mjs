@@ -33,6 +33,7 @@ const required = [
   'benchmark/stable-gates-report.schema.json',
   'benchmark/policy-replay.json',
   'benchmark/alpha3-compatibility-receipt.json',
+  'benchmark/alpha5-compatibility-receipt.json',
   'benchmark/release-candidate-receipt.json',
   'benchmark/release-receipt.json',
   'LICENSE',
@@ -63,6 +64,7 @@ for (const file of ['lib/index.js', 'lib/client.js', 'cordis.patch.yml', 'benchm
 }
 for (const receipt of [
   'benchmark/alpha3-compatibility-receipt.json',
+  'benchmark/alpha5-compatibility-receipt.json',
   'benchmark/release-candidate-receipt.json',
   'benchmark/release-receipt.json',
 ]) {

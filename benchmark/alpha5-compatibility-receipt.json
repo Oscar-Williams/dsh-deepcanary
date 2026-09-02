@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "release-candidate",
+  "status": "CANDIDATE",
+  "scope": "0.1.1-rc.1 release candidate against the official DSH alpha.5 tag",
+  "plugin": "dsh-deepcanary",
+  "pluginVersion": "0.1.1-rc.1",
+  "pluginCommit": "source state verified before the immutable v0.1.1-rc.1 tag",
+  "attentionFixtureVersion": 3,
+  "runtime": {
+    "tag": "dsh-v0.1.2-alpha.5",
+    "version": "0.1.2-alpha.5",
+    "commit": "db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5",
+    "source": "official-git-tag"
+  },
+  "environment": {
+    "windowsNodeVersion": "v24.19.0",
+    "wslNodeVersion": "v22.23.2",
+    "packageManager": "pnpm@11.7.0 for the Windows DSH source checkout; npm 10.9.8 in the isolated WSL environment",
+    "wslEnvironment": "miniconda3/envs/dsh-deepcanary",
+    "profiles": [
+      "isolated Windows alpha.5 Web profile",
+      "isolated Windows alpha.5 headless profile",
+      "Windows alpha.5 headless model profile"
+    ]
+  },
+  "gates": {
+    "runtimeInstall": true,
+    "runtimeBuild": true,
+    "cliVersion": true,
+    "webDumpConfig": true,
+    "pluginBuild": true,
+    "pluginTests": true,
+    "pluginWebE2E": true,
+    "settingsE2E": true,
+    "unloadRestart": true,
+    "privacyGate": true,
+    "distributionIntegrity": true,
+    "publicTagInstall": false,
+    "windowsE2E": true,
+    "wslE2E": false,
+    "modelE2E": true
+  },
+  "attentionGate": "PASS",
+  "evidence": {
+    "tests": {
+      "testFiles": 17,
+      "tests": 80,
+      "windows": "PASS",
+      "wsl": "PENDING; the existing alpha.4 WSL result remains historical"
+    },
+    "webE2E": {
+      "runtimeHeader": "0.1.2-alpha.5-db6bdc3",
+      "pluginVersion": "0.1.1-rc.1",
+      "health": "HTTP 200 with ok=true and state=ready",
+      "hostProbe": "healthy with zero consecutive failures",
+      "supervisor": "running",
+      "panel": "sidebar entry, on-demand overlay, close/reopen, pointer and keyboard resize, bilingual labels",
+      "readOnlyModelTask": "PASS; fixed marker returned; file access and mutation prohibited by prompt",
+      "browserRequests": "DSH and DeepCanary routes returned successful 2xx/304 responses during the alpha.5 smoke",
+      "console": "one unrelated Edge extension port message; no plugin error"
+    },
+    "supervisor": {
+      "status": "PASS",
+      "report": "output/gates/supervisor-smoke-report.json",
+      "coverage": "lease acquisition, restore, standby, stale takeover, fencing, shutdown release, and corrupt-state quarantine"
+    },
+    "policyReplay": {
+      "status": "PASS",
+      "fixture": "benchmark/policy-replay.json",
+      "coverage": "classification, dedupe, Bundle escalation, budget, quiet hours, and recovery"
+    },
+    "wslProfile": {
+      "status": "PENDING",
+      "runtime": "dsh-v0.1.2-alpha.5 version was independently confirmed",
+      "environment": "Ubuntu-26.04 / miniconda3/envs/dsh-deepcanary",
+      "webHealth": "not recorded; the isolated npm runtime installation did not complete",
+      "reason": "Do not promote the historical alpha.4 WSL profile result to alpha.5 evidence.",
+      "credentialMaterial": "excluded"
+    },
+    "modelSmokeTest": {
+      "status": "PASS",
+      "surface": "isolated Windows alpha.5 headless profile",
+      "runtime": "dsh-v0.1.2-alpha.5",
+      "responseMarker": "fixed marker recorded locally; raw response excluded",
+      "fileAccess": "must remain prohibited by the smoke-test prompt"
+    },
+    "publicTagInstall": {
+      "status": "PENDING",
+      "reason": "The immutable v0.1.1-rc.1 tag and GitHub Release are created only after this candidate passes local gates."
+    }
+  },
+  "publication": {
+    "github": {
+      "tag": "v0.1.1-rc.1",
+      "release": "pending-local-candidate",
+      "asset": "dsh-deepcanary-0.1.1-rc.1.tgz",
+      "prerelease": true
+    },
+    "npm": {
+      "registry": "https://registry.npmjs.org/",
+      "package": "dsh-deepcanary",
+      "version": "0.1.1-rc.1",
+      "distTags": {
+        "next": "pending",
+        "latest": "unchanged"
+      },
+      "packageUrl": "https://www.npmjs.com/package/dsh-deepcanary/v/0.1.1-rc.1"
+    }
+  },
+  "pendingForPublicRelease": [
+    "immutable v0.1.1-rc.1 GitHub tag and prerelease asset",
+    "fresh public-tag installation in an isolated Web profile",
+    "isolated WSL alpha.5 Web profile and plugin health check",
+    "npm next publication and public registry verification",
+    "OS Toast, Notification Center retention, and native click-to-focus observation",
+    "physical touch-device and real screen-reader verification"
+  ],
+  "artifact": "dsh-deepcanary-0.1.1-rc.1.tgz",
+  "artifactSha256": "7fc55c59296a10d3d3742851e4aab8317cb2332a41c848f39cb5990a089a7b2f",
+  "verifiedAt": "2026-09-02T20:24:00+08:00",
+  "note": "This receipt records the alpha.5 compatibility candidate. It contains sanitized release evidence only: no credentials, prompts, transcripts, raw model output, full workspace paths, session content, or private design material. publicTagInstall remains pending until the immutable GitHub tag and Release are verified. OS-level notification observation and device-level touch or screen-reader checks remain separate evidence gates."
+}
