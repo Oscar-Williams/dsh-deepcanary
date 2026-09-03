@@ -241,6 +241,59 @@ try {
   supervisorSmoke = undefined
 }
 const supervisorSmokePass = supervisorSmoke?.passed === true
+let supervisorSoak
+try {
+  const candidate = JSON.parse(await readFile(supervisorSoakPath, 'utf8'))
+  const requiredSupplementalChecks = [
+    'firstLeaseAcquired',
+    'normalRestartContinuity',
+    'crashTakeover',
+    'oldOwnerFencing',
+    'policyStateBounded',
+    'deliveryLedgerBounded',
+    'pendingBounded',
+    'sessionsBounded',
+    'stateWithinBudget',
+    'privacyBoundary',
+    'finalLeaseHeldBeforeShutdown',
+    'shutdownLeaseReleased',
+  ]
+  const checksPass = requiredSupplementalChecks.every(name => candidate.checks?.[name] === true)
+    && candidate.checks?.rawContentPersisted === false
+  const identityMatch = candidate.identity?.sourceCommit === gitCommit
+    && candidate.identity?.worktreeDirty === Boolean(gitStatus)
+    && candidate.identity?.packageVersion === packageJson.version
+    && candidate.identity?.packageSha256 === tarballSha256
+    && candidate.identity?.dshTag === runtimeBaseline
+    && candidate.identity?.dshCommit === runtimeCommit
+  const shapePass = candidate.reportSchemaVersion === 1
+    && candidate.pluginVersion === packageJson.version
+    && candidate.runtimeBaseline === runtimeBaseline
+    && candidate.policyVersion === (replay?.policyVersion ?? 'attention-policy.v1')
+    && candidate.provenance === 'controlled-virtual'
+    && candidate.stableGateUse === 'supplemental-only'
+    && candidate.rawContentPersisted === false
+    && candidate.virtualClock?.logicalSamples >= 480
+    && candidate.virtualClock?.virtualDurationHours >= 8
+    && candidate.restartCoverage?.normalRestarts === 3
+    && candidate.restartCoverage?.staleLeaseTakeoverCount >= 1
+    && candidate.resources?.maxStateBytes <= 2 * 1024 * 1024
+  supervisorSoak = {
+    status: shapePass && checksPass && identityMatch ? 'supplemental-pass' : 'pending',
+    provenance: candidate.provenance,
+    stableGateUse: candidate.stableGateUse,
+    virtualDurationHours: candidate.virtualClock?.virtualDurationHours ?? null,
+    checks: shapePass && checksPass ? 'pass' : 'pending',
+    identity: identityMatch ? 'match' : 'stale-or-mismatched',
+    reasons: [
+      ...(shapePass ? [] : ['supplemental-soak-shape-or-bounds-incomplete']),
+      ...(checksPass ? [] : ['supplemental-soak-check-failed']),
+      ...(identityMatch ? [] : ['supplemental-soak-identity-does-not-match-fresh-gate-input']),
+    ],
+  }
+} catch {
+  supervisorSoak = { status: 'not-evaluated', provenance: 'unknown', stableGateUse: 'supplemental-only', virtualDurationHours: null, checks: 'not-evaluated', identity: 'not-evaluated', reasons: ['supplemental-supervisor-soak-report-unavailable'] }
+}
 const gateDReady = realDogfood.status === 'pass' && replayPass && notificationEvidence.status === 'pass' && notificationEvidence.binding?.status === 'pass'
 const authoritativeSessionReconciliation = fileChecks.some(check => check.file === 'lib/adapters/dsh.js' && check.present)
   ? 'partial-adapter-surface'
@@ -310,6 +363,7 @@ const report = {
     implementation: implementationPresent ? 'present' : 'incomplete',
     policyReplay: replayPass ? 'pass' : 'pending',
     supervisorSmoke: supervisorSmokePass ? 'pass' : supervisorSmoke === undefined ? 'not-evaluated' : 'pending',
+    supervisorSoak,
     authoritativeSessionReconciliation,
     crossSinkDeliveryLedger: 'logical-browser-ledger-present-os-observation-pending',
     packageVersion: packageJson.version,

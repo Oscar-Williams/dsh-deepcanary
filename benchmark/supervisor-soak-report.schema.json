@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DeepCanary controlled virtual Supervisor soak report",
+  "description": "Supplemental bounded-state evidence for the experimental Persistent Supervisor. Virtual time never satisfies the real Stable soak gate.",
+  "type": "object",
+  "required": ["reportSchemaVersion", "pluginVersion", "runtimeBaseline", "runtime", "policyVersion", "runId", "trialId", "provenance", "stableGateUse", "rawContentPersisted", "virtualClock", "restartCoverage", "checks", "resources", "identity", "generatedAt", "conclusion"],
+  "properties": {
+    "reportSchemaVersion": { "const": 1 },
+    "pluginVersion": { "type": "string", "minLength": 1 },
+    "runtimeBaseline": { "type": "string", "minLength": 1 },
+    "runtime": {
+      "type": "object",
+      "required": ["tag", "commit"],
+      "properties": { "tag": { "type": "string", "minLength": 1 }, "commit": { "type": "string", "minLength": 1 } },
+      "additionalProperties": false
+    },
+    "policyVersion": { "type": "string", "minLength": 1 },
+    "runId": { "type": "string", "minLength": 1 },
+    "trialId": { "type": "string", "minLength": 1 },
+    "provenance": { "const": "controlled-virtual" },
+    "stableGateUse": { "const": "supplemental-only" },
+    "rawContentPersisted": { "const": false },
+    "virtualClock": { "type": "object", "required": ["baseTime", "virtualDurationHours", "logicalSamples", "cadenceMinutes", "crashGapSeconds"], "properties": { "baseTime": { "type": "string", "format": "date-time" }, "virtualDurationHours": { "type": "number", "minimum": 8 }, "logicalSamples": { "const": 480 }, "cadenceMinutes": { "const": 1 }, "crashGapSeconds": { "const": 46 } }, "additionalProperties": false },
+    "restartCoverage": { "type": "object", "required": ["normalRestarts", "staleLeaseTakeoverCount", "restoreLatencyMs"], "properties": { "normalRestarts": { "const": 3 }, "staleLeaseTakeoverCount": { "const": 1 }, "restoreLatencyMs": { "type": "array", "items": { "type": ["number", "null"], "minimum": 0 } } }, "additionalProperties": false },
+    "checks": { "type": "object", "additionalProperties": { "type": "boolean" } },
+    "resources": { "type": "object", "required": ["persistentStateBudgetBytes", "maxStateBytes", "maxStateDirectoryBytes", "finalStateBytes", "wakeCount", "writeCount", "approximateDiskWriteBytes", "maxSessions", "maxPending", "maxDeliveryLedgerEntries", "heapUsedDeltaBytes", "peakHeapUsedDeltaBytes", "rssDeltaBytes", "peakRssDeltaBytes", "restoreP95Ms", "reconcileLatencyMs", "reconcileNote"], "properties": { "persistentStateBudgetBytes": { "type": "integer", "minimum": 1 }, "maxStateBytes": { "type": "integer", "minimum": 0 }, "maxStateDirectoryBytes": { "type": "integer", "minimum": 0 }, "finalStateBytes": { "type": "integer", "minimum": 0 }, "wakeCount": { "type": "integer", "minimum": 0 }, "writeCount": { "type": "integer", "minimum": 0 }, "approximateDiskWriteBytes": { "type": "integer", "minimum": 0 }, "maxSessions": { "type": "integer", "minimum": 0 }, "maxPending": { "type": "integer", "minimum": 0 }, "maxDeliveryLedgerEntries": { "type": "integer", "minimum": 0 }, "heapUsedDeltaBytes": { "type": "integer" }, "peakHeapUsedDeltaBytes": { "type": "integer" }, "rssDeltaBytes": { "type": "integer" }, "peakRssDeltaBytes": { "type": "integer" }, "restoreP95Ms": { "type": ["number", "null"], "minimum": 0 }, "reconcileLatencyMs": { "type": "null" }, "reconcileNote": { "type": "string", "minLength": 1 } }, "additionalProperties": false },
+    "identity": { "type": "object", "required": ["sourceCommit", "worktreeDirty", "packageVersion", "packageSha256", "dshTag", "dshCommit", "gateEvaluatorVersion"], "properties": { "sourceCommit": { "type": "string", "minLength": 1 }, "worktreeDirty": { "type": "boolean" }, "packageVersion": { "type": "string", "minLength": 1 }, "packageSha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" }, "dshTag": { "type": "string", "minLength": 1 }, "dshCommit": { "type": "string", "minLength": 1 }, "gateEvaluatorVersion": { "type": "string", "minLength": 1 } }, "additionalProperties": false },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "conclusion": { "type": "string", "minLength": 1, "maxLength": 1000 }
+  },
+  "additionalProperties": false
+}

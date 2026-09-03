@@ -537,7 +537,7 @@ describe('DeepCanaryService', () => {
       const first = new DeepCanaryService({ logger: {} } as never, { stateDir: directory, maxInboxItems: 50 })
       services.push(first)
       await first.ready
-      const item = await first.ingest({ ...testSignal(), occurredAt: base.toISOString() })
+      const item = await first.ingest({ ...testSignal(), bundleKey: 'session-private-id:human-needed', occurredAt: base.toISOString() })
       expect(item).toBeDefined()
       await first.dispose()
 
@@ -554,12 +554,128 @@ describe('DeepCanaryService', () => {
       const restoredBeforeExpiry = (second as unknown as { items: Array<{ orphanedAt?: string }> }).items[0]
       expect(restoredBeforeExpiry?.orphanedAt).toBe(base.toISOString())
 
-      vi.setSystemTime(new Date(base.getTime() + 31_000))
-      expect(second.inbox(10)[0]).toMatchObject({ id: item?.id, status: 'expired' })
+      vi.advanceTimersByTime(31_000)
+      await Promise.resolve()
+      expect((second as unknown as { items: Array<{ id: string; status: string }> }).items[0]).toMatchObject({ id: item?.id, status: 'expired' })
       await second.dispose()
       const persisted = await readFile(second.store.file, 'utf8')
       expect(persisted).toContain('"status": "expired"')
       expect(persisted).not.toContain('orphanedAt')
+    } finally {
+      vi.useRealTimers()
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
+  it('restores dedupe and interrupt budget across an experimental Supervisor restart', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-supervisor-policy-restart-'))
+    try {
+      const first = new DeepCanaryService({ logger: {} } as never, {
+        stateDir: directory,
+        maxInboxItems: 50,
+        maxInterruptsPerHour: 1,
+        dedupeWindowMinutes: 60,
+        supervisorMode: 'experimental',
+      })
+      services.push(first)
+      await first.ready
+      first.start()
+      await (first as unknown as { supervisorStart: Promise<void> }).supervisorStart
+      const accepted = await first.ingest({ ...testSignal(), id: 'policy-restart-accepted', dedupeKey: 'policy-restart:accepted' })
+      expect(accepted?.action).toBe('INTERRUPT')
+      await first.dispose()
+
+      const second = new DeepCanaryService({ logger: {} } as never, {
+        stateDir: directory,
+        maxInboxItems: 50,
+        maxInterruptsPerHour: 1,
+        dedupeWindowMinutes: 60,
+        supervisorMode: 'experimental',
+      })
+      services.push(second)
+      await second.ready
+      second.start()
+      await (second as unknown as { supervisorStart: Promise<void> }).supervisorStart
+
+      const deduped = await second.ingest({ ...testSignal(), id: 'policy-restart-duplicate', dedupeKey: 'policy-restart:accepted' })
+      expect(deduped).toBeUndefined()
+      const budgeted = await second.ingest({ ...testSignal(), id: 'policy-restart-budgeted', dedupeKey: 'policy-restart:second' })
+      expect(budgeted?.action).toBe('DIGEST')
+      expect(second.status().delivery.interruptBudget.used).toBe(1)
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
+  it('keeps one final interrupt across three normal experimental Supervisor restarts', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-supervisor-three-restarts-'))
+    try {
+      for (let restart = 0; restart < 4; restart += 1) {
+        const service = new DeepCanaryService({ logger: {} } as never, {
+          stateDir: directory,
+          maxInboxItems: 50,
+          maxInterruptsPerHour: 1,
+          dedupeWindowMinutes: 60,
+          supervisorMode: 'experimental',
+        })
+        services.push(service)
+        await service.ready
+        service.start()
+        await (service as unknown as { supervisorStart: Promise<void> }).supervisorStart
+        if (restart === 0) {
+          const accepted = await service.ingest({ ...testSignal(), id: 'three-restart-accepted', dedupeKey: 'three-restart:accepted' })
+          expect(accepted?.action).toBe('INTERRUPT')
+        } else {
+          const duplicate = await service.ingest({ ...testSignal(), id: `three-restart-duplicate-${restart}`, dedupeKey: 'three-restart:accepted' })
+          expect(duplicate).toBeUndefined()
+        }
+        expect(service.status().delivery.interruptBudget.used).toBe(1)
+        await service.dispose()
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
+  it('clears orphan grace immediately when the authoritative session returns', async () => {
+    vi.useFakeTimers()
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-orphan-return-'))
+    const base = new Date('2026-09-04T00:00:00.000Z')
+    vi.setSystemTime(base)
+    let liveSessions: readonly unknown[] = []
+    const session = {
+      id: 'session-private-id',
+      header: { cwd: 'C:\\work', createdAt: base.getTime() },
+      snapshotEvents: () => [
+        { type: 'turn/start', seq: 0, time: base.getTime(), data: {} },
+        { type: 'approval/asked', seq: 1, time: base.getTime() + 1_000, data: {} },
+      ],
+    }
+    try {
+      const first = new DeepCanaryService({ logger: {} } as never, { stateDir: directory, maxInboxItems: 50 })
+      services.push(first)
+      await first.ready
+      const item = await first.ingest({ ...testSignal(), bundleKey: 'session-private-id:human-needed', occurredAt: base.toISOString() })
+      expect(item).toBeDefined()
+      await first.dispose()
+
+      const second = new DeepCanaryService({
+        logger: {},
+        sessions: { list: () => liveSessions },
+      } as never, { stateDir: directory, maxInboxItems: 50 })
+      services.push(second)
+      await second.ready
+      second.start()
+      await second.adapter.start()
+      const orphaned = (second as unknown as { items: Array<{ id: string; orphanedAt?: string }> }).items[0]
+      expect(orphaned).toMatchObject({ id: item?.id, orphanedAt: base.toISOString() })
+
+      liveSessions = [session]
+      await second.adapter.reconcile()
+
+      const returned = (second as unknown as { items: Array<{ id: string; status: string; orphanedAt?: string }> }).items[0]
+      expect(returned).toMatchObject({ id: item?.id, status: 'open' })
+      expect(returned?.orphanedAt).toBeUndefined()
     } finally {
       vi.useRealTimers()
       await rm(directory, { recursive: true, force: true })

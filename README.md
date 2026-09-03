@@ -246,6 +246,7 @@ npm run benchmark:attention
 npm run outcomes:report -- --input <path-to-outcomes.json> --source real
 npm run replay:policy
 npm run supervisor:smoke
+npm run supervisor:soak
 npm run dogfood:report -- --input <path-to-sanitized-dogfood.json>
 npm run gate:stable -- --dogfood <path-to-sanitized-dogfood.json>
 npm run dogfood:merge -- --input <run-a.json> --input <run-b.json> --out output/dogfood/aggregate.json
@@ -253,7 +254,7 @@ npm run dogfood:capture -- --state-dir <isolated-dsh-state-dir> --run-id <run-id
 npm run notification:evidence -- --input <path-to-notification-evidence.json> --dogfood <path-to-sanitized-dogfood.json>
 ```
 
-质量报告、Outcome 报告、策略回放和 dogfood 报告只保存汇总结果；原始试用数据应留在隔离测试目录，具体字段和隐私边界见 [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md)。策略回放会执行判断、投递策略、去重、Bundle、静默时段、预算和恢复链路，并输出逐案例结果；使用 `--candidate <path-to-config.json>` 可比较候选设置，回放使用确定性时钟并保留允许的结构化信号数据。dogfood 报告要求脱敏机会记录，能够保留 C0、去重、抑制和漏提醒等没有 Inbox 条目的样本；跨任务试用应先按 run 分开，再用 `dogfood:merge` 汇总。Outcome 报告使用 [`benchmark/outcome-report.schema.json`](benchmark/outcome-report.schema.json)，同一次汇总只接收一个 `source`。Windows 通知验收需提供 [`benchmark/notification-evidence.schema.json`](benchmark/notification-evidence.schema.json) 规定的人工观察记录：OS 字段使用 `observed`、`not-observed`、`not-tested` 三态，并绑定 run window、notificationAttemptId、browserReceiptRef、截图哈希和 UIA 哈希；浏览器权限和 `Notification` 构造调用单独形成浏览器阶段记录。`npm run gate:stable` 会新建策略回放、Supervisor smoke、包摘要和工作树身份记录，输出中明确 package version、runtime baseline、source digest 和 tarball SHA-256。RC4 的安装、测试和发布记录在 [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json)；alpha.3 的历史兼容性记录仍保存在 [`benchmark/alpha3-compatibility-receipt.json`](benchmark/alpha3-compatibility-receipt.json) 中。
+质量报告、Outcome 报告、策略回放和 dogfood 报告只保存汇总结果；原始试用数据应留在隔离测试目录，具体字段和隐私边界见 [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md)。策略回放会执行判断、投递策略、去重、Bundle、静默时段、预算和恢复链路，并输出逐案例结果；使用 `--candidate <path-to-config.json>` 可比较候选设置，回放使用确定性时钟并保留允许的结构化信号数据。`npm run supervisor:soak` 执行一组 8 小时虚拟时钟的 Supervisor 有界性补充检查，覆盖重启、接管、fencing、策略状态和 delivery ledger；报告明确标记为 `controlled-virtual` / `supplemental-only`，无法替代真实 8 小时运行。dogfood 报告要求脱敏机会记录，能够保留 C0、去重、抑制和漏提醒等没有 Inbox 条目的样本；跨任务试用应先按 run 分开，再用 `dogfood:merge` 汇总。Outcome 报告使用 [`benchmark/outcome-report.schema.json`](benchmark/outcome-report.schema.json)，同一次汇总只接收一个 `source`。Windows 通知验收需提供 [`benchmark/notification-evidence.schema.json`](benchmark/notification-evidence.schema.json) 规定的人工观察记录：OS 字段使用 `observed`、`not-observed`、`not-tested` 三态，并绑定 run window、notificationAttemptId、browserReceiptRef、截图哈希和 UIA 哈希；浏览器权限和 `Notification` 构造调用单独形成浏览器阶段记录。`npm run gate:stable` 会新建策略回放、Supervisor smoke、包摘要和工作树身份记录，并读取 supplemental soak digest；输出中明确 package version、runtime baseline、source digest 和 tarball SHA-256。RC4 的安装、测试和发布记录在 [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json)；alpha.3 的历史兼容性记录仍保存在 [`benchmark/alpha3-compatibility-receipt.json`](benchmark/alpha3-compatibility-receipt.json) 中。
 
 当前 RC4 沿用并重新验证 AttentionGold v3，固定覆盖 20 个分类场景，以及重复、共享根因 Bundle、恢复复发和多 Session 场景；RC2 收据仍记录历史 v2 的 15 个分类场景。RC2 的官方运行时、Windows/WSL、公开 tag 安装、Web、设置、卸载重启和分发完整性证据记录在仓库内的 [`benchmark/release-receipt.json`](benchmark/release-receipt.json)，收据状态为 `PASS`。RC2 历史文件与 RC4 收据都不进入 npm 运行包，以避免与发布包 SHA-256 形成循环依赖。可复现检查步骤见 [`docs/release-checklist.md`](docs/release-checklist.md)。
 
@@ -266,6 +267,7 @@ npm run notification:evidence -- --input <path-to-notification-evidence.json> --
 - [`docs/security.md`](docs/security.md)：保存哪些数据、提供哪些操作以及安全注意事项；
 - [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md)：如何进行脱敏试用、质量评估和本地性能测试；
 - [`benchmark/outcome-receipt.schema.json`](benchmark/outcome-receipt.schema.json)、[`benchmark/outcome-report.schema.json`](benchmark/outcome-report.schema.json)、[`benchmark/dogfood-aggregate.schema.json`](benchmark/dogfood-aggregate.schema.json) 与 [`benchmark/notification-evidence.schema.json`](benchmark/notification-evidence.schema.json)：结果、跨 run 试用汇总和 Windows 通知观察的公开字段约束；
+- [`benchmark/supervisor-soak-report.schema.json`](benchmark/supervisor-soak-report.schema.json)：实验性 Supervisor 虚拟时钟 bounded-soak 的补充证据约束；
 - [`docs/release-checklist.md`](docs/release-checklist.md)：发布前逐项执行的验证清单。
 
 ## 反馈与贡献

@@ -284,10 +284,13 @@ The replay runner exercises the full service path over sanitized signal sequence
 npm run replay:policy
 npm run replay:policy -- --input <path-to-replay-fixture.json> --candidate <path-to-candidate-config.json>
 npm run supervisor:smoke
+npm run supervisor:soak
 npm run gates:report
 ```
 
 The checked-in [`../benchmark/policy-replay.json`](../benchmark/policy-replay.json) covers normal completion, healthy C0 silence, Human Needed, explicit failure, Host escalation, duplicate signals, persistent suppression, Bundle escalation, budget downgrade, quiet hours, and both recovery paths. The runner retains allowlisted structured signal data, injects a deterministic clock, applies fixture-declared user suppression at the specified step, and rejects a candidate that attempts to select a state directory. The output follows [`../benchmark/policy-replay-report.schema.json`](../benchmark/policy-replay-report.schema.json).
+
+`npm run supervisor:soak` runs the experimental Supervisor against a virtual eight-hour clock. It covers three normal restarts, one stale-lease takeover, old-owner fencing, bounded policy and delivery state, and shutdown lease release; the report follows [`../benchmark/supervisor-soak-report.schema.json`](../benchmark/supervisor-soak-report.schema.json) and carries `provenance=controlled-virtual` plus `stableGateUse=supplemental-only`. The result supports local engineering review and resource budgeting, while real elapsed-time soak and authoritative DSH reconciliation remain separate Stable evidence.
 
 Candidate promotion uses four gates:
 
@@ -334,6 +337,7 @@ dogfoodBundleDigests[]
 auditDigest
 notificationEvidenceDigests[]
 supervisorSmokeDigest
+supervisorSoakDigest
 attentionGoldDigest
 replayReportDigest
 gateEvaluatorVersion

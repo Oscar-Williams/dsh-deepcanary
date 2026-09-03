@@ -28,6 +28,7 @@ const required = [
   'benchmark/dogfood-aggregate.schema.json',
   'benchmark/notification-evidence.schema.json',
   'benchmark/supervisor-smoke-report.schema.json',
+  'benchmark/supervisor-soak-report.schema.json',
   'benchmark/policy-replay.schema.json',
   'benchmark/policy-replay-report.schema.json',
   'benchmark/stable-gates-report.schema.json',
@@ -59,7 +60,7 @@ const commandArgs = npmCli === undefined ? npmArgs : [npmCli, ...npmArgs]
 const { stdout } = await execFileAsync(npmCommand, commandArgs, { cwd: root, maxBuffer: 2_000_000 })
 const packReport = JSON.parse(stdout)
 const packedFiles = new Set(packReport[0]?.files?.map(file => file.path) ?? [])
-for (const file of ['lib/index.js', 'lib/client.js', 'cordis.patch.yml', 'benchmark/attention-gold.json', 'benchmark/attention-gold-v3.json', 'benchmark/attention-quality-report.schema.json', 'benchmark/outcome-receipt.schema.json', 'benchmark/outcome-report.schema.json', 'benchmark/dogfood.schema.json', 'benchmark/dogfood-aggregate.schema.json', 'benchmark/notification-evidence.schema.json', 'benchmark/supervisor-smoke-report.schema.json', 'benchmark/policy-replay.schema.json', 'benchmark/policy-replay-report.schema.json', 'benchmark/stable-gates-report.schema.json', 'benchmark/policy-replay.json']) {
+for (const file of ['lib/index.js', 'lib/client.js', 'cordis.patch.yml', 'benchmark/attention-gold.json', 'benchmark/attention-gold-v3.json', 'benchmark/attention-quality-report.schema.json', 'benchmark/outcome-receipt.schema.json', 'benchmark/outcome-report.schema.json', 'benchmark/dogfood.schema.json', 'benchmark/dogfood-aggregate.schema.json', 'benchmark/notification-evidence.schema.json', 'benchmark/supervisor-smoke-report.schema.json', 'benchmark/supervisor-soak-report.schema.json', 'benchmark/policy-replay.schema.json', 'benchmark/policy-replay-report.schema.json', 'benchmark/stable-gates-report.schema.json', 'benchmark/policy-replay.json']) {
   if (![...packedFiles].some(candidate => candidate === file || candidate.endsWith(`/${file}`))) throw new Error(`required file is absent from npm package: ${file}`)
 }
 for (const receipt of [

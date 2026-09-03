@@ -2,7 +2,7 @@
 
 All notable changes to `dsh-deepcanary` are recorded here.
 
-## 0.1.1-rc.2 — authoritative session reconciliation engineering candidate (2026-09-03)
+## 0.1.1-rc.2 — authoritative session reconciliation engineering candidate (2026-09-04)
 
 `0.1.1-rc.2` is the current `main` engineering candidate for the official DSH `dsh-v0.1.2-alpha.5` runtime. It introduces the first vertical slice of authoritative session reconciliation while retaining the deterministic attention core and privacy boundary.
 
@@ -14,7 +14,9 @@ All notable changes to `dsh-deepcanary` are recorded here.
 - merge already-snapshotted events by their exact session event sequence and expose an explicit degraded status when the authoritative list is unavailable or the boundary cannot be verified;
 - carry the authoritative snapshot into service session state so startup restoration preserves running, Human Needed, failure, compaction, and last-event metadata;
 - recreate one authoritative Human Needed item from an unresolved startup snapshot, persist a bounded orphan-grace timestamp, and converge a missing session to `expired` after an authoritative grace window;
+- advance timestamp-only orphan grace from the liveness cadence, clear the grace immediately when an authoritative session returns, and cover three normal Supervisor restarts without a duplicate final interrupt;
 - persist a bounded logical browser delivery ledger with idempotent attempt transitions, including delayed-callback protection and Supervisor snapshot restoration;
+- add a controlled virtual-clock Supervisor bounded-soak report covering three normal restarts, stale-lease takeover, old-owner fencing, bounded policy/delivery state, resource counters, and shutdown release; the report remains supplemental-only and does not satisfy real elapsed-time Stable soak;
 - keep the Persistent Supervisor explicitly experimental and off by default until its Stable reconciliation, restart, OS-delivery, resource, and soak criteria are complete;
 - expose reconciliation status through the plugin state contract for operational diagnosis.
 

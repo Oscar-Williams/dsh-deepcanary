@@ -94,12 +94,26 @@
     },
     "gateE": {
       "type": "object",
-      "required": ["status", "implementation", "policyReplay", "supervisorSmoke", "authoritativeSessionReconciliation", "crossSinkDeliveryLedger", "packageVersion", "note"],
+      "required": ["status", "implementation", "policyReplay", "supervisorSmoke", "supervisorSoak", "authoritativeSessionReconciliation", "crossSinkDeliveryLedger", "packageVersion", "note"],
       "properties": {
         "status": { "enum": ["pending", "prototype-ready"] },
         "implementation": { "enum": ["incomplete", "present"] },
         "policyReplay": { "enum": ["pending", "pass"] },
         "supervisorSmoke": { "enum": ["not-evaluated", "pending", "pass"] },
+        "supervisorSoak": {
+          "type": "object",
+          "required": ["status", "provenance", "stableGateUse", "virtualDurationHours", "checks", "identity", "reasons"],
+          "properties": {
+            "status": { "enum": ["not-evaluated", "pending", "supplemental-pass"] },
+            "provenance": { "type": "string", "minLength": 1 },
+            "stableGateUse": { "const": "supplemental-only" },
+            "virtualDurationHours": { "type": ["number", "null"], "minimum": 0 },
+            "checks": { "enum": ["not-evaluated", "pending", "pass"] },
+            "identity": { "enum": ["not-evaluated", "stale-or-mismatched", "match"] },
+            "reasons": { "type": "array", "items": { "type": "string" } }
+          },
+          "additionalProperties": false
+        },
         "authoritativeSessionReconciliation": { "enum": ["pending-adapter-surface", "partial-adapter-surface", "pass"] },
         "crossSinkDeliveryLedger": { "const": "logical-browser-ledger-present-os-observation-pending" },
         "packageVersion": { "type": "string", "minLength": 1 },

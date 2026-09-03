@@ -1064,6 +1064,13 @@ export class DeepCanaryService {
         item.sessionId = id
         linkedHistoricalItem = true
       }
+      // An authoritative session return closes the startup/orphan gap
+      // immediately. A firehose event without an authoritative snapshot
+      // remains subject to the normal reconciliation pass.
+      if (authoritativeSnapshot?.active === true && item.sessionId === id && item.orphanedAt !== undefined) {
+        delete item.orphanedAt
+        linkedHistoricalItem = true
+      }
     }
     if (linkedHistoricalItem) this.queueSave()
     if (authoritativeSnapshot?.waitingForHuman && authoritativeSnapshot.humanNeededReason !== undefined) {
@@ -1203,6 +1210,10 @@ export class DeepCanaryService {
 
   private checkStalls(): void {
     const now = Date.now()
+    // The liveness cadence also advances timestamp-only orphan grace. This
+    // keeps a restored item convergent while the host remains otherwise
+    // quiet, without synthesizing a runtime observation or notification.
+    this.normalizeLifecycle(now)
     const thresholdMs = this.config.longRunThresholdMinutes * 60 * 1000
     for (const session of this.sessions.values()) {
       if (!session.active || !session.running) continue

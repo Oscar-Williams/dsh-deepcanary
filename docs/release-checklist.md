@@ -102,12 +102,13 @@ Gate E combines a reproducible package with the explicitly enabled Persistent Su
 ```powershell
 npm run replay:policy
 npm run supervisor:smoke
+npm run supervisor:soak
 npm run verify:distribution
 npm run verify:release-receipt
 npm pack --dry-run
 ```
 
-Select `supervisorMode: experimental` in the exact alpha.5 test profile, then inspect `GET /dsh-deepcanary/supervisor` and confirm that `supervisor.json` is bounded, `supervisor.lease` is released after shutdown, a competing process enters `standby` and retries after the active lease is released, a stale lease is archived before takeover, and a previous owner cannot overwrite the active owner's snapshot. The lease mutations and owned snapshot commits use the same local operation lock, so fencing is checked within one serialized filesystem operation. Record startup, restore, write, heartbeat, wake, state-directory-size, RSS counters, policy-state version, restored dedupe/budget entries, and logical browser delivery entries. RC2 now exposes the first authoritative session reconciliation slice and orphan grace, while post-restart convergence, Windows OS observation, and the remaining Stable semantics stay as separate evidence gates.
+Select `supervisorMode: experimental` in the exact alpha.5 test profile, then inspect `GET /dsh-deepcanary/supervisor` and confirm that `supervisor.json` is bounded, `supervisor.lease` is released after shutdown, a competing process enters `standby` and retries after the active lease is released, a stale lease is archived before takeover, and a previous owner cannot overwrite the active owner's snapshot. The lease mutations and owned snapshot commits use the same local operation lock, so fencing is checked within one serialized filesystem operation. Run `npm run supervisor:soak` for the controlled virtual-clock supplemental report; it covers three normal restarts, one stale-lease takeover, old-owner fencing, bounded policy/delivery state, and shutdown release. Its `controlled-virtual` / `supplemental-only` identity keeps it separate from the real 8-hour Stable soak. Record startup, restore, write, heartbeat, wake, state-directory-size, RSS counters, policy-state version, restored dedupe/budget entries, and logical browser delivery entries. RC2 now exposes the first authoritative session reconciliation slice and orphan grace, while post-restart convergence, Windows OS observation, and the remaining Stable semantics stay as separate evidence gates.
 
 The repository CI workflow starts the pinned alpha.4 Web profile in an isolated home and exercises the panel through Playwright CLI. Run [33557376591](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33557376591) passed on the final RC4 main commit across Windows and Ubuntu with Node 22 and 24, including the alpha.4 WebUI smoke. Automated checks cover the computer interaction surface; physical touch and real Screen Reader evaluation remain separate device checks.
 
