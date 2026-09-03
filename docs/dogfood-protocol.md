@@ -283,6 +283,7 @@ The replay runner exercises the full service path over sanitized signal sequence
 ```powershell
 npm run replay:policy
 npm run replay:policy -- --input <path-to-replay-fixture.json> --candidate <path-to-candidate-config.json>
+npm run adapter:smoke
 npm run supervisor:smoke
 npm run supervisor:soak
 npm run gates:report

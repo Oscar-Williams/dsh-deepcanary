@@ -245,6 +245,7 @@ npm run quality:report
 npm run benchmark:attention
 npm run outcomes:report -- --input <path-to-outcomes.json> --source real
 npm run replay:policy
+npm run adapter:smoke
 npm run supervisor:smoke
 npm run supervisor:soak
 npm run dogfood:report -- --input <path-to-sanitized-dogfood.json>

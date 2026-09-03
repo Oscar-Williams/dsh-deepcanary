@@ -91,6 +91,7 @@
     "dogfood:merge": "npm run build && node ./scripts/merge-dogfood.mjs",
     "dogfood:capture": "npm run build && node ./scripts/capture-dogfood-run.mjs",
     "notification:evidence": "npm run build && node ./scripts/validate-notification-evidence.mjs",
+    "adapter:smoke": "npm run build && node ./scripts/adapter-alpha5-smoke.mjs",
     "supervisor:smoke": "npm run build && node ./scripts/supervisor-smoke.mjs",
     "supervisor:soak": "npm run build && node ./scripts/supervisor-soak.mjs",
     "replay:policy": "npm run build && node ./scripts/replay-attention-policy.mjs",

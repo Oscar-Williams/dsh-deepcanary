@@ -101,6 +101,7 @@ Gate E combines a reproducible package with the explicitly enabled Persistent Su
 
 ```powershell
 npm run replay:policy
+npm run adapter:smoke
 npm run supervisor:smoke
 npm run supervisor:soak
 npm run verify:distribution
