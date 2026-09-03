@@ -31,6 +31,25 @@ Use a fresh isolated DSH profile and cover the following task families:
 
 The profile must use the specific DSH runtime tag listed in the compatibility matrix. Keep the test profile directory separate from the Conda environment and the user's normal DSH profile.
 
+## Run-level labels and observation-level opportunities
+
+The capture contract uses one task family and one scenario for each run. Fine-grained opportunity types belong to observations inside that run. This two-level model keeps the capture command aligned with the schema while preserving the detail needed for quality analysis:
+
+| Level | Values | Purpose |
+| --- | --- | --- |
+| Run task family | `coding`, `build-test`, `research`, `multi-stage`, `subagent` | One primary work type per run |
+| Run scenario | `approval-boundary`, `network-recovery`, `healthy-long-run`, `normal-completion`, `explicit-failure`, `recovery-continued` | One primary scenario per run |
+| Observation event class | `human-needed`, `host-health`, `stuck-progress`, `subagent-pressure`, `context-pressure`, `completion`, `healthy-run` | Opportunity or state type inside a run |
+| Observation disposition | `delivered`, `suppressed-by-policy`, `missed`, `not-in-scope` | Independent audit result; mapped to runtime decision fields |
+
+The schemaVersion 1 bundle uses `provenance=real` for a natural-real run, `provenance=controlled` for a controlled-real run, and `provenance=replay` for a deterministic fixture or replay. The independent audit source `manual-audit` is recorded in the audit sidecar and is not substituted into the schemaVersion 1 bundle provenance enum. Reports preserve the distinction between natural-real, controlled-real, fixture, and manual-audit evidence.
+
+Examples:
+
+- A natural coding session uses `taskFamily=coding` and a scenario such as `normal-completion`; an approval or quiet-hour opportunity remains an observation within that run.
+- A controlled recovery session uses `taskFamily=build-test` and `scenario=network-recovery`; its recovery chain and notification observations remain separately countable.
+- “Returned while the user was away”, “merged by Bundle”, and “deduplicated” are observation-level facts. They do not require new run-level scenario values.
+
 ## Collection record
 
 Record one redacted `OutcomeReceipt` for each reviewed attention decision. The service accepts it through `POST /dsh-deepcanary/outcome`:
@@ -52,14 +71,17 @@ Record one redacted `OutcomeReceipt` for each reviewed attention decision. The s
 }
 ```
 
-`source` is required and has one of three values: `real` for an actual user trial, `controlled` for a controlled local scenario, and `replay` for a frozen or historical replay. Keep one source per aggregate. `trialId` uses a local redacted identifier and accepts letters, numbers, dots, underscores, colons, and hyphens.
+`source` is required and has one of three schemaVersion 1 values: `real` for a natural-real user trial, `controlled` for a controlled-real DSH scenario, and `replay` for a deterministic fixture or historical replay. Keep one source per aggregate. The independent `manual-audit` source belongs to the audit sidecar and remains visible in the report without being inserted into the OutcomeReceipt source enum. `trialId` uses a local redacted identifier and accepts letters, numbers, dots, underscores, colons, and hyphens.
 
 For a run-level summary, record:
 
 ```text
 runId
-scenarioFamily
-dataSource                 # real | controlled-fixture | replay
+trialId
+taskFamily                 # coding | build-test | research | multi-stage | subagent
+scenario                   # approval-boundary | network-recovery | healthy-long-run | normal-completion | explicit-failure | recovery-continued
+provenance                 # real | controlled | replay
+evidenceSource             # natural-real | controlled-real | fixture | manual-audit
 pluginVersion
 runtimeTag
 policyVersion
@@ -83,7 +105,17 @@ cpuOverhead
 memoryOverhead
 ```
 
-`decisionLatency` is measured from the first delivered C2/C3 item to the first user action on that item. Store counts, levels, reason codes, time buckets, versions, and privacy-safe references. Keep real runs, controlled fixtures, and replay runs in separate aggregates.
+`decisionLatency` is measured from the first delivered C2/C3 item to the first user action on that item. Store counts, levels, reason codes, time buckets, versions, and privacy-safe references. Keep natural-real runs, controlled-real runs, fixtures, and replay runs in separate aggregates.
+
+Use three independent coverage measures:
+
+1. `User-facing Review Coverage = reviewedDeliveryUnits / reviewEligibleDeliveryUnits`, where the denominator contains unique final Inbox, Digest, Interrupt, and Escalate delivery units that require user understanding or judgment.
+2. `Negative Opportunity Audit Coverage`, which samples C0, suppressed, deduped, no-delivery, and recovery-closed opportunities to detect false negatives and incorrect suppression.
+3. `Scenario Coverage`, which reports every declared run-level task family and scenario separately.
+
+System bookkeeping such as heartbeat, deduplication, and recovery closure does not automatically enter user usefulness review. `reviewed observations / all observations` is retained as a diagnostic count and is not the primary usefulness denominator.
+
+Calibration begins after at least two independent real runs across two workdays, five Human Needed opportunities, three healthy-long-run samples, one recovery chain, and five reviewed user-facing delivery units. Stable evidence additionally targets three natural-real runs across three workdays, three task families, ten audited Human Needed opportunities, fifteen reviewed user-facing delivery units with at least 80% review coverage, five reviewed C2/C3 units, five healthy-long-run samples with two hours of supervised time, three recovery chains including one network/Host recovery, one recovery-continued case, zero duplicate final interrupts, and `rawContentPersisted=false`. Reports show numerator, denominator, exact counts, provenance, confidence interval, and `insufficient-sample` when a floor is not met.
 
 The local state directory stores receipts in `outcomes.json`. Read a filtered set through `GET /dsh-deepcanary/outcomes?source=real&trialId=manual-alpha5-01`. Generate a report after building the plugin:
 
@@ -104,6 +136,52 @@ OutcomeReceipts describe decisions that reached an Inbox item. A dogfood observa
 | Phase | `startup`, `running`, `human-wait`, `recovery`, `completion` |
 | Disposition | `c0-silent`, `deduped`, `bundle-merged`, `suppressed`, `inbox`, `digest`, `interrupt`, `escalate`, `recovery-closed`, `provider-error`, `sink-error`, `dropped-event` |
 | Review label | `correct-useful`, `correct-low-value`, `not-relevant`, `already-resolved`, `wrong-level`, `false-stall`, `missed-human-needed`, `duplicate-final-interrupt`, `too-late`, `provider-error`, `sink-error`, `dropped-event`, `uncertain` |
+
+### Independent DSH anchor audit
+
+The runtime ledger is authoritative for signals that DeepCanary received and processed. The DSH session history is authoritative for discovering whether a Human Needed opportunity happened at all. Every real run therefore receives a short independent audit after completion:
+
+1. Review DSH session history or the structured trajectory view session by session.
+2. Locate approval requests, questions or clarification waits, and permission confirmations.
+3. Match each anchor by session reference, stable sequence when available, structured event id, and time window.
+4. Record the expected level/action, matched observation and delivery references, disposition, and primary attribution.
+5. Record unmatched anchors as independent audit findings. This preserves the evidence meaning that the runtime did not observe the event.
+6. Complete the first review within 30 minutes of the run and retain reviewer, reviewedAt, and safe evidence references.
+7. Record internal-only events as `not-in-scope` notes; keep them outside the recall denominator.
+
+The four audit dispositions map to runtime facts as follows:
+
+| Audit disposition | Runtime mapping |
+| --- | --- |
+| `delivered` | Matching observation with an expected decision and a user-facing delivery |
+| `suppressed-by-policy` | Policy-selected suppression, deduplication, or Bundle merge that satisfies the applicable floor |
+| `missed` | DSH anchor exists without an explainable observation or delivery; add `missed-human-needed` as an audit finding |
+| `not-in-scope` | Event has no current user-action meaning; retain only in audit notes |
+
+The schemaVersion 1 bundle keeps the audit sidecar separate so its existing `observations` contract remains valid. A recommended sidecar is `output/dogfood/<run-id>.audit.json`:
+
+~~~json
+{
+  "schemaVersion": 1,
+  "auditId": "audit-<opaque>",
+  "runId": "real-coding-alpha5-01",
+  "trialId": "real-alpha5-01",
+  "sessionRef": "<hash>",
+  "anchorKind": "approval",
+  "occurredAt": "<ISO>",
+  "matchedObservationRef": "<hash-or-omit>",
+  "matchedDeliveryUnitRef": "<hash-or-omit>",
+  "disposition": "delivered",
+  "expectedLevel": "C3",
+  "expectedAction": "ESCALATE",
+  "reviewer": "developer",
+  "reviewedAt": "<ISO>",
+  "primaryAttribution": "adapter",
+  "evidenceRefs": ["<safe-hash>"]
+}
+~~~
+
+The sidecar stores hashes, opaque references, enums, timestamps, and expected decisions. It keeps prompts, transcripts, model output, tool arguments, credentials, original approval text, complete paths, and raw file content outside the evidence set.
 
 The public bundle format is [`../benchmark/dogfood.schema.json`](../benchmark/dogfood.schema.json). It keeps one `run` context, opportunity observations, and matching OutcomeReceipts together while requiring `rawContentPersisted: false`. Opaque observation, delivery-unit, and Bundle references use hashes; prompt text, transcripts, tool arguments, credentials, complete paths, and raw model output do not enter the bundle. A bundle remains one run/trial/provenance/runtime/policy context.
 
@@ -207,7 +285,16 @@ npm run supervisor:smoke
 npm run gates:report
 ```
 
-The checked-in [`../benchmark/policy-replay.json`](../benchmark/policy-replay.json) covers normal completion, healthy C0 silence, Human Needed, explicit failure, Host escalation, duplicate signals, persistent suppression, Bundle escalation, budget downgrade, quiet hours, and both recovery paths. The runner retains allowlisted structured signal data, injects a deterministic clock, applies fixture-declared user suppression at the specified step, and rejects a candidate that attempts to select a state directory. The output follows [`../benchmark/policy-replay-report.schema.json`](../benchmark/policy-replay-report.schema.json). Candidate promotion requires every required case to pass and a separate real-run review of usefulness, missed Human Needed, false stalls, notification delivery, and recovery timing.
+The checked-in [`../benchmark/policy-replay.json`](../benchmark/policy-replay.json) covers normal completion, healthy C0 silence, Human Needed, explicit failure, Host escalation, duplicate signals, persistent suppression, Bundle escalation, budget downgrade, quiet hours, and both recovery paths. The runner retains allowlisted structured signal data, injects a deterministic clock, applies fixture-declared user suppression at the specified step, and rejects a candidate that attempts to select a state directory. The output follows [`../benchmark/policy-replay-report.schema.json`](../benchmark/policy-replay-report.schema.json).
+
+Candidate promotion uses four gates:
+
+1. **Target Fix**: every target failure fixture reaches the expected verdict, delivery, and recovery.
+2. **Safety No Regression**: Frozen Critical Recall and Frozen Human Needed Recall remain 100%; C3 authority, duplicate-final-interrupt safety, normal-completion C1, critical suppression floor, and privacy assertions remain intact.
+3. **Attention Budget No Regression**: C2 interrupt count, Bundle compression, quiet hours, and recovery convergence remain within the approved baseline.
+4. **Resource No Regression**: event processing, timers/wakes, persisted state, heap/state delta, restore latency, and disk write rate remain within the approved budget.
+
+Discovery data generates a candidate. A holdout run remains outside candidate selection. The frozen suite remains unchanged and supplies the long-term regression guard. Candidate adoption is manual, versioned, explainable, and reversible; online feedback creates a candidate record rather than changing policy in place.
 
 `npm run gate:stable` combines fresh replay evidence, Supervisor smoke, package identity, and the supplied dogfood report into `output/gates/stable-gates-report.json`. Pass `--dogfood <path-to-sanitized-dogfood.json>` or a validated aggregate. A Windows observation is supplied with `--notification-evidence <path-to-notification-evidence.json>`; the record must use [`../benchmark/notification-evidence.schema.json`](../benchmark/notification-evidence.schema.json), include the run window, notification attempt ID, browser receipt, screenshot/UIA hashes, and record every OS fact as `observed`, `not-observed`, or `not-tested`. Missing evidence remains pending and the command does not change release tags or publish a package.
 
@@ -225,6 +312,43 @@ npm run gates:report -- `
 ```
 
 The evidence validator returns `pass` only when Edge permission and browser delivery observations are present together with `observed` status for Windows notifications enabled, Edge notifications enabled, Focus Assist off, a visible Toast, Notification Center retention, a successful Toast click, Edge focus, return to DSH, target-item visibility, and a matching real dogfood delivery record. `not-observed` and `not-tested` remain explicit pending outcomes with different reasons. The browser-notification channel represents the browser-to-operating-system delivery path; the actual Toast, Notification Center, and click-to-focus observations complete the OS evidence.
+
+Before each U5 trial, record Edge site permission, Windows Notifications, Edge system permission, Focus Assist/Do Not Disturb, page visibility, quiet hours, C2 budget, notificationAttempt ledger, plugin/runtime/package identity, and the matching runId/trialId. Playwright supplies browser-layer facts; Windows Toast, Notification Center, Focus Assist behavior, and real system-click behavior require manual or Windows UI Automation observation.
+
+## Fresh Gate report identity
+
+Generate the final Gate report from current source bundles and evidence. Record:
+
+~~~text
+generatedAt
+sourceCommit
+worktreeDirty
+pluginVersion
+packageSha256
+dshTag
+dshCommit
+policyVersion
+dogfoodBundleDigests[]
+auditDigest
+notificationEvidenceDigests[]
+supervisorSmokeDigest
+attentionGoldDigest
+replayReportDigest
+gateEvaluatorVersion
+~~~
+
+An input digest, version, or policy change marks the previous report `STALE`. Rebuild the report before making a new Gate decision. Historical reports remain available for comparison with their original identity.
+
+## Stable decision matrix
+
+| Decision | Criteria |
+| --- | --- |
+| `STABLE_READY` | Gate A–E core criteria pass; only low-risk optional enhancements remain |
+| `STABLE_READY_WITH_NON_CORE_EXCEPTIONS` | Only physical touch, full screen-reader certification, or extended WSL combinations remain partial |
+| `CONTINUE_RC` | Gate D, OS-visible delivery, or Supervisor Stable semantics remains incomplete |
+| `NO_GO_REDESIGN` | Real evidence shows the core value cannot be made reliable through deterministic policy and targeted fixes |
+
+Core Stable criteria include zero critical Human Needed misses, 100% frozen critical and Human Needed recall, authoritative C3, zero duplicate final interrupts, normal completion at C1, privacy-safe persistence, idempotent actions, correct session navigation, proven OS-visible delivery for the public unattended-work claim, and authoritative Supervisor reconciliation when Supervisor is enabled by default.
 
 For a controlled multi-session throughput and recovery sample:
 
