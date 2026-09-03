@@ -19,12 +19,14 @@ const runId = args.get('run-id')
 const trialId = args.get('trial-id')
 const taskFamily = args.get('task-family')
 const scenario = args.get('scenario')
+const provenance = args.get('provenance')
 const startedAt = args.get('started-at')
 const endedAt = args.get('ended-at')
 const outputPath = path.resolve(root, args.get('out') ?? 'output/dogfood/real-run.json')
-if (!stateDir || !runId || !trialId || !taskFamily || !scenario || !startedAt || !endedAt) {
-  throw new Error('--state-dir, --run-id, --trial-id, --task-family, --scenario, --started-at, --ended-at, and --out are required')
+if (!stateDir || !runId || !trialId || !taskFamily || !scenario || !provenance || !startedAt || !endedAt) {
+  throw new Error('--state-dir, --run-id, --trial-id, --task-family, --scenario, --provenance, --started-at, --ended-at, and --out are required')
 }
+if (provenance !== 'real' && provenance !== 'controlled') throw new Error('--provenance must be real or controlled')
 const taskFamilies = new Set(['coding', 'build-test', 'research', 'multi-stage', 'subagent'])
 const scenarios = new Set(['approval-boundary', 'network-recovery', 'healthy-long-run', 'normal-completion', 'explicit-failure', 'recovery-continued'])
 if (!taskFamilies.has(taskFamily)) throw new Error(`unsupported task family: ${taskFamily}`)
@@ -56,6 +58,12 @@ try {
   runtimeBundle = candidate
 } catch (error) {
   if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error
+}
+if (provenance === 'real' && runtimeBundle === undefined) {
+  throw new Error('--provenance real requires the opt-in runtime observation ledger')
+}
+if (provenance === 'controlled' && runtimeBundle !== undefined) {
+  throw new Error('--provenance controlled cannot use the runtime observation ledger; use --provenance real')
 }
 
 const hash = value => createHash('sha256').update(String(value)).digest('hex').slice(0, 16)
@@ -136,10 +144,10 @@ const observations = runtimeBundle === undefined
   ? inboxObservations
   : runtimeBundle.observations.filter(observation => between(observation.occurredAt))
 const receipts = runtimeBundle === undefined
-  ? outcomeState.receipts.filter(receipt => receipt.source === 'real' && receipt.trialId === trialId && selectedRefs.has(receipt.attentionRef))
+  ? outcomeState.receipts.filter(receipt => receipt.source === provenance && receipt.trialId === trialId && selectedRefs.has(receipt.attentionRef))
   : [
       ...runtimeBundle.receipts,
-      ...outcomeState.receipts.filter(receipt => receipt.source === 'real' && receipt.trialId === trialId),
+      ...outcomeState.receipts.filter(receipt => receipt.source === provenance && receipt.trialId === trialId),
     ].filter((receipt, index, all) => all.findIndex(candidate => candidate.receiptId === receipt.receiptId) === index)
 const bundle = {
   schemaVersion: 1,
@@ -148,7 +156,7 @@ const bundle = {
     schemaVersion: 1,
     runId,
     trialId,
-    provenance: 'real',
+    provenance,
     taskFamily,
     scenario,
     pluginVersion: runtimeBundle?.run.pluginVersion ?? args.get('plugin-version') ?? '0.1.1-rc.1',
@@ -166,4 +174,4 @@ if (!isDogfoodBundle(bundle)) throw new Error('captured state did not produce a 
 await mkdir(path.dirname(outputPath), { recursive: true })
 await writeFile(outputPath, `${JSON.stringify(bundle, null, 2)}\n`, 'utf8')
 console.log(`dogfood run captured: ${path.relative(root, outputPath)}`)
-console.log(JSON.stringify({ taskFamily, scenario, observations: observations.length, receipts: receipts.length, source: runtimeBundle === undefined ? 'inbox-fallback' : 'runtime-observation-ledger', note: runtimeBundle === undefined ? 'No opt-in runtime observation ledger was found; this capture contains observed Inbox decisions only.' : 'Runtime observation ledger is authoritative for C0, suppression, dedupe, bundle, recovery, and delivery opportunities; reviewers must add expected decisions and usefulness labels for Gate D.' }, null, 2))
+console.log(JSON.stringify({ taskFamily, scenario, provenance, observations: observations.length, receipts: receipts.length, source: runtimeBundle === undefined ? 'inbox-fallback' : 'runtime-observation-ledger', note: runtimeBundle === undefined ? 'Controlled capture contains observed Inbox decisions only; it remains separate from natural-real evidence.' : 'Runtime observation ledger is authoritative for C0, suppression, dedupe, bundle, recovery, and delivery opportunities; reviewers must add expected decisions and usefulness labels for Gate D.' }, null, 2))

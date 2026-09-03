@@ -233,6 +233,7 @@ npm run dogfood:capture -- `
   --trial-id real-alpha5-01 `
   --task-family coding `
   --scenario normal-completion `
+  --provenance real `
   --started-at <ISO-start> `
   --ended-at <ISO-end> `
   --out output/dogfood/real-coding-alpha5-01.json
@@ -240,7 +241,7 @@ npm run dogfood:capture -- `
 
 An authoritative DSH human question or approval request sets the session phase to `human-wait`. Stall evaluation pauses for that session until the runtime records the corresponding answer, approval, decision, or terminal state. This keeps a deliberate wait for user input separate from a session that has stopped progressing. The browser notification sink records `attempted`, `constructed`, `click-handler-attached`, `clicked`, or `error` stages under one opaque `notificationAttemptId`. These stages contain only opaque notification references, the safe title key, a body fingerprint, and timestamps. The Windows observation record separately binds the attempt to the browser receipt, run window, screenshot hash, UIA hash, Toast, Notification Center, focus, DSH return, and target visibility.
 
-The helper verifies the run, trial, task family, scenario, and real provenance before copying the ledger into a public bundle. A missing opt-in ledger produces an explicit Inbox-only fallback, which is suitable for diagnosis and remains insufficient for a stable Gate D decision.
+The helper requires an explicit provenance choice. Use `--provenance real` only with the opt-in runtime observation ledger; use `--provenance controlled` for an Inbox-only controlled capture. The helper verifies the run, trial, task family, scenario, and provenance before copying evidence into a public bundle. A controlled fallback remains separate from natural-real evidence and remains insufficient for a stable Gate D decision.
 
 When a DSH state directory contains the selected run, the capture helper can create the first privacy-safe bundle from observed Inbox metadata. It hashes local item references, copies only enumerated decisions, and leaves expected decisions, policy reviews, usefulness labels, and negative opportunities for independent review:
 
@@ -251,6 +252,7 @@ npm run dogfood:capture -- `
   --trial-id real-alpha5-01 `
   --task-family coding `
   --scenario normal-completion `
+  --provenance controlled `
   --started-at <ISO-start> `
   --ended-at <ISO-end> `
   --out output/dogfood/real-coding-01.json
