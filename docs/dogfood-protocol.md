@@ -40,7 +40,7 @@ The capture contract uses one task family and one scenario for each run. Fine-gr
 | Run task family | `coding`, `build-test`, `research`, `multi-stage`, `subagent` | One primary work type per run |
 | Run scenario | `approval-boundary`, `network-recovery`, `healthy-long-run`, `normal-completion`, `explicit-failure`, `recovery-continued` | One primary scenario per run |
 | Observation event class | `human-needed`, `host-health`, `stuck-progress`, `subagent-pressure`, `context-pressure`, `completion`, `healthy-run` | Opportunity or state type inside a run |
-| Observation disposition | `delivered`, `suppressed-by-policy`, `missed`, `not-in-scope` | Independent audit result; mapped to runtime decision fields |
+| Independent audit disposition | `delivered`, `suppressed-by-policy`, `missed`, `not-in-scope` | Audit finding mapped to runtime decision fields |
 
 The schemaVersion 1 bundle uses `provenance=real` for a natural-real run, `provenance=controlled` for a controlled-real run, and `provenance=replay` for a deterministic fixture or replay. The independent audit source `manual-audit` is recorded in the audit sidecar and is not substituted into the schemaVersion 1 bundle provenance enum. Reports preserve the distinction between natural-real, controlled-real, fixture, and manual-audit evidence.
 
