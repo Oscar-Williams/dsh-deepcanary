@@ -7,11 +7,13 @@ describe('DeepCanary settings boundary', () => {
       notificationLevel: 'C1',
       openOnCritical: true,
       maxInterruptsPerHour: 0,
+      supervisorMode: 'experimental',
       quietHours: { enabled: true, start: '23:00', end: '07:00' },
     })).toEqual({
       notificationLevel: 'C1',
       openOnCritical: true,
       maxInterruptsPerHour: 0,
+      supervisorMode: 'experimental',
       quietHours: { enabled: true, start: '23:00', end: '07:00' },
     })
     expect(() => sanitizeConfigPatch({ stateDir: 'C:\\secrets' })).toThrow(/unsupported setting/)
@@ -21,5 +23,7 @@ describe('DeepCanary settings boundary', () => {
     expect(() => sanitizeConfigPatch({ maxInterruptsPerHour: 11 })).toThrow(/between 0 and 10/)
     expect(() => sanitizeConfigPatch({ quietHours: { start: '25:00' } })).toThrow(/HH:MM/)
     expect(normalizeConfig({ quietHours: { enabled: true } }).quietHours).toEqual({ enabled: true, start: '22:00', end: '08:00' })
+    expect(normalizeConfig({}).supervisorMode).toBe('off')
+    expect(() => sanitizeConfigPatch({ supervisorMode: 'stable' })).toThrow(/supervisorMode/)
   })
 })

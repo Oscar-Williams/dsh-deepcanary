@@ -1,11 +1,12 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { DedupeLedger, InterruptBudget } from './core/dedupe.js'
+import { DeliveryLedger } from './core/delivery.js'
 import { judgeSignal } from './core/judge.js'
 import { applyDeliveryPolicy, mergeBundleTrace, withRecoveryTrace } from './core/policy.js'
 import { Config, normalizeConfig, sanitizeConfigPatch } from './config.js'
 import type { DeepCanaryConfigInput } from './config.js'
 import { ContextDshAdapter } from './adapters/dsh.js'
-import type { Disposable } from './adapters/dsh.js'
+import type { Disposable, SessionSnapshot } from './adapters/dsh.js'
 import { getWorkspaceIdentity } from './adapters/windows.js'
 import { hashMetadata, MetadataStore, SuppressionStore } from './persistence.js'
 import { buildOutcomeReceipt, MAX_OUTCOME_RECEIPTS, normalizeOutcomeDeleteFilter, normalizeOutcomeInput, OutcomeStore } from './outcome.js'
@@ -21,6 +22,7 @@ import {
   signalFromStall,
   signalFromStallRecovery,
   signalFromSubagentPressure,
+  signalFromAuthoritativeHumanWait,
   signalsFromSessionEvent,
 } from './providers.js'
 import type {
@@ -49,9 +51,10 @@ import type {
 import { ATTENTION_POLICY_VERSION, ATTENTION_PROTOCOL_VERSION as PROTOCOL_VERSION, SUPPRESSIBLE_REASON_CODES } from './types.js'
 
 const PLUGIN_NAME = 'dsh-deepcanary'
-const PLUGIN_VERSION = '0.1.1-rc.1'
+const PLUGIN_VERSION = '0.1.1-rc.2'
 const SETTINGS_NAMESPACE = 'dsh-deepcanary'
 const DEFAULT_MUTE_MINUTES = 60
+const ORPHAN_GRACE_MS = 30_000
 
 interface LiveSession {
   id: string
@@ -154,6 +157,10 @@ function deliveryChannelForAction(action: AttentionAction): DogfoodDeliveryChann
       : 'none'
 }
 
+function isActiveInboxStatus(status: InboxItem['status']): boolean {
+  return status === 'open' || status === 'seen' || status === 'snoozed' || status === 'muted'
+}
+
 export class DeepCanaryService {
   config: DeepCanaryConfig
   readonly store: MetadataStore
@@ -169,6 +176,7 @@ export class DeepCanaryService {
   private readonly suppressedReasons = new Set<SuppressibleReasonCode>()
   private readonly dedupe: DedupeLedger
   private readonly budget: InterruptBudget
+  private readonly deliveryLedger = new DeliveryLedger()
   private readonly pressureSeen = new Set<number>()
   private readonly logger: LoggerLike
   private adapterSubscription: Disposable | undefined
@@ -196,6 +204,7 @@ export class DeepCanaryService {
   private outcomeSaveChain = Promise.resolve()
   private suppressionSaveChain = Promise.resolve()
   private supervisorStart = Promise.resolve()
+  private supervisorStarted = false
   readonly supervisor: PersistentSupervisor
 
   constructor(ctx: Context, input?: DeepCanaryConfigInput) {
@@ -218,11 +227,11 @@ export class DeepCanaryService {
     if (this.started || this.disposed) return
     this.started = true
     this.adapterSubscription = this.adapter.subscribe(event => {
-      if (event.type === 'session/created') this.onSessionCreated(event.session)
+      if (event.type === 'session/created') this.onSessionCreated(event.session, event.snapshot)
       else if (event.type === 'session/event') this.onSessionEvent(event.session, event.event)
       else this.onSessionDisposed(event.session)
     })
-    void this.adapter.start()
+    void this.adapter.start().then(() => this.normalizeLifecycle(Date.now()))
     this.ctx.on?.call(this.ctx, 'dispose', () => { void this.dispose() })
 
     this.ctx.inject?.(['agents'], (agentCtx: any) => {
@@ -271,8 +280,8 @@ export class DeepCanaryService {
     })
 
     this.resetLivenessTimer()
-    this.supervisorStart = this.startSupervisor()
-    this.logger.info?.(`${PLUGIN_NAME} mounted; evidence-first local attention supervision enabled`)
+    this.ensureSupervisorStarted()
+    this.logger.info?.(`${PLUGIN_NAME} mounted; evidence-first local attention service enabled (Persistent Supervisor: ${this.config.supervisorMode})`)
   }
 
   setRegisteredTools(names: readonly string[]): void {
@@ -422,6 +431,7 @@ export class DeepCanaryService {
           ...this.hostProbeStatus(),
         },
       },
+      reconciliation: this.adapter.getReconciliationStatus(),
       supervisor: this.supervisor.status(),
     }
   }
@@ -798,7 +808,7 @@ export class DeepCanaryService {
   /** Accept only redacted browser-sink facts for a known attention item. */
   private recordNotificationDelivery(id: string, payload: Record<string, unknown>): boolean {
     const item = this.find(id)
-    if (item === undefined || this.dogfoodRecorder === undefined) return false
+    if (item === undefined) return false
     const stage = payload.notificationStage as DogfoodNotificationStage
     const notificationAttemptId = payload.notificationAttemptId as string
     const notificationRef = payload.notificationRef as string
@@ -817,7 +827,16 @@ export class DeepCanaryService {
       firstObservedAt: payload.observedAt as string,
       ...(stage === 'clicked' ? { clickedAt: payload.observedAt as string } : {}),
     }
-    this.dogfoodRecorder.recordNotificationDelivery(item.id, delivery)
+    this.deliveryLedger.record({
+      verdictId: item.id,
+      conditionGeneration: item.bundleKey ?? item.id,
+      sink: 'browser',
+      attemptId: notificationAttemptId,
+      stage,
+      observedAt: delivery.firstObservedAt,
+    })
+    this.dogfoodRecorder?.recordNotificationDelivery(item.id, delivery)
+    this.syncSupervisor()
     return true
   }
 
@@ -860,7 +879,14 @@ export class DeepCanaryService {
     this.syncSupervisor()
   }
 
+  private ensureSupervisorStarted(): void {
+    if (this.supervisorStarted || this.config.supervisorMode !== 'experimental' || this.disposed) return
+    this.supervisorStarted = true
+    this.supervisorStart = this.startSupervisor()
+  }
+
   private syncSupervisor(): void {
+    if (this.config.supervisorMode !== 'experimental') return
     const now = Date.now()
     const restoredRevision = this.supervisor.snapshot().revision
     if (restoredRevision > this.revision) this.revision = restoredRevision
@@ -889,16 +915,19 @@ export class DeepCanaryService {
       now,
       this.config.maxInboxItems,
       this.supervisorPolicyState(now),
+      this.deliveryLedger.snapshot(),
     ))
   }
 
   private restoreSupervisorPolicy(): void {
     if (this.policyRestored) return
-    const policyState = this.supervisor.snapshot().policyState
+    const supervisorSnapshot = this.supervisor.snapshot()
+    const policyState = supervisorSnapshot.policyState
     if (policyState?.policyVersion === ATTENTION_POLICY_VERSION) {
       this.dedupe.restore(policyState.dedupe)
       this.budget.restore(policyState.interruptConsumedAt)
     }
+    this.deliveryLedger.restore(supervisorSnapshot.deliveryLedger ?? [])
     this.policyRestored = true
   }
 
@@ -966,7 +995,7 @@ export class DeepCanaryService {
     if (this.interval !== undefined) clearInterval(this.interval)
     if (this.hostProbeInterval !== undefined) clearInterval(this.hostProbeInterval)
     await this.supervisorStart.catch(() => undefined)
-    await this.supervisor.stop()
+    if (this.supervisorStarted) await this.supervisor.stop()
     await this.ready.catch(() => undefined)
     await this.saveChain
     await this.outcomeSaveChain
@@ -1005,26 +1034,28 @@ export class DeepCanaryService {
     this.syncSupervisor()
   }
 
-  private onSessionCreated(value: unknown): void {
+  private onSessionCreated(value: unknown, authoritativeSnapshot?: SessionSnapshot): void {
     const session = asRecord(value)
     const id = idOf(session)
     if (!id) return
     const header = asRecord(session.header)
-    const cwd = typeof header.cwd === 'string' ? header.cwd : undefined
+    const existing = this.sessions.get(id)
+    const cwd = authoritativeSnapshot?.cwd ?? (typeof header.cwd === 'string' ? header.cwd : existing?.cwd)
     const now = Date.now()
     this.sessions.set(id, {
       id,
       ...(cwd ? { cwd } : {}),
-      startedAt: now,
-      lastEventAt: now,
-      active: true,
-      running: false,
-      toolFailures: 0,
+      startedAt: authoritativeSnapshot?.startedAt ?? existing?.startedAt ?? now,
+      lastEventAt: authoritativeSnapshot?.lastEventAt ?? existing?.lastEventAt ?? now,
+      active: authoritativeSnapshot?.active ?? true,
+      running: authoritativeSnapshot?.running ?? false,
+      toolFailures: authoritativeSnapshot?.toolFailures ?? 0,
       activeSubagents: 0,
       stalled: false,
-      waitingForHuman: false,
-      contextCompactions: 0,
-      sameToolFailures: 0,
+      waitingForHuman: authoritativeSnapshot?.waitingForHuman ?? false,
+      contextCompactions: authoritativeSnapshot?.contextCompactions ?? 0,
+      sameToolFailures: authoritativeSnapshot?.sameToolFailures ?? 0,
+      ...(authoritativeSnapshot?.lastToolName === undefined ? {} : { lastToolName: authoritativeSnapshot.lastToolName }),
     })
     const sessionRef = hashMetadata(id)
     let linkedHistoricalItem = false
@@ -1035,6 +1066,20 @@ export class DeepCanaryService {
       }
     }
     if (linkedHistoricalItem) this.queueSave()
+    if (authoritativeSnapshot?.waitingForHuman && authoritativeSnapshot.humanNeededReason !== undefined) {
+      const bundleKey = hashMetadata(`${id}:human-needed`)
+      const alreadyTracked = this.items.some(item => item.sessionId === id
+        && item.bundleKey === bundleKey
+        && item.status !== 'recovered'
+        && item.status !== 'expired')
+      if (!alreadyTracked) {
+        void this.ingest(signalFromAuthoritativeHumanWait(
+          { id, ...(cwd === undefined ? {} : { header: { cwd } }) },
+          authoritativeSnapshot.humanNeededReason,
+          authoritativeSnapshot.humanNeededSeq,
+        ))
+      }
+    }
     this.bumpRevision()
     this.syncSupervisor()
   }
@@ -1317,6 +1362,8 @@ export class DeepCanaryService {
     if (this.started) {
       this.resetLivenessTimer()
       this.resetHostProbeTimer()
+      if (next.supervisorMode === 'experimental') this.ensureSupervisorStarted()
+      else if (this.supervisorStarted) this.logger.warn?.(`${PLUGIN_NAME}: supervisorMode=off takes effect after restart because the experimental Supervisor is active`)
     }
     this.syncSupervisor()
   }
@@ -1347,6 +1394,7 @@ export class DeepCanaryService {
       privacySafeSummary: this.config.privacySafeSummary,
       healthPollSeconds: this.config.healthPollSeconds,
       maxInboxItems: this.config.maxInboxItems,
+      supervisorMode: this.config.supervisorMode,
       suppressedReasonCodes: [...this.suppressedReasons],
     }
   }
@@ -1431,11 +1479,51 @@ export class DeepCanaryService {
         }
       }
     }
+    if (this.reconcileOrphans(now)) changed = true
     if (changed) {
       this.bumpRevision()
       this.queueSave()
       this.syncSupervisor()
     }
+  }
+
+  /**
+   * Reconcile restored session-scoped items only after an authoritative,
+   * verified session read. A short persisted grace period absorbs startup and
+   * host-restart timing gaps; expiry then converges the item without inventing
+   * a runtime observation or sending a new notification.
+   */
+  private reconcileOrphans(now: number): boolean {
+    const status = this.adapter.getReconciliationStatus()
+    if (status.phase !== 'ready' || !status.authoritative || !status.verified) return false
+    const liveSessionIds = new Set([...this.sessions.values()]
+      .filter(session => session.active)
+      .map(session => session.id))
+    let changed = false
+    for (const item of this.items) {
+      if (!isActiveInboxStatus(item.status) || item.sessionId === undefined) continue
+      if (liveSessionIds.has(item.sessionId)) {
+        if (item.orphanedAt !== undefined) {
+          delete item.orphanedAt
+          changed = true
+        }
+        continue
+      }
+      if (item.orphanedAt === undefined) {
+        item.orphanedAt = new Date(now).toISOString()
+        changed = true
+        continue
+      }
+      const orphanedAt = Date.parse(item.orphanedAt)
+      if (!Number.isFinite(orphanedAt) || now - orphanedAt < ORPHAN_GRACE_MS) continue
+      item.status = 'expired'
+      item.expiredAt = new Date(now).toISOString()
+      delete item.orphanedAt
+      delete item.snoozedUntil
+      delete item.mutedUntil
+      changed = true
+    }
+    return changed
   }
 
   private find(id: string): InboxItem | undefined {

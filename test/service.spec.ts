@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DeepCanaryService } from '../src/service.js'
+import { hashMetadata } from '../src/persistence.js'
 import type { CanarySignal } from '../src/types.js'
 
 const services: DeepCanaryService[] = []
@@ -56,6 +57,48 @@ describe('DeepCanaryService', () => {
     const persisted = await readFile(service.store.file, 'utf8')
     expect(persisted).not.toContain('secret API key')
     expect(persisted).not.toContain('paste the transcript')
+    await rm(directory, { recursive: true, force: true })
+  })
+
+  it('records browser delivery stages in the persistent supervisor ledger without dogfood mode', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-delivery-service-'))
+    const service = new DeepCanaryService({ logger: {} } as never, { stateDir: directory, maxInboxItems: 50, supervisorMode: 'experimental' })
+    services.push(service)
+    await service.ready
+    service.start()
+    await (service as unknown as { supervisorStart: Promise<void> }).supervisorStart
+    const item = await service.ingest(testSignal())
+    expect(item).toBeDefined()
+    const payload = {
+      notificationStage: 'attempted',
+      notificationAttemptId: hashMetadata('delivery-attempt-1'),
+      notificationRef: hashMetadata(`${item!.id}:notification`),
+      tagRef: hashMetadata(`${item!.id}:tag`),
+      titleKey: `notification.title.${item!.reasonCode}`,
+      bodyFingerprint: hashMetadata('safe-body'),
+      observedAt: '2026-09-04T00:00:00.000Z',
+    }
+    const result = await service.performAction('delivery-service-1', item!.id, 'notification-delivery', payload)
+    expect(result.body).toMatchObject({ updated: true, result: { kind: 'notification-delivery-recorded' } })
+    await service.supervisor.flush()
+    const persisted = JSON.parse(await readFile(service.supervisor.store.snapshotFile, 'utf8')) as { snapshot: { deliveryLedger?: unknown[] } }
+    expect(persisted.snapshot.deliveryLedger).toHaveLength(1)
+    expect(persisted.snapshot.deliveryLedger?.[0]).toMatchObject({ sink: 'browser', state: 'attempted', attempts: 1 })
+    expect(JSON.stringify(persisted.snapshot.deliveryLedger)).not.toContain(item!.id)
+    await service.dispose()
+    await rm(directory, { recursive: true, force: true })
+  })
+
+  it('keeps the experimental Persistent Supervisor off until explicitly enabled', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-supervisor-default-'))
+    const service = new DeepCanaryService({ logger: {} } as never, { stateDir: directory, maxInboxItems: 50 })
+    services.push(service)
+    await service.ready
+    service.start()
+    await (service as unknown as { supervisorStart: Promise<void> }).supervisorStart
+    expect(service.settings().supervisorMode).toBe('off')
+    expect(service.status().supervisor).toMatchObject({ state: 'inactive', leaseHeld: false })
+    await service.dispose()
     await rm(directory, { recursive: true, force: true })
   })
 
@@ -228,7 +271,7 @@ describe('DeepCanaryService', () => {
     const service = new DeepCanaryService({
       logger: {},
       on: (name: string, listener: (...args: any[]) => void) => { listeners.set(name, listener) },
-    } as never, { stateDir: directory, maxInboxItems: 50 })
+    } as never, { stateDir: directory, maxInboxItems: 50, supervisorMode: 'experimental' })
     services.push(service)
     await service.ready
     service.start()
@@ -243,6 +286,42 @@ describe('DeepCanaryService', () => {
     await service.dispose()
     expect(service.status().plugin.state).toBe('ready')
     await rm(directory, { recursive: true, force: true })
+  })
+
+  it('recreates one authoritative Human Needed item from a startup session snapshot', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-authoritative-startup-'))
+    const listeners = new Map<string, (...args: any[]) => void>()
+    const session = {
+      id: 'authoritative-startup-session',
+      header: { cwd: 'C:\\work', createdAt: 1_000 },
+      snapshotEvents: () => [
+        { type: 'turn/start', seq: 0, time: 2_000, data: { turn: 1 } },
+        { type: 'approval/asked', seq: 1, time: 3_000, data: {} },
+      ],
+    }
+    const service = new DeepCanaryService({
+      logger: {},
+      on: (name: string, listener: (...args: any[]) => void) => { listeners.set(name, listener) },
+      sessions: { list: () => [session] },
+    } as never, { stateDir: directory, maxInboxItems: 50, supervisorMode: 'experimental' })
+    services.push(service)
+    try {
+      await service.ready
+      service.start()
+      await service.adapter.start()
+      await (service as unknown as { supervisorStart: Promise<void> }).supervisorStart
+      await new Promise(resolve => setImmediate(resolve))
+      expect(service.inbox(20)).toEqual(expect.arrayContaining([
+        expect.objectContaining({ reasonCode: 'HUMAN_APPROVAL_REQUIRED', level: 'C3', action: 'ESCALATE', sessionId: session.id }),
+      ]))
+
+      await service.adapter.reconcile()
+      await new Promise(resolve => setImmediate(resolve))
+      expect(service.inbox(20).filter(item => item.reasonCode === 'HUMAN_APPROVAL_REQUIRED')).toHaveLength(1)
+    } finally {
+      await service.dispose()
+      await rm(directory, { recursive: true, force: true })
+    }
   })
 
   it('limits liveness checks to an active turn and measures from turn start', async () => {
@@ -447,6 +526,44 @@ describe('DeepCanaryService', () => {
     await second.dispose()
     expect(await readFile(second.store.file, 'utf8')).toContain('session-private-id')
     await rm(directory, { recursive: true, force: true })
+  })
+
+  it('holds a restored session item in orphan grace before authoritative expiry', async () => {
+    vi.useFakeTimers()
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-orphan-grace-'))
+    const base = new Date('2026-09-04T00:00:00.000Z')
+    vi.setSystemTime(base)
+    try {
+      const first = new DeepCanaryService({ logger: {} } as never, { stateDir: directory, maxInboxItems: 50 })
+      services.push(first)
+      await first.ready
+      const item = await first.ingest({ ...testSignal(), occurredAt: base.toISOString() })
+      expect(item).toBeDefined()
+      await first.dispose()
+
+      const second = new DeepCanaryService({
+        logger: {},
+        sessions: { list: () => [] },
+      } as never, { stateDir: directory, maxInboxItems: 50 })
+      services.push(second)
+      await second.ready
+      second.start()
+      await second.adapter.start()
+
+      expect(second.inbox(10)[0]).toMatchObject({ id: item?.id, status: 'open' })
+      const restoredBeforeExpiry = (second as unknown as { items: Array<{ orphanedAt?: string }> }).items[0]
+      expect(restoredBeforeExpiry?.orphanedAt).toBe(base.toISOString())
+
+      vi.setSystemTime(new Date(base.getTime() + 31_000))
+      expect(second.inbox(10)[0]).toMatchObject({ id: item?.id, status: 'expired' })
+      await second.dispose()
+      const persisted = await readFile(second.store.file, 'utf8')
+      expect(persisted).toContain('"status": "expired"')
+      expect(persisted).not.toContain('orphanedAt')
+    } finally {
+      vi.useRealTimers()
+      await rm(directory, { recursive: true, force: true })
+    }
   })
 
   it('keeps an opaque session handle so a restored alert can reopen its DSH session', async () => {

@@ -59,6 +59,7 @@ type ClientSettings = {
   privacySafeSummary: boolean
   healthPollSeconds: number
   maxInboxItems: number
+  supervisorMode: 'off' | 'experimental'
   suppressedReasonCodes: string[]
 }
 
@@ -239,6 +240,9 @@ const zh = {
   'settings.privacy': '仅使用隐私安全摘要',
   'settings.healthPoll': 'Host 健康检查间隔（秒）',
   'settings.maxInbox': '最多保留的 Inbox 条目',
+  'settings.supervisorMode': 'Persistent Supervisor 模式',
+  'settings.supervisorMode.off': '关闭（默认）',
+  'settings.supervisorMode.experimental': '启用实验性 Supervisor',
   'item.reason.HUMAN_APPROVAL_REQUIRED': 'DSH 正在等待人工审批。',
   'item.reason.HUMAN_QUESTION_PENDING': 'DSH 正在等待你的回答。',
   'item.reason.HOST_UNREACHABLE': 'DSH 主机暂时无法访问。',
@@ -430,6 +434,9 @@ const en = {
   'settings.privacy': 'Use privacy-safe summaries only',
   'settings.healthPoll': 'Host health-check interval (seconds)',
   'settings.maxInbox': 'Maximum retained Inbox items',
+  'settings.supervisorMode': 'Persistent Supervisor mode',
+  'settings.supervisorMode.off': 'Off (default)',
+  'settings.supervisorMode.experimental': 'Enable experimental Supervisor',
   'item.reason.HUMAN_APPROVAL_REQUIRED': 'DSH is waiting for human approval.',
   'item.reason.HUMAN_QUESTION_PENDING': 'DSH is waiting for your answer.',
   'item.reason.HOST_UNREACHABLE': 'The DSH host is temporarily unreachable.',
@@ -1418,6 +1425,7 @@ const SETTINGS_KEYS: Array<keyof ClientSettings> = [
   'privacySafeSummary',
   'healthPollSeconds',
   'maxInboxItems',
+  'supervisorMode',
 ]
 
 const DEFAULT_SETTINGS: ClientSettings = {
@@ -1432,6 +1440,7 @@ const DEFAULT_SETTINGS: ClientSettings = {
   privacySafeSummary: true,
   healthPollSeconds: 15,
   maxInboxItems: 500,
+  supervisorMode: 'off',
   suppressedReasonCodes: [],
 }
 
@@ -1576,6 +1585,12 @@ function DeepCanarySettingsCard(props: SettingsCardProps): ReactNode {
         field(translate(t, 'settings.healthPoll'), createElement('input', { type: 'number', min: 5, max: 300, step: 1, value: current.healthPollSeconds, disabled, onChange: (event: { target: { value: string } }) => { edit('healthPollSeconds', Number(event.target.value)) } })),
         field(translate(t, 'settings.maxInbox'), createElement('input', { type: 'number', min: 50, max: 5000, step: 50, value: current.maxInboxItems, disabled, onChange: (event: { target: { value: string } }) => { edit('maxInboxItems', Number(event.target.value)) } })),
       ),
+      field(translate(t, 'settings.supervisorMode'),
+        createElement('select', {
+          value: current.supervisorMode,
+          disabled,
+          onChange: (event: { target: { value: string } }) => { edit('supervisorMode', event.target.value as ClientSettings['supervisorMode']) },
+        }, ...(['off', 'experimental'] as const).map(value => createElement('option', { key: value, value }, translate(t, ('settings.supervisorMode.' + value) as LocaleKey))))),
       failed && createElement('p', { className: 'dsc-settings-status dsc-settings-status-error', role: 'status' }, translate(t, remote.revision === undefined ? 'settings.saveFailed' : 'settings.conflict')),
       createElement('div', { className: 'dsc-settings-actions' },
         createElement('button', { type: 'button', className: 'dsc-toolbar-button', disabled: !dirty || saving, onClick: discard }, translate(t, 'settings.discard')),

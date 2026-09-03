@@ -21,10 +21,14 @@ const outputPath = path.resolve(root, args.get('out') ?? 'output/gates/stable-ga
 const replayPath = path.resolve(root, args.get('replay') ?? 'output/replay/policy-replay-report.json')
 const dogfoodPath = args.get('dogfood') === undefined ? undefined : path.resolve(root, args.get('dogfood'))
 const notificationEvidencePath = args.get('notification-evidence') === undefined ? undefined : path.resolve(root, args.get('notification-evidence'))
+const auditPath = args.get('audit') === undefined ? undefined : path.resolve(root, args.get('audit'))
 const supervisorSmokePath = path.resolve(root, 'output/gates/supervisor-smoke-report.json')
+const supervisorSoakPath = path.resolve(root, 'output/gates/supervisor-soak-report.json')
 const packageJson = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'))
 const runtimeDependency = packageJson.devDependencies?.['@deepseek-ai/dsh-agent']
 const runtimeBaseline = typeof runtimeDependency === 'string' ? `dsh-v${runtimeDependency}` : 'unknown'
+const runtimeCommit = process.env.DSH_COMMIT ?? 'db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5'
+const gateEvaluatorVersion = 'stable-gates.v2'
 
 async function command(name, args) {
   try {
@@ -32,6 +36,14 @@ async function command(name, args) {
     return result.stdout.trim()
   } catch {
     return ''
+  }
+}
+
+async function digestFile(filePath) {
+  try {
+    return createHash('sha256').update(await readFile(filePath)).digest('hex')
+  } catch {
+    return null
   }
 }
 
@@ -135,6 +147,7 @@ const requiredReplayCases = [
   'recovery-continued-progress',
 ]
 const replayPass = (replay?.status === 'baseline' || replay?.status === 'comparison')
+  && replay.pluginVersion === packageJson.version
   && replay.fixtureVersion === 1
   && Array.isArray(replay.cases)
   && replay.caseCount >= requiredReplayCases.length
@@ -211,7 +224,7 @@ const realDogfood = dogfoodProvenance === 'real'
     }
   : { status: dogfood === undefined ? 'not-evaluated' : 'invalid-provenance' }
 
-const requiredFiles = ['lib/supervisor.js', 'lib/hostHealth.js', 'lib/dogfood.js', 'lib/dogfoodAggregate.js', 'lib/notificationEvidence.js', 'benchmark/dogfood.schema.json', 'benchmark/dogfood-aggregate.schema.json', 'benchmark/notification-evidence.schema.json', 'benchmark/policy-replay.schema.json']
+const requiredFiles = ['lib/supervisor.js', 'lib/hostHealth.js', 'lib/adapters/dsh.js', 'lib/dogfood.js', 'lib/dogfoodAggregate.js', 'lib/notificationEvidence.js', 'benchmark/dogfood.schema.json', 'benchmark/dogfood-aggregate.schema.json', 'benchmark/notification-evidence.schema.json', 'benchmark/policy-replay.schema.json']
 const fileChecks = await Promise.all(requiredFiles.map(async file => {
   try {
     await access(path.join(root, file))
@@ -229,14 +242,59 @@ try {
 }
 const supervisorSmokePass = supervisorSmoke?.passed === true
 const gateDReady = realDogfood.status === 'pass' && replayPass && notificationEvidence.status === 'pass' && notificationEvidence.binding?.status === 'pass'
+const authoritativeSessionReconciliation = fileChecks.some(check => check.file === 'lib/adapters/dsh.js' && check.present)
+  ? 'partial-adapter-surface'
+  : 'pending-adapter-surface'
+const gateEReady = implementationPresent && replayPass && supervisorSmokePass && authoritativeSessionReconciliation === 'pass'
+const stableDecision = gateDReady && gateEReady ? 'STABLE_READY' : 'CONTINUE_RC'
+const dogfoodBundleDigests = rawBundles.map(bundle => createHash('sha256').update(JSON.stringify(bundle)).digest('hex'))
+const evidenceDigests = {
+  dogfoodInput: dogfoodPath === undefined ? null : await digestFile(dogfoodPath),
+  dogfoodBundleDigests,
+  auditDigest: auditPath === undefined ? null : await digestFile(auditPath),
+  notificationEvidenceDigests: notificationEvidencePath === undefined ? [] : [await digestFile(notificationEvidencePath)],
+  supervisorSmokeDigest: await digestFile(supervisorSmokePath),
+  supervisorSoakDigest: await digestFile(supervisorSoakPath),
+  attentionGoldDigest: await digestFile(path.join(root, 'benchmark', 'attention-gold-v3.json')),
+  replayReportDigest: await digestFile(replayPath),
+}
+const metricSample = name => {
+  const metric = dogfood?.metrics?.[name]
+  return metric === undefined
+    ? { numerator: null, denominator: null, status: 'not-evaluated' }
+    : { numerator: metric.numerator ?? null, denominator: metric.denominator ?? null, status: metric.status ?? 'unknown' }
+}
 const report = {
   reportSchemaVersion: 1,
   pluginVersion: packageJson.version,
   runtimeBaseline,
+  runtime: { tag: runtimeBaseline, commit: runtimeCommit },
+  policyVersion: replay?.policyVersion ?? 'attention-policy.v1',
+  gateEvaluatorVersion,
+  provenance: {
+    dogfood: dogfoodProvenance ?? 'not-evaluated',
+    inputKind: dogfoodKind,
+    bundles: [...new Set(rawBundles.map(bundle => bundle.run.provenance))],
+  },
+  evidenceDigests,
+  samples: {
+    humanNeededRecall: metricSample('humanNeededRecall'),
+    userFacingReviewCoverage: metricSample('reviewCoverage'),
+    usefulness: metricSample('usefulnessRate'),
+    wrongLevel: metricSample('wrongLevelRate'),
+    falseStall: metricSample('falseStallRate'),
+    recoveryBeforeOpen: metricSample('recoveryBeforeOpenRate'),
+  },
+  decision: stableDecision,
   identity: {
     gitCommit: gitCommit || 'unknown',
+    sourceCommit: gitCommit || 'unknown',
     worktree: gitStatus ? 'dirty' : 'clean',
+    worktreeDirty: Boolean(gitStatus),
     packageVersion: packageJson.version,
+    dshTag: runtimeBaseline,
+    dshCommit: runtimeCommit,
+    packageSha256: tarballSha256 || null,
     tarballSha256: tarballSha256 || null,
     sourceDigest,
   },
@@ -252,19 +310,19 @@ const report = {
     implementation: implementationPresent ? 'present' : 'incomplete',
     policyReplay: replayPass ? 'pass' : 'pending',
     supervisorSmoke: supervisorSmokePass ? 'pass' : supervisorSmoke === undefined ? 'not-evaluated' : 'pending',
-    authoritativeSessionReconciliation: 'pending-adapter-surface',
-    crossSinkDeliveryLedger: 'browser-attempt-ledger-present-os-observation-pending',
+    authoritativeSessionReconciliation,
+    crossSinkDeliveryLedger: 'logical-browser-ledger-present-os-observation-pending',
     packageVersion: packageJson.version,
-    note: 'Prototype readiness records the local lease/snapshot path and browser attempt ledger; it does not promote an immutable artifact or declare a release.',
+    note: 'Prototype readiness records the local lease/snapshot path, authoritative adapter slice, bounded orphan grace, and bounded logical browser delivery ledger. The Supervisor is experimental and off by default; Windows OS observation and full restart convergence remain separate Stable gates before any future default enablement.',
   },
   files: fileChecks,
   generatedAt: new Date().toISOString(),
-  conclusion: gateDReady
-    ? 'Gate D evidence is complete for the supplied run; Gate E still requires the documented adapter and cross-sink follow-up decisions.'
-    : 'The report identifies the remaining evidence required for stable promotion without converting missing real or OS-level observations into a pass.',
+  conclusion: gateDReady && gateEReady
+    ? 'Fresh Gate D and Gate E evidence meets the configured Stable criteria; review any explicitly documented non-core exceptions before publication.'
+    : 'The fresh report records the remaining real, Windows, or Supervisor evidence required for Stable promotion without converting missing observations into a pass.',
 }
 
 await mkdir(path.dirname(outputPath), { recursive: true })
 await writeFile(outputPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8')
 console.log(`stable gates report written: ${path.relative(root, outputPath)}`)
-console.log(JSON.stringify({ gateD: report.gateD.status, gateE: report.gateE.status, policyReplay: report.gateD.policyReplay, realDogfood: report.gateD.realDogfood.status, nativeToast: report.gateD.osNativeNotification }, null, 2))
+console.log(JSON.stringify({ decision: report.decision, gateD: report.gateD.status, gateE: report.gateE.status, policyReplay: report.gateD.policyReplay, realDogfood: report.gateD.realDogfood.status, windowsOsVisibleBrowserNotification: report.gateD.osNativeNotification }, null, 2))

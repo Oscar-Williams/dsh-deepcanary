@@ -39,6 +39,7 @@ export type FeedbackValue = 'useful' | 'not-relevant' | 'wrong-level' | 'already
 
 export type AttentionLevel = 'C0' | 'C1' | 'C2' | 'C3'
 export type AttentionAction = 'IGNORE' | 'INBOX' | 'DIGEST' | 'INTERRUPT' | 'ESCALATE'
+export type SupervisorMode = 'off' | 'experimental'
 export type EvidenceType =
   | 'session-event'
   | 'runtime-probe'
@@ -128,6 +129,8 @@ export interface InboxItem extends AttentionVerdict {
   acknowledgedAt?: string
   recoveredAt?: string
   expiredAt?: string
+  /** Internal timestamp for the bounded authoritative-session orphan grace window. */
+  orphanedAt?: string
   /** Temporary delivery suppression; the Inbox item remains available while it is active. */
   mutedUntil?: string
   feedback?: {
@@ -161,6 +164,8 @@ export interface DeepCanaryConfig {
   privacySafeSummary: boolean
   healthPollSeconds: number
   maxInboxItems: number
+  /** The Persistent Supervisor remains an explicit engineering opt-in until Gate E is complete. */
+  supervisorMode: SupervisorMode
 }
 
 export interface WorkspaceIdentity {
@@ -184,6 +189,7 @@ export interface PublicSettings {
   privacySafeSummary: boolean
   healthPollSeconds: number
   maxInboxItems: number
+  supervisorMode: SupervisorMode
   suppressedReasonCodes: SuppressibleReasonCode[]
 }
 
@@ -205,6 +211,21 @@ export interface DeliveryStatus {
     lastCheckedAt?: string
     recoveredAt?: string
   }
+}
+
+/** Public health projection for the DSH authoritative-session reconciliation loop. */
+export type ReconciliationPhase = 'unavailable' | 'reconciling' | 'ready'
+
+export interface ReconciliationStatus {
+  epoch: number
+  phase: ReconciliationPhase
+  authoritative: boolean
+  verified: boolean
+  listedSessions: number
+  /** Events still buffered at the status boundary; a completed pass reports zero. */
+  bufferedEvents: number
+  skippedBufferedEvents: number
+  detail?: string
 }
 
 export interface RuntimeStatus {
@@ -230,6 +251,7 @@ export interface RuntimeStatus {
     destructiveActions: false
   }
   delivery: DeliveryStatus
+  reconciliation: ReconciliationStatus
   supervisor: PersistentSupervisorStatus
 }
 

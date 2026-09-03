@@ -22,6 +22,7 @@ export const Config = Schema.object({
   privacySafeSummary: Schema.boolean().default(true).description('Keep content and prompts out of plugin state and notifications'),
   healthPollSeconds: Schema.natural().min(5).max(300).default(15).description('Local liveness check interval'),
   maxInboxItems: Schema.natural().min(50).max(5000).default(500).description('Maximum retained metadata inbox items'),
+  supervisorMode: Schema.union(['off', 'experimental'] as const).default('off').description('Persistent Supervisor lifecycle; experimental is an explicit engineering opt-in'),
 })
 
 const defaults: DeepCanaryConfig = {
@@ -37,6 +38,7 @@ const defaults: DeepCanaryConfig = {
   privacySafeSummary: true,
   healthPollSeconds: 15,
   maxInboxItems: 500,
+  supervisorMode: 'off',
 }
 
 export function normalizeConfig(input: DeepCanaryConfigInput | undefined): DeepCanaryConfig {
@@ -66,7 +68,7 @@ function clockPatch(value: unknown, name: string): string {
 export function sanitizeConfigPatch(input: Record<string, unknown>): DeepCanaryConfigInput {
   const patch: DeepCanaryConfigInput = {}
   for (const key of Object.keys(input)) {
-    if (!['notificationLevel', 'openOnCritical', 'maxInterruptsPerHour', 'dedupeWindowMinutes', 'bundleWindowSeconds', 'longRunThresholdMinutes', 'subagentPressure', 'quietHours', 'privacySafeSummary', 'healthPollSeconds', 'maxInboxItems'].includes(key)) {
+    if (!['notificationLevel', 'openOnCritical', 'maxInterruptsPerHour', 'dedupeWindowMinutes', 'bundleWindowSeconds', 'longRunThresholdMinutes', 'subagentPressure', 'quietHours', 'privacySafeSummary', 'healthPollSeconds', 'maxInboxItems', 'supervisorMode'].includes(key)) {
       throw new TypeError(`unsupported setting: ${key}`)
     }
   }
@@ -103,5 +105,9 @@ export function sanitizeConfigPatch(input: Record<string, unknown>): DeepCanaryC
   }
   if (input.healthPollSeconds !== undefined) patch.healthPollSeconds = integerPatch(input.healthPollSeconds, 'healthPollSeconds', 5, 300)
   if (input.maxInboxItems !== undefined) patch.maxInboxItems = integerPatch(input.maxInboxItems, 'maxInboxItems', 50, 5000)
+  if (input.supervisorMode !== undefined) {
+    if (input.supervisorMode !== 'off' && input.supervisorMode !== 'experimental') throw new TypeError('supervisorMode must be off or experimental')
+    patch.supervisorMode = input.supervisorMode
+  }
   return patch
 }

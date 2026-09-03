@@ -19,3 +19,4 @@
         privacySafeSummary: true
         healthPollSeconds: 15
         maxInboxItems: 500
+        supervisorMode: 'off'

@@ -23,6 +23,12 @@ export interface SessionEventLike {
     data?: Record<string, unknown>;
 }
 export declare function signalsFromSessionEvent(session: SessionLike, event: SessionEventLike, facts: SessionFacts): CanarySignal[];
+/**
+ * Recreate a Human Needed observation from an authoritative startup snapshot.
+ * The event sequence remains an opaque evidence join key; no event payload is
+ * copied into the signal or its persistence path.
+ */
+export declare function signalFromAuthoritativeHumanWait(session: SessionLike, reason: 'approval' | 'question', eventSeq?: number, occurredAt?: number): CanarySignal;
 export declare function signalFromAgentError(payload: {
     agent?: {
         id?: string;

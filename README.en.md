@@ -11,13 +11,15 @@
 
 ## Versions and compatibility
 
-**Current prerelease candidate:** `0.1.1-rc.1` targets the official DSH [`dsh-v0.1.2-alpha.5`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.5). The alpha.5 dependency update, source checks, and compatibility regression have passed, and the GitHub tag, prerelease Release, and npm `next` channel are synchronized. The official release focuses on startup failures and missing session titles during upgrades from older DSH runtimes; the Gateway, client-module, WebServer, Session, Settings, and Tools surfaces used by this plugin remain compatible. The immutable alpha.5 commit is `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`, and the compatibility record is [`benchmark/alpha5-compatibility-receipt.json`](benchmark/alpha5-compatibility-receipt.json).
+**Published prerelease:** `0.1.1-rc.1` targets the official DSH [`dsh-v0.1.2-alpha.5`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.5). The alpha.5 dependency update, source checks, and compatibility regression have passed, and the GitHub tag, prerelease Release, and npm `next` channel are synchronized. The official release focuses on startup failures and missing session titles during upgrades from older DSH runtimes; the Gateway, client-module, WebServer, Session, Settings, and Tools surfaces used by this plugin remain compatible. The immutable alpha.5 commit is `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`, and the compatibility record is [`benchmark/alpha5-compatibility-receipt.json`](benchmark/alpha5-compatibility-receipt.json).
+
+**Current `main` engineering candidate:** `0.1.1-rc.2` adds the first alpha.5 authoritative session snapshot reconciliation slice: subscriber-first event buffering, privacy-safe state derivation from `snapshotEvents()`, epoch reconciliation, sequence-aware duplicate merging, startup Human Needed reconstruction, bounded orphan-grace convergence, and an explicit degraded status; it also keeps a bounded logical browser delivery ledger. The Persistent Supervisor is explicitly experimental and off by default in RC2; set `supervisorMode: experimental` only when running the separate Gate E engineering checks. RC2 is the source-build and regression identity for this engineering cycle; the published RC1 identity remains the daily installation path.
 
 The public [`v0.1.0-rc.4 Release`](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.0-rc.4) remains available as the historical alpha.4 baseline, with its receipt in [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json). `0.1.1-rc.1` carries forward the verified RC4 Windows, WSL2, Node.js 22/24, and Web UI foundations while incorporating alpha.5 persistence compatibility, connection-stability maintenance, notification delivery evidence, policy replay, and Supervisor diagnostics.
 
-The current `main` branch contains the `0.1.1-rc.1` connection-stability maintenance: debounced host-probe epochs, backoff and timeout cleanup for state requests, per-attempt notification telemetry, standby takeover for the Persistent Supervisor, and bounded persistence for dedupe and interrupt-budget state.
+The current `main` branch contains the connection-stability maintenance plus the first authoritative session reconciliation slice: debounced host-probe epochs, backoff and timeout cleanup for state requests, per-attempt notification telemetry, standby takeover for the Persistent Supervisor, bounded persistence for dedupe and interrupt-budget state, and alpha.5 session-list reconciliation.
 
-`0.1.1-rc.1` is intended for local trials, feedback, and plugin integration testing. Physical touch hardware, a real screen reader, and operating-system notification delivery after granting permission are supplemental device checks; browser automation, keyboard interaction, narrow viewports, forced colors, and the notification-denied branch already have automated evidence.
+`0.1.1-rc.1` is intended for local trials, feedback, and plugin integration testing. Physical touch hardware, a real screen reader, and Windows OS-visible browser notification delivery are separate device acceptance checks; browser automation, keyboard interaction, narrow viewports, forced colors, and the notification-denied branch already have automated evidence.
 
 Historical v0.1.0-rc.3 remains available as a Git tag for comparison; its npm version was withdrawn and cannot be reused under npm policy.
 
@@ -47,7 +49,7 @@ The four paths below serve different purposes: the GitHub tag, Release asset, an
 - pnpm `11.7.0`;
 - an official DSH source runtime; the current compatibility baseline uses `dsh-v0.1.2-alpha.5` at commit `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`. The historical RC4 receipt remains pinned to alpha.4.
 
-### GitHub tag installation (current candidate): v0.1.1-rc.1
+### GitHub tag installation (published RC1): v0.1.1-rc.1
 
 The following command installs `0.1.1-rc.1` from the immutable GitHub tag. The Release page provides the same version as a downloadable tarball asset.
 
@@ -110,9 +112,9 @@ npx --yes pnpm@11.7.0 dsh plugin --profile web remove dsh-deepcanary
 
 To reinstall the current published version, rerun the `0.1.1-rc.1` installation command above. To reproduce RC4 or RC2, use the matching tag and DSH runtime. Restart `dsh web` after replacing the package, then use `dsh plugin --profile web list` to confirm that the profile contains only the intended version.
 
-### Rebuild and verify 0.1.1-rc.1 from source
+### Rebuild and verify the current main engineering candidate 0.1.1-rc.2
 
-For source debugging or reproduction, use the official DSH `dsh-v0.1.2-alpha.5` and a separate profile; replace `$pluginDir` and `$dshDir` with paths on your machine. The generated tarball is the current acceptance artifact and can be compared with the public package after publication.
+For source debugging or reproduction, use the official DSH `dsh-v0.1.2-alpha.5` and a separate profile; replace `$pluginDir` and `$dshDir` with paths on your machine. The generated tarball is the direct acceptance artifact for the current RC2 engineering candidate; published RC1 installation and rollback continue to use the immutable tag or npm `next` channel.
 
 ```powershell
 $pluginDir = 'C:\path\to\dsh-deepcanary'
@@ -143,7 +145,8 @@ npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
 
-`dsh --version` should print `0.1.2-alpha.5`, `git rev-parse HEAD` should print `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`, and the local tarball should show version `0.1.1-rc.1`. The bundle patch uses DSH's `dshHomePath('dsh-deepcanary')`, so setting `DSH_HOME` keeps plugin state inside the isolated DSH home. Before opening the Web UI, confirm that the profile loaded the current tarball and that the page shows only the sidebar entry, with no fixed legacy card on the right. For the maintenance build, also inspect `/dsh-deepcanary/health` and `/dsh-deepcanary/state` for host-probe state, outageId, and Supervisor status.
+`dsh --version` should print `0.1.2-alpha.5`, `git rev-parse HEAD` should print `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`, and the local tarball should show version `0.1.1-rc.2`. The bundle patch uses DSH's `dshHomePath('dsh-deepcanary')`, so setting `DSH_HOME` keeps plugin state inside the isolated DSH home. Before opening the Web UI, confirm that the profile loaded the current tarball and that the page shows only the sidebar entry, with no fixed legacy card on the right. For the maintenance build, also inspect `/dsh-deepcanary/health` and `/dsh-deepcanary/state` for host-probe state, outageId, reconciliation, and Supervisor status.
+RC2 defaults `supervisorMode` to `off`. To validate the U7 prototype, select `experimental` in DSH Settings > Plugins for DeepCanary, restart the test profile, and inspect `supervisor.json`, the lease, reconciliation status, and smoke/soak evidence. This is an engineering-validation entry point; the current Stable core claim excludes the Persistent Supervisor.
 
 ### Web UI interactions
 
@@ -159,7 +162,7 @@ The plugin registers these same-origin local WebServer routes:
 
 | Route | Purpose |
 | --- | --- |
-| `/dsh-deepcanary/state` | status, settings, and pending Inbox snapshot |
+| `/dsh-deepcanary/state` | status, reconciliation identity, settings, and pending Inbox snapshot |
 | `/dsh-deepcanary/settings` | read or validate and update user-facing settings |
 | `/dsh-deepcanary/health` | plugin health check |
 | `/dsh-deepcanary/explain?id=...` | read a privacy-safe explanation for one Inbox item |
@@ -168,7 +171,7 @@ The plugin registers these same-origin local WebServer routes:
 | `/dsh-deepcanary/outcome` | record one redacted decision outcome for a local trial |
 | `/dsh-deepcanary/outcomes` | read filtered OutcomeReceipts without session content |
 | `DELETE /dsh-deepcanary/outcomes` | withdraw local outcome records by an explicit trial or time cutoff |
-| `/dsh-deepcanary/supervisor` | read the later-version Persistent Supervisor prototype snapshot, lease state, and resource counters |
+| `/dsh-deepcanary/supervisor` | read the Persistent Supervisor prototype snapshot, lease state, and resource counters |
 
 The DSH model can use nine tools: `deepcanary_status`, `deepcanary_inbox`, `deepcanary_acknowledge`, `deepcanary_snooze`, `deepcanary_mute`, `deepcanary_feedback`, `deepcanary_explain`, `deepcanary_dry_run`, and `deepcanary_jump`.
 
@@ -210,7 +213,7 @@ Normal completion is always classified as `C1`. Adjacent signals with the same r
 
 ## Privacy and safety
 
-The default state directory follows the DSH home through `dshHomePath('dsh-deepcanary')`; when `DSH_HOME` is not set, this normally resolves to `~/.dsh/dsh-deepcanary`. `inbox.json` stores alert metadata and `outcomes.json` stores redacted outcome records; the later-version prototype also creates a bounded `supervisor.json` and a short-lived `supervisor.lease`. These files contain timestamps, levels, reason codes, hashed Session/Workspace references, evidence summaries, Bundle metadata, user feedback, and enumerated outcomes. When DSH provides a session entry point, `inbox.json` may also retain a bounded opaque local session handle so the native `sessions.open` API can reopen that thread. Prompts, model output, tool arguments, credentials, raw tool results, and full conversation content remain in DSH and are not written to DeepCanary state.
+The default state directory follows the DSH home through `dshHomePath('dsh-deepcanary')`; when `DSH_HOME` is not set, this normally resolves to `~/.dsh/dsh-deepcanary`. `inbox.json` stores alert metadata and `outcomes.json` stores redacted outcome records; RC2 creates the bounded `supervisor.json` and short-lived `supervisor.lease` only when `supervisorMode: experimental` is explicitly enabled, including restart-visible policy state, session projections, and a cross-sink delivery ledger. These files contain timestamps, levels, reason codes, hashed Session/Workspace references, evidence summaries, Bundle metadata, user feedback, enumerated outcomes, and bounded delivery state. When DSH provides a session entry point, `inbox.json` may also retain a bounded opaque local session handle so the native `sessions.open` API can reopen that thread. Prompts, model output, tool arguments, credentials, raw tool results, and full conversation content remain in DSH and are not written to DeepCanary state.
 
 Web routes are same-origin local routes with `no-store` responses. The client renders dynamic values with DOM `textContent` rather than `innerHTML`. The plugin exposes no shell, file-write, terminate, restart, approval, or rejection tool. Do not put the DSH WebServer behind an unauthenticated public reverse proxy.
 

@@ -350,7 +350,7 @@ An input digest, version, or policy change marks the previous report `STALE`. Re
 | `CONTINUE_RC` | Gate D, OS-visible delivery, or Supervisor Stable semantics remains incomplete |
 | `NO_GO_REDESIGN` | Real evidence shows the core value cannot be made reliable through deterministic policy and targeted fixes |
 
-Core Stable criteria include zero critical Human Needed misses, 100% frozen critical and Human Needed recall, authoritative C3, zero duplicate final interrupts, normal completion at C1, privacy-safe persistence, idempotent actions, correct session navigation, proven OS-visible delivery for the public unattended-work claim, and authoritative Supervisor reconciliation when Supervisor is enabled by default.
+Core Stable criteria include zero critical Human Needed misses, 100% frozen critical and Human Needed recall, authoritative C3, zero duplicate final interrupts, normal completion at C1, privacy-safe persistence, idempotent actions, correct session navigation, proven OS-visible delivery for the public unattended-work claim, and authoritative Supervisor reconciliation before any future default enablement. The RC2 Supervisor prototype is explicitly enabled only for its engineering evidence lane.
 
 For a controlled multi-session throughput and recovery sample:
 

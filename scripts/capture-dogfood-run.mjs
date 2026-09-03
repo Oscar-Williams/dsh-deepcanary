@@ -4,6 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
+const packageJson = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'))
 const args = new Map()
 for (let index = 2; index < process.argv.length; index += 1) {
   const key = process.argv[index]
@@ -159,7 +160,7 @@ const bundle = {
     provenance,
     taskFamily,
     scenario,
-    pluginVersion: runtimeBundle?.run.pluginVersion ?? args.get('plugin-version') ?? '0.1.1-rc.1',
+    pluginVersion: runtimeBundle?.run.pluginVersion ?? args.get('plugin-version') ?? packageJson.version,
     runtimeTag: runtimeBundle?.run.runtimeTag ?? args.get('runtime-tag') ?? 'dsh-v0.1.2-alpha.5',
     policyVersion: runtimeBundle?.run.policyVersion ?? args.get('policy-version') ?? 'attention-policy.v1',
     startedAt: new Date(startedAt).toISOString(),

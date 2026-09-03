@@ -1,6 +1,6 @@
 {
   "name": "dsh-deepcanary",
-  "version": "0.1.1-rc.1",
+  "version": "0.1.1-rc.2",
   "description": "Local attention supervision for DeepSeek Harness: evidence-first signals, quiet notifications, and an actionable inbox.",
   "type": "module",
   "repository": {

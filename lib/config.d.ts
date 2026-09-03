@@ -24,6 +24,7 @@ export declare const Config: Schema<Schemastery.ObjectS<{
     privacySafeSummary: Schema<boolean, boolean>;
     healthPollSeconds: Schema<number, number>;
     maxInboxItems: Schema<number, number>;
+    supervisorMode: Schema<"off" | "experimental", "off" | "experimental">;
 }>, Schemastery.ObjectT<{
     stateDir: Schema<string, string>;
     notificationLevel: Schema<"C1" | "C2" | "C3", "C1" | "C2" | "C3">;
@@ -45,6 +46,7 @@ export declare const Config: Schema<Schemastery.ObjectS<{
     privacySafeSummary: Schema<boolean, boolean>;
     healthPollSeconds: Schema<number, number>;
     maxInboxItems: Schema<number, number>;
+    supervisorMode: Schema<"off" | "experimental", "off" | "experimental">;
 }>>;
 export declare function normalizeConfig(input: DeepCanaryConfigInput | undefined): DeepCanaryConfig;
 /** Validate the browser settings surface without exposing stateDir or unknown keys. */

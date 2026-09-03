@@ -11,13 +11,15 @@
 
 ## 版本与兼容性
 
-**当前候选版本**：`0.1.1-rc.1` 面向官方 DSH [`dsh-v0.1.2-alpha.5`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.5)，已完成 alpha.5 依赖切换、源码与测试回归，并已同步 GitHub tag、预发布 Release 和 npm `next` 通道。alpha.5 的官方发布说明聚焦旧运行时升级时的启动失败与会话标题丢失修复；本插件使用的 Gateway、client-module、WebServer、Session、Settings 和 Tools 接口保持兼容。alpha.5 的不可变 commit 为 `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`，本轮兼容性记录见 [`benchmark/alpha5-compatibility-receipt.json`](benchmark/alpha5-compatibility-receipt.json)。
+**公开预发布版本**：`0.1.1-rc.1` 面向官方 DSH [`dsh-v0.1.2-alpha.5`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.5)，已完成 alpha.5 依赖切换、源码与测试回归，并已同步 GitHub tag、预发布 Release 和 npm `next` 通道。alpha.5 的官方发布说明聚焦旧运行时升级时的启动失败与会话标题丢失修复；本插件使用的 Gateway、client-module、WebServer、Session、Settings 和 Tools 接口保持兼容。alpha.5 的不可变 commit 为 `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`，本轮兼容性记录见 [`benchmark/alpha5-compatibility-receipt.json`](benchmark/alpha5-compatibility-receipt.json)。
+
+**当前 main 工程候选**：`0.1.1-rc.2` 已加入 alpha.5 authoritative session snapshot reconciliation 的第一段实现：subscriber-first 事件缓冲、基于 `snapshotEvents()` 的脱敏状态派生、epoch 对账、序列感知的重复事件合并、启动时 Human Needed 重建、orphan grace 收敛和明确的降级状态；同时保留有界的逻辑 browser delivery ledger。Persistent Supervisor 在 RC2 中明确标记为 experimental、默认关闭，只有设置 `supervisorMode: experimental` 才启动，便于独立完成 Gate E 验证。RC2 当前用于源码构建、回归和工程验证；公开日常安装继续使用上面的不可变 RC1 身份。
 
 公开 [`v0.1.0-rc.4 Release`](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.0-rc.4) 继续作为 alpha4 历史基线保存；其发布收据记录在 [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json)。`0.1.1-rc.1` 延续 RC4 已验证的 Windows、WSL2、Node.js 22/24 和 WebUI 交互基础，并吸收 alpha.5 的持久化兼容修复、连接稳定性维护、通知投递证据、策略回放与 Supervisor 诊断能力。
 
-当前 `main` 包含 RC4 之后的连接稳定性维护：主机探针按 outage epoch 去抖、前端状态请求采用退避与超时清理、通知记录绑定独立尝试 ID、Supervisor 支持 standby 自动接管、去重与打断预算写入有界快照。上述维护代码已完成本地构建和测试，公开 RC4 Release 文件保持不可变；需要验证这些维护内容时请按“从源码重建并验证”执行。
+当前 `main` 包含 RC4 之后的连接稳定性维护：主机探针按 outage epoch 去抖、前端状态请求采用退避与超时清理、通知记录绑定独立尝试 ID、Supervisor 支持 standby 自动接管、去重与打断预算写入有界快照，并将 alpha.5 的权威会话列表纳入启动对账。上述维护代码已完成定向回归，公开 RC1 与 RC4 Release 文件保持不可变；需要验证这些维护内容时请按“从源码重建并验证”执行。
 
-`0.1.1-rc.1` 适合本地试用、反馈和插件集成验证。物理触摸设备、真实屏幕阅读器和允许通知权限后的操作系统级通知属于独立的设备验收项；浏览器自动化、键盘操作、窄视口、强制颜色和通知拒绝分支已有自动化证据。
+`0.1.1-rc.1` 适合本地试用、反馈和插件集成验证。物理触摸设备、真实屏幕阅读器和 Windows OS-visible browser notification delivery 属于独立的设备验收项；浏览器自动化、键盘操作、窄视口、强制颜色和通知拒绝分支已有自动化证据。
 
 历史 [`v0.1.0-rc.3`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.3) Git tag 保留用于版本对照；对应 npm 版本已撤销，npm 规则不允许复用。历史 [`v0.1.0-rc.2`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.2) 与官方 DSH `dsh-v0.1.2-alpha.2` 的组合仍保留用于复现。`v0.1.0-rc.1` 以及 DSH npm `0.1.1-rc.2` 仅用于历史环境排查，不属于当前安装或测试基线。测试前请先停止 DSH，移除测试配置中的旧插件，再安装目标版本。
 
@@ -45,7 +47,7 @@ DeepCanary 只回答一个问题：当前是否值得用户看一眼？它不重
 - pnpm `11.7.0`；
 - 已安装官方 DSH 源码运行时；当前兼容性基线使用 `dsh-v0.1.2-alpha.5`，commit 为 `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`。历史 RC4 验收仍固定在 alpha.4。
 
-### GitHub tag 安装（当前候选）：v0.1.1-rc.1
+### GitHub tag 安装（公开 RC1）：v0.1.1-rc.1
 
 以下命令从不可变 GitHub tag 安装 `0.1.1-rc.1`，适用于当前试用和验收。Release 页面同时提供相同版本的压缩包附件。
 
@@ -108,9 +110,9 @@ npx --yes pnpm@11.7.0 dsh plugin --profile web remove dsh-deepcanary
 
 需要重新安装当前版本时，重新执行相应的 `0.1.1-rc.1` 安装命令；需要复现 RC4、RC3 或 RC2 时，分别使用对应 tag 和匹配的 DSH 运行时。完成替换后重启 `dsh web`，并用 `dsh plugin --profile web list` 确认 profile 中只保留目标版本。
 
-### 从源码重建并验证 0.1.1-rc.1
+### 从源码重建并验证当前 main 工程候选 0.1.1-rc.2
 
-需要调试源码或复现构建时，可使用官方 DSH `dsh-v0.1.2-alpha.5` 和独立测试配置；请将 `$pluginDir`、`$dshDir` 改为本机路径。该流程生成的本地压缩包是当前最可靠的验收来源，也可在公共发布完成后继续用于比对。
+需要调试源码或复现构建时，可使用官方 DSH `dsh-v0.1.2-alpha.5` 和独立测试配置；请将 `$pluginDir`、`$dshDir` 改为本机路径。该流程生成的本地压缩包对应当前 `main` 的 RC2 工程候选，是验证对账实现和其他源码改动的直接来源；公开 RC1 的安装与回滚仍使用不可变 tag 或 npm `next`。
 
 ```powershell
 $pluginDir = 'C:\path\to\dsh-deepcanary'
@@ -141,7 +143,8 @@ npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
 
-`dsh --version` 应输出 `0.1.2-alpha.5`，`git rev-parse HEAD` 应输出 `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`，本地压缩包应显示 `0.1.1-rc.1`。`cordis.patch.yml` 使用 DSH 的 `dshHomePath('dsh-deepcanary')`，因此设置 `DSH_HOME` 后，插件状态会跟随独立 DSH home 保存。开始 Web UI 手测前，请确认测试配置已加载当前压缩包，并且页面只显示侧栏入口，不再出现固定在右侧的旧卡片。源码维护版本还应检查 `/dsh-deepcanary/health`、`/dsh-deepcanary/state` 中的探针状态、outageId 和 Supervisor 状态。
+`dsh --version` 应输出 `0.1.2-alpha.5`，`git rev-parse HEAD` 应输出 `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`，本地压缩包应显示 `0.1.1-rc.2`。`cordis.patch.yml` 使用 DSH 的 `dshHomePath('dsh-deepcanary')`，因此设置 `DSH_HOME` 后，插件状态会跟随独立 DSH home 保存。开始 Web UI 手测前，请确认测试配置已加载当前压缩包，并且页面只显示侧栏入口，不再出现固定在右侧的旧卡片。源码维护版本还应检查 `/dsh-deepcanary/health`、`/dsh-deepcanary/state` 中的探针状态、outageId、reconciliation 和 Supervisor 状态。
+RC2 的 `supervisorMode` 默认为 `off`。需要验证 U7 原型时，在 DSH Settings > Plugins 的 DeepCanary 设置中选择 `experimental`，重启该测试 profile，再检查 `supervisor.json`、lease、对账状态和 smoke/soak 证据；该模式属于工程验证入口，当前 Stable core claim 不包含 Persistent Supervisor。
 
 ### WebUI 交互
 
@@ -157,7 +160,7 @@ npx --yes pnpm@11.7.0 dsh web --no-open
 
 | 接口 | 用途 |
 | --- | --- |
-| `/dsh-deepcanary/state` | 状态、设置和待处理 Inbox 快照 |
+| `/dsh-deepcanary/state` | 状态、设置、reconciliation 身份和待处理 Inbox 快照 |
 | `/dsh-deepcanary/settings` | 读取或校验并更新体验设置 |
 | `/dsh-deepcanary/health` | 插件健康检查 |
 | `/dsh-deepcanary/explain?id=...` | 读取单条 Inbox 的隐私安全决策解释 |
@@ -166,7 +169,7 @@ npx --yes pnpm@11.7.0 dsh web --no-open
 | `/dsh-deepcanary/outcome` | 记录一条脱敏的决策结果，供本地 dogfood 复盘 |
 | `/dsh-deepcanary/outcomes` | 读取经过筛选的 OutcomeReceipt，不返回会话正文 |
 | `DELETE /dsh-deepcanary/outcomes` | 按明确的 trial 或时间边界删除本地结果记录 |
-| `/dsh-deepcanary/supervisor` | 读取后续版本 Persistent Supervisor 原型的本地快照、租约状态和资源计数 |
+| `/dsh-deepcanary/supervisor` | 读取 Persistent Supervisor 原型的本地快照、租约状态和资源计数 |
 
 DSH 模型可使用九个工具：
 
@@ -210,7 +213,7 @@ dogfood 或受控试验可以在产生提醒后，使用 Inbox 条目的 `id` �
 
 ## 隐私与安全边界
 
-默认状态目录跟随 DSH 的 home，bundle 配置使用 `dshHomePath('dsh-deepcanary')`；未设置 `DSH_HOME` 时通常对应 `~/.dsh/dsh-deepcanary`。其中的 `inbox.json` 保存提醒元数据，`outcomes.json` 保存脱敏结果记录；后续版本原型还会生成有界的 `supervisor.json` 与短租约 `supervisor.lease`。这些文件保存时间、等级、原因码、哈希化的 Session/Workspace 引用、证据摘要、Bundle 元数据、用户反馈和结果枚举；当 DSH 提供会话入口时，`inbox.json` 还会保存长度受限的本地 opaque session handle，用于调用原生 `sessions.open` 回到对应线程。Prompt、模型输出、工具参数、凭据、原始工具结果和完整会话内容留在 DSH，不写入 DeepCanary 状态文件。
+默认状态目录跟随 DSH 的 home，bundle 配置使用 `dshHomePath('dsh-deepcanary')`；未设置 `DSH_HOME` 时通常对应 `~/.dsh/dsh-deepcanary`。其中的 `inbox.json` 保存提醒元数据，`outcomes.json` 保存脱敏结果记录；当 RC2 显式设置 `supervisorMode: experimental` 时，还会生成有界的 `supervisor.json` 与短租约 `supervisor.lease`，其中包含重启可恢复的策略状态、会话投影和跨 sink delivery ledger。所有这些文件保存时间、等级、原因码、哈希化的 Session/Workspace 引用、证据摘要、Bundle 元数据、用户反馈、结果枚举以及有限的送达状态；当 DSH 提供会话入口时，`inbox.json` 还会保存长度受限的本地 opaque session handle，用于调用原生 `sessions.open` 回到对应线程。Prompt、模型输出、工具参数、凭据、原始工具结果和完整会话内容留在 DSH，不写入 DeepCanary 状态文件。
 
 Web 接口使用同源本地 WebServer 和 `no-store` 响应；客户端通过 DOM `textContent` 渲染动态字段，不拼接 `innerHTML`。插件不提供 shell、文件写入、终止、重启、批准或拒绝工具。不要把 DSH WebServer 暴露到未经认证的公网反向代理后面。
 

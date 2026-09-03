@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, readdir, rename, stat, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { resolveStateDir } from './persistence.js'
+import type { PersistedDeliveryEntry } from './core/delivery.js'
 import type { AttentionLevel } from './types.js'
 
 export const SUPERVISOR_SCHEMA_VERSION = 1 as const
@@ -35,6 +36,8 @@ export interface SupervisorSnapshot {
   sessions: SupervisorSessionState[]
   pending: string[]
   policyState?: SupervisorPolicyState
+  /** Bounded cross-sink delivery state; values contain hashes, enums and time only. */
+  deliveryLedger?: PersistedDeliveryEntry[]
 }
 
 export interface SupervisorLease {
@@ -156,7 +159,31 @@ function cloneSnapshot(snapshot: SupervisorSnapshot): SupervisorSnapshot {
     sessions: snapshot.sessions.map(session => ({ ...session })),
     pending: [...snapshot.pending],
     ...(snapshot.policyState === undefined ? {} : { policyState: clonePolicyState(snapshot.policyState) as SupervisorPolicyState }),
+    ...(snapshot.deliveryLedger === undefined ? {} : { deliveryLedger: snapshot.deliveryLedger.map(entry => ({ ...entry, attemptHashes: [...entry.attemptHashes] })) }),
   }
+}
+
+function isDeliveryEntry(value: unknown): value is PersistedDeliveryEntry {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false
+  const entry = value as Partial<PersistedDeliveryEntry>
+  return typeof entry.logicalKeyHash === 'string' && /^[a-f0-9]{16}$/.test(entry.logicalKeyHash)
+    && entry.sink === 'browser'
+    && typeof entry.attemptHash === 'string' && /^[a-f0-9]{16}$/.test(entry.attemptHash)
+    && Array.isArray(entry.attemptHashes)
+    && entry.attemptHashes.length > 0
+    && entry.attemptHashes.length <= 16
+    && entry.attemptHashes.every(candidate => typeof candidate === 'string' && /^[a-f0-9]{16}$/.test(candidate))
+    && (entry.state === 'planned'
+      || entry.state === 'attempted'
+      || entry.state === 'browser-constructed'
+      || entry.state === 'browser-shown'
+      || entry.state === 'os-observed'
+      || entry.state === 'clicked'
+      || entry.state === 'failed'
+      || entry.state === 'superseded')
+    && typeof entry.attempts === 'number' && Number.isSafeInteger(entry.attempts) && entry.attempts >= 1 && entry.attempts <= 512
+    && typeof entry.firstObservedAt === 'string' && isIsoDate(entry.firstObservedAt)
+    && typeof entry.updatedAt === 'string' && isIsoDate(entry.updatedAt)
 }
 
 function emptySnapshot(runtimeVersion: string, now: number): SupervisorSnapshot {
@@ -200,6 +227,11 @@ function normalizeSnapshot(
     ? [...new Set(value.pending.filter(isSafeRef))].slice(0, maxPending)
     : []
   const policyState = value.policyState === undefined ? undefined : isPolicyState(value.policyState) ? value.policyState : undefined
+  const deliveryLedger = value.deliveryLedger === undefined
+    ? undefined
+    : Array.isArray(value.deliveryLedger)
+      ? value.deliveryLedger.filter(isDeliveryEntry).slice(0, 512)
+      : undefined
   return {
     schemaVersion: SUPERVISOR_SCHEMA_VERSION,
     revision,
@@ -213,6 +245,7 @@ function normalizeSnapshot(
     sessions,
     pending,
     ...(policyState === undefined ? {} : { policyState: clonePolicyState(policyState) as SupervisorPolicyState }),
+    ...(deliveryLedger === undefined ? {} : { deliveryLedger: deliveryLedger.map(entry => ({ ...entry, attemptHashes: [...entry.attemptHashes] })) }),
   }
 }
 
@@ -698,6 +731,7 @@ export function supervisorSnapshotFor(
   now = Date.now(),
   maxPending = DEFAULT_MAX_PENDING,
   policyState?: SupervisorPolicyState,
+  deliveryLedger?: readonly PersistedDeliveryEntry[],
 ): SupervisorSnapshot {
   return {
     schemaVersion: SUPERVISOR_SCHEMA_VERSION,
@@ -712,5 +746,6 @@ export function supervisorSnapshotFor(
     })),
     pending: [...new Set(pending.filter(isSafeRef))].slice(0, Math.max(0, Math.min(maxPending, DEFAULT_MAX_PENDING))),
     ...(policyState === undefined || !isPolicyState(policyState) ? {} : { policyState: clonePolicyState(policyState) as SupervisorPolicyState }),
+    ...(deliveryLedger === undefined ? {} : { deliveryLedger: deliveryLedger.filter(isDeliveryEntry).slice(0, 512).map(entry => ({ ...entry, attemptHashes: [...entry.attemptHashes] })) }),
   }
 }

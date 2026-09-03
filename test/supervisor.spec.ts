@@ -53,6 +53,48 @@ describe('PersistentSupervisor', () => {
     }
   })
 
+  it('persists and restores the bounded cross-sink delivery ledger', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-supervisor-delivery-'))
+    try {
+      const now = 1_756_800_000_000
+      const delivery = {
+        logicalKeyHash: '1111111111111111',
+        sink: 'browser' as const,
+        attemptHash: '2222222222222222',
+        attemptHashes: ['2222222222222222'],
+        state: 'clicked' as const,
+        attempts: 1,
+        firstObservedAt: new Date(now).toISOString(),
+        updatedAt: new Date(now + 1).toISOString(),
+      }
+      const first = new PersistentSupervisor({
+        stateDir: directory,
+        runtimeVersion: '0.1.2-alpha.5',
+        now: () => now,
+        pid: 151,
+        instanceId: 'delivery-owner',
+        heartbeatMs: 60_000,
+      })
+      expect(await first.start()).toBe(true)
+      first.update(supervisorSnapshotFor('0.1.2-alpha.5', 'ready', 2, [], [], now, 2_000, undefined, [delivery]))
+      await first.stop()
+
+      const restored = new PersistentSupervisor({
+        stateDir: directory,
+        runtimeVersion: '0.1.2-alpha.5',
+        now: () => now,
+        pid: 152,
+        instanceId: 'delivery-restored',
+        heartbeatMs: 60_000,
+      })
+      expect(await restored.start()).toBe(true)
+      expect(restored.snapshot().deliveryLedger).toEqual([delivery])
+      await restored.stop()
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
   it('blocks a competing instance while the current lease is fresh', async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-supervisor-lease-'))
     try {

@@ -1,12 +1,32 @@
 # RC release checklist
 
-This checklist records the active `dsh-deepcanary` `0.1.1-rc.1` prerelease against the official DSH `dsh-v0.1.2-alpha.5` tag and preserves the RC4 and RC2 procedures for historical reproduction. The current candidate uses the alpha.5 source checkout, the immutable `v0.1.1-rc.1` tag, and its prerelease Release; the historical RC4 record remains pinned to alpha.4 and RC2 remains tied to alpha.2.
+This checklist records the current `0.1.1-rc.2` source engineering candidate and the published immutable `0.1.1-rc.1` prerelease against the official DSH `dsh-v0.1.2-alpha.5` tag. RC4 and historical RC2 procedures remain available for reproduction with their original identities.
 
-The current GitHub tag, Release asset, local tarball, npm `next` package, and alpha.5 source checkout provide the verified acceptance paths. The isolated Ubuntu-26.04 alpha.5 profile and device-level notification, touch, and screen-reader observations remain separately tracked below and in `benchmark/alpha5-compatibility-receipt.json`.
+The published GitHub tag, Release asset, npm `next` package, and alpha.5 source checkout provide the RC1 installation path. The RC2 local tarball and fresh Gate report provide the engineering path. The isolated Ubuntu-26.04 alpha.5 profile and device-level notification, touch, and screen-reader observations remain separately tracked below and in `benchmark/alpha5-compatibility-receipt.json`.
+
+## 0.1.1-rc.2 engineering candidate: authoritative session reconciliation
+
+The current `main` package version is `0.1.1-rc.2`. It targets the same official `dsh-v0.1.2-alpha.5` commit `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5` and contains the first reconciliation slice: subscriber-first event buffering, authoritative `ctx.sessions.list()` seeding, `Session.snapshotEvents()` metadata derivation, reconciliation epochs, sequence-aware buffered-event merge, startup Human Needed reconstruction, previously observed-session disposal convergence, bounded orphan grace, public reconciliation status, and a bounded logical browser delivery ledger.
+
+This candidate is a source-build identity. Build and verify it with:
+
+```powershell
+npm ci
+npm run typecheck
+npm run typecheck:tests
+npm test -- --run
+npm run build
+npm run verify:distribution
+npm run pack:check
+npm run gate:stable
+npm pack --pack-destination output/local-pack
+```
+
+Bind the resulting `dsh-deepcanary-0.1.1-rc.2.tgz` hash to the fresh Gate report and any local DSH profile used for validation. The candidate has no public tag, Release, or registry publication; the immutable RC1 receipt remains the historical publication record. The Persistent Supervisor is explicitly experimental and off by default; set `supervisorMode: experimental` for its engineering checks. Gate E keeps `prototype-ready` semantics until authoritative restart continuity, OS-level delivery states, cross-process orphan convergence, resource delta, and soak evidence reach their documented floor.
 
 ## 0.1.1-rc.1 release: official DSH alpha.5
 
-The active release candidate is `0.1.1-rc.1`, tested against the official `dsh-v0.1.2-alpha.5` tag at commit `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`. The alpha.5 runtime is the current development and compatibility baseline. RC4 and RC2 sections below preserve their original evidence and reproduction commands.
+The published release record is `0.1.1-rc.1`, tested against the official `dsh-v0.1.2-alpha.5` tag at commit `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`. The alpha.5 runtime remains the compatibility baseline for both the published RC1 artifact and the RC2 source candidate. RC4 and historical RC2 sections below preserve their original evidence and reproduction commands.
 
 The Windows alpha.5 Web profile, isolated headless model smoke, package gates, and clean npm `next` installation passed. The Ubuntu-26.04 profile has a separate pending WSL gate because its alpha.5 Web health evidence has not been recorded; the alpha.4 WSL result remains historical evidence and is not promoted to alpha.5.
 
@@ -24,7 +44,7 @@ npm run gate:stable
 npm pack --pack-destination output/local-pack
 ```
 
-The generated artifact must be `dsh-deepcanary-0.1.1-rc.1.tgz`. Record its SHA-256 in [`benchmark/alpha5-compatibility-receipt.json`](../benchmark/alpha5-compatibility-receipt.json) together with the package digest, source commit, alpha.5 runtime identity, local WebUI result, and the stable-gate report. Keep OS-level Toast observations separate from browser delivery evidence; the receipt should mark Gate D or native-notification work according to the evidence actually collected.
+The historical release artifact is `dsh-deepcanary-0.1.1-rc.1.tgz`. Its SHA-256 and publication identity remain recorded in [`benchmark/alpha5-compatibility-receipt.json`](../benchmark/alpha5-compatibility-receipt.json). Keep Windows OS-visible browser notification observations separate from browser construction evidence; each new candidate uses its own fresh report and digest.
 
 For the public npm installation path, use the explicit `next` selector and verify the resolved version and dist-tags:
 
@@ -73,11 +93,11 @@ npm run replay:policy
 
 The report must pass every expected case for judgment, deduplication, Bundle escalation, budget downgrade, quiet hours, and recovery. Then collect a sanitized dogfood bundle with [`benchmark/dogfood.schema.json`](../benchmark/dogfood.schema.json) across the task families and scenarios in [`docs/dogfood-protocol.md`](dogfood-protocol.md), including positive decisions and negative opportunities. Generate its report with `npm run dogfood:report -- --input <path-to-sanitized-dogfood.json>`. Review labels, numerators, denominators, and sample-status values are part of the gate evidence.
 
-Gate D requires a validated multi-run real dogfood aggregate covering coding, build/test, research, multi-stage, and Subagent work plus concrete opportunity evidence for every declared scenario. It also requires reviewed Human Needed opportunities, separate policy and usefulness labels for delivered C2/C3 decisions, false-stall and wrong-level review, duplicate-final-interrupt review, recovery-before-open observations, negative opportunities for C0/dedupe/suppression, and a real Edge/Windows notification observation. Browser permission and client callback evidence can be automated; the actual Windows Toast appearance, notification-center retention, and native click-to-focus behavior require a schema-validated record bound to the matching dogfood observation and delivery unit. A small single-task sample or the legacy `--native-toast-observed` flag remains diagnostic evidence and does not pass Gate D.
+Gate D requires a validated multi-run real dogfood aggregate covering coding, build/test, research, multi-stage, and Subagent work plus concrete opportunity evidence for every declared scenario. It also requires reviewed Human Needed opportunities, separate policy and usefulness labels for delivered C2/C3 decisions, false-stall and wrong-level review, duplicate-final-interrupt review, recovery-before-open observations, negative opportunities for C0/dedupe/suppression, and a real Edge/Windows notification observation. Browser permission and client callback evidence can be automated; actual Windows OS-visible browser notification appearance, Notification Center retention, and click-to-focus behavior require a schema-validated record bound to the matching dogfood observation and delivery unit. A small single-task sample or the legacy `--native-toast-observed` flag remains diagnostic evidence and does not pass Gate D.
 
 ## 2B. Stable Gate E: release integrity and operational continuity
 
-Gate E combines a reproducible package with the Persistent Supervisor prototype. In addition to the standard checks above, run:
+Gate E combines a reproducible package with the explicitly enabled Persistent Supervisor prototype. In addition to the standard checks above, run:
 
 ```powershell
 npm run replay:policy
@@ -87,7 +107,7 @@ npm run verify:release-receipt
 npm pack --dry-run
 ```
 
-Inspect `GET /dsh-deepcanary/supervisor` on the exact alpha.4 profile and confirm that `supervisor.json` is bounded, `supervisor.lease` is released after shutdown, a competing process enters `standby` and retries after the active lease is released, a stale lease is archived before takeover, and a previous owner cannot overwrite the active owner's snapshot. The lease mutations and owned snapshot commits use the same local operation lock, so fencing is checked within one serialized filesystem operation. Record startup, restore, write, heartbeat, wake, state-directory-size, RSS counters, policy-state version, and restored dedupe/budget entries. The browser delivery ledger is present at the attempt stage; authoritative post-restart session reconciliation and Windows OS observation remain separate evidence gates.
+Select `supervisorMode: experimental` in the exact alpha.5 test profile, then inspect `GET /dsh-deepcanary/supervisor` and confirm that `supervisor.json` is bounded, `supervisor.lease` is released after shutdown, a competing process enters `standby` and retries after the active lease is released, a stale lease is archived before takeover, and a previous owner cannot overwrite the active owner's snapshot. The lease mutations and owned snapshot commits use the same local operation lock, so fencing is checked within one serialized filesystem operation. Record startup, restore, write, heartbeat, wake, state-directory-size, RSS counters, policy-state version, restored dedupe/budget entries, and logical browser delivery entries. RC2 now exposes the first authoritative session reconciliation slice and orphan grace, while post-restart convergence, Windows OS observation, and the remaining Stable semantics stay as separate evidence gates.
 
 The repository CI workflow starts the pinned alpha.4 Web profile in an isolated home and exercises the panel through Playwright CLI. Run [33557376591](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33557376591) passed on the final RC4 main commit across Windows and Ubuntu with Node 22 and 24, including the alpha.4 WebUI smoke. Automated checks cover the computer interaction surface; physical touch and real Screen Reader evaluation remain separate device checks.
 

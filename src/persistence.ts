@@ -40,6 +40,7 @@ interface PersistedItem {
   acknowledgedAt?: string
   recoveredAt?: string
   expiredAt?: string
+  orphanedAt?: string
   mutedUntil?: string
   feedback?: { useful: boolean; value?: FeedbackValue; note?: string; at: string }
   bundleKey?: string
@@ -92,6 +93,7 @@ function toPersisted(item: InboxItem): PersistedItem {
     ...(item.acknowledgedAt ? { acknowledgedAt: item.acknowledgedAt } : {}),
     ...(item.recoveredAt ? { recoveredAt: item.recoveredAt } : {}),
     ...(item.expiredAt ? { expiredAt: item.expiredAt } : {}),
+    ...(item.orphanedAt ? { orphanedAt: item.orphanedAt } : {}),
     ...(item.mutedUntil ? { mutedUntil: item.mutedUntil } : {}),
     ...(item.feedback ? { feedback: { ...item.feedback, ...(item.feedback.note ? { note: item.feedback.note.slice(0, 200) } : {}) } } : {}),
     ...(item.bundleKey ? { bundleKey: item.bundleKey } : {}),
@@ -135,6 +137,7 @@ function fromPersisted(item: PersistedItem): InboxItem {
     ...(item.acknowledgedAt ? { acknowledgedAt: item.acknowledgedAt } : {}),
     ...(item.recoveredAt ? { recoveredAt: item.recoveredAt } : {}),
     ...(item.expiredAt ? { expiredAt: item.expiredAt } : {}),
+    ...(item.orphanedAt ? { orphanedAt: item.orphanedAt } : {}),
     ...(item.mutedUntil ? { mutedUntil: item.mutedUntil } : {}),
     ...(feedback === undefined ? {} : { feedback }),
     ...(item.bundleKey ? { bundleKey: item.bundleKey } : {}),

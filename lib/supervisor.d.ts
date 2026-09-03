@@ -1,3 +1,4 @@
+import type { PersistedDeliveryEntry } from './core/delivery.js';
 import type { AttentionLevel } from './types.js';
 export declare const SUPERVISOR_SCHEMA_VERSION: 1;
 export declare const SUPERVISOR_POLICY_STATE_SCHEMA_VERSION: 1;
@@ -29,6 +30,8 @@ export interface SupervisorSnapshot {
     sessions: SupervisorSessionState[];
     pending: string[];
     policyState?: SupervisorPolicyState;
+    /** Bounded cross-sink delivery state; values contain hashes, enums and time only. */
+    deliveryLedger?: PersistedDeliveryEntry[];
 }
 export interface SupervisorLease {
     schemaVersion: typeof SUPERVISOR_SCHEMA_VERSION;
@@ -137,5 +140,5 @@ export declare class PersistentSupervisor {
     private persistNow;
     private heartbeat;
 }
-export declare function supervisorSnapshotFor(runtimeVersion: string, hostStatus: SupervisorHostStatus, revision: number, sessions: readonly SupervisorSessionState[], pending: readonly string[], now?: number, maxPending?: number, policyState?: SupervisorPolicyState): SupervisorSnapshot;
+export declare function supervisorSnapshotFor(runtimeVersion: string, hostStatus: SupervisorHostStatus, revision: number, sessions: readonly SupervisorSessionState[], pending: readonly string[], now?: number, maxPending?: number, policyState?: SupervisorPolicyState, deliveryLedger?: readonly PersistedDeliveryEntry[]): SupervisorSnapshot;
 //# sourceMappingURL=supervisor.d.ts.map

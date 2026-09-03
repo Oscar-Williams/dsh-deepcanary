@@ -6,7 +6,7 @@ import { OutcomeStore } from './outcome.js';
 import { PersistentSupervisor } from './supervisor.js';
 import type { CanarySignal, DeepCanaryConfig, DryRunRequest, DryRunResult, FeedbackValue, InboxItem, PublicInboxItem, PublicSettings, PublicSnapshot, OutcomeReceipt, OutcomeDeleteFilter, OutcomeReceiptInput, RuntimeStatus, SuppressibleReasonCode } from './types.js';
 declare const PLUGIN_NAME = "dsh-deepcanary";
-declare const PLUGIN_VERSION = "0.1.1-rc.1";
+declare const PLUGIN_VERSION = "0.1.1-rc.2";
 interface ActionReceipt {
     status: number;
     body: Record<string, unknown>;
@@ -26,6 +26,7 @@ export declare class DeepCanaryService {
     private readonly suppressedReasons;
     private readonly dedupe;
     private readonly budget;
+    private readonly deliveryLedger;
     private readonly pressureSeen;
     private readonly logger;
     private adapterSubscription;
@@ -53,6 +54,7 @@ export declare class DeepCanaryService {
     private outcomeSaveChain;
     private suppressionSaveChain;
     private supervisorStart;
+    private supervisorStarted;
     readonly supervisor: PersistentSupervisor;
     constructor(ctx: Context, input?: DeepCanaryConfigInput);
     start(): void;
@@ -98,6 +100,7 @@ export declare class DeepCanaryService {
     private isNotificationDeliveryPayload;
     recordHostProbe(ok: boolean, detail?: string): Promise<void>;
     private startSupervisor;
+    private ensureSupervisorStarted;
     private syncSupervisor;
     private restoreSupervisorPolicy;
     private supervisorPolicyState;
@@ -127,6 +130,13 @@ export declare class DeepCanaryService {
     private toPublic;
     private isPending;
     private normalizeLifecycle;
+    /**
+     * Reconcile restored session-scoped items only after an authoritative,
+     * verified session read. A short persisted grace period absorbs startup and
+     * host-restart timing gaps; expiry then converges the item without inventing
+     * a runtime observation or sending a new notification.
+     */
+    private reconcileOrphans;
     private find;
     private bumpRevision;
     private queueSave;

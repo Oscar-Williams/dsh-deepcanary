@@ -3,18 +3,44 @@
   "title": "DeepCanary Stable Gate D/E Report",
   "description": "Evidence status for real dogfood, OS notification acceptance, replay, and the Persistent Supervisor prototype.",
   "type": "object",
-  "required": ["reportSchemaVersion", "pluginVersion", "runtimeBaseline", "identity", "gateD", "gateE", "files", "generatedAt", "conclusion"],
+  "required": ["reportSchemaVersion", "pluginVersion", "runtimeBaseline", "runtime", "policyVersion", "gateEvaluatorVersion", "provenance", "evidenceDigests", "samples", "decision", "identity", "gateD", "gateE", "files", "generatedAt", "conclusion"],
   "properties": {
     "reportSchemaVersion": { "const": 1 },
     "pluginVersion": { "type": "string", "minLength": 1 },
     "runtimeBaseline": { "type": "string", "minLength": 1 },
+    "runtime": {
+      "type": "object",
+      "required": ["tag", "commit"],
+      "properties": { "tag": { "type": "string", "minLength": 1 }, "commit": { "type": "string", "minLength": 1 } },
+      "additionalProperties": false
+    },
+    "policyVersion": { "type": "string", "minLength": 1 },
+    "gateEvaluatorVersion": { "type": "string", "minLength": 1 },
+    "provenance": {
+      "type": "object",
+      "required": ["dogfood", "inputKind", "bundles"],
+      "properties": {
+        "dogfood": { "type": "string", "minLength": 1 },
+        "inputKind": { "enum": ["none", "report", "bundle", "aggregate"] },
+        "bundles": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "evidenceDigests": { "type": "object" },
+    "samples": { "type": "object" },
+    "decision": { "enum": ["STABLE_READY", "STABLE_READY_WITH_NON_CORE_EXCEPTIONS", "CONTINUE_RC", "NO_GO_REDESIGN"] },
     "identity": {
       "type": "object",
       "required": ["gitCommit", "worktree", "packageVersion", "tarballSha256", "sourceDigest"],
       "properties": {
         "gitCommit": { "type": "string", "minLength": 1 },
+        "sourceCommit": { "type": "string", "minLength": 1 },
+        "dshTag": { "type": "string", "minLength": 1 },
+        "dshCommit": { "type": "string", "minLength": 1 },
         "worktree": { "enum": ["clean", "dirty"] },
+        "worktreeDirty": { "type": "boolean" },
         "packageVersion": { "type": "string", "minLength": 1 },
+        "packageSha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
         "tarballSha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
         "sourceDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
       },
@@ -74,8 +100,8 @@
         "implementation": { "enum": ["incomplete", "present"] },
         "policyReplay": { "enum": ["pending", "pass"] },
         "supervisorSmoke": { "enum": ["not-evaluated", "pending", "pass"] },
-        "authoritativeSessionReconciliation": { "const": "pending-adapter-surface" },
-        "crossSinkDeliveryLedger": { "const": "browser-attempt-ledger-present-os-observation-pending" },
+        "authoritativeSessionReconciliation": { "enum": ["pending-adapter-surface", "partial-adapter-surface", "pass"] },
+        "crossSinkDeliveryLedger": { "const": "logical-browser-ledger-present-os-observation-pending" },
         "packageVersion": { "type": "string", "minLength": 1 },
         "note": { "type": "string", "minLength": 1 }
       },

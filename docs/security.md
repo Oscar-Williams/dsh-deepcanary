@@ -6,7 +6,7 @@ DeepCanary is a local observer. It receives structured DSH runtime facts, normal
 
 ## Stored data
 
-The bundle stores state below the DSH home with `dshHomePath('dsh-deepcanary')`; when `DSH_HOME` is not set, this normally resolves to `~/.dsh/dsh-deepcanary`. The files are `inbox.json`, `outcomes.json`, and, when the Persistent Supervisor prototype is active, `supervisor.json` plus the short-lived `supervisor.lease`. The second file contains only redacted decision-to-outcome records; the Supervisor files contain bounded state projections and lease metadata.
+The bundle stores state below the DSH home with `dshHomePath('dsh-deepcanary')`; when `DSH_HOME` is not set, this normally resolves to `~/.dsh/dsh-deepcanary`. The files are `inbox.json`, `outcomes.json`, and, when `supervisorMode: experimental` is selected, `supervisor.json` plus the short-lived `supervisor.lease`. The second file contains only redacted decision-to-outcome records; the Supervisor files contain bounded state projections and lease metadata. The default `supervisorMode: off` keeps this experimental persistence path inactive for ordinary installations.
 
 - schema version, item ID, timestamp, level, action, status, reason code, and bounded feedback;
 - hashed Session and Workspace references;
@@ -19,7 +19,7 @@ It does not contain prompts, assistant output, tool arguments, raw tool results,
 
 Outcome records add an explicit source (`real`, `controlled`, or `replay`), a bounded trial identifier, event class, policy version, derived attention fields, user-action booleans, feedback, later outcome, latency bucket, and allowlisted review flags. The service derives the attention fields from the matching Inbox item and rejects unknown fields, path-shaped trial identifiers, and unsupported enum values. The same Inbox item can have independent records for separate source/trial pairs; filtered reports keep those aggregates separate. The OutcomeStore caps records and replaces `outcomes.json` atomically.
 
-The optional Supervisor snapshot retains only a schema version, monotonic revision, runtime version, host status, hashed session references, bounded pending references, and resource counters. Its lease contains an instance identifier, process identifier, start time, and heartbeat time. A fresh lease blocks a second owner; an expired lease is archived before takeover, and the previous owner is fenced when it no longer owns the current heartbeat token. The Supervisor is a local projection and diagnostic surface; it does not execute shell commands, control processes, approve requests, or close an alert without Core evidence.
+The optional Supervisor snapshot retains only a schema version, monotonic revision, runtime version, host status, hashed session references, bounded pending references, a bounded logical browser delivery ledger, and resource counters. Its lease contains an instance identifier, process identifier, start time, and heartbeat time. A fresh lease blocks a second owner; an expired lease is archived before takeover, and the previous owner is fenced when it no longer owns the current heartbeat token. The Supervisor is a local projection and diagnostic surface; it does not execute shell commands, control processes, approve requests, or close an alert without Core evidence.
 
 Persistence uses an atomic temporary file and rename within the configured state directory. The plugin does not create files elsewhere.
 

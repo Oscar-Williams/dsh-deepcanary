@@ -158,6 +158,32 @@ export function signalsFromSessionEvent(session: SessionLike, event: SessionEven
   return result
 }
 
+/**
+ * Recreate a Human Needed observation from an authoritative startup snapshot.
+ * The event sequence remains an opaque evidence join key; no event payload is
+ * copied into the signal or its persistence path.
+ */
+export function signalFromAuthoritativeHumanWait(
+  session: SessionLike,
+  reason: 'approval' | 'question',
+  eventSeq?: number,
+  occurredAt = Date.now(),
+): CanarySignal {
+  const kind: ReasonCode = reason === 'approval' ? 'HUMAN_APPROVAL_REQUIRED' : 'HUMAN_QUESTION_PENDING'
+  const eventRef = `authoritative-human-wait:${eventSeq ?? 'snapshot'}`
+  return signal(
+    'session',
+    kind,
+    session,
+    { type: eventRef, ...(eventSeq === undefined ? {} : { seq: eventSeq }), time: occurredAt },
+    undefined,
+    evidence('session-event', 'runtime', eventRef, 'DSH authoritative session history reports an unresolved human interaction boundary.'),
+    {},
+    3,
+    `${session.id}:human-needed`,
+  )
+}
+
 export function signalFromAgentError(payload: { agent?: { id?: string }; turn?: number; step?: number }): CanarySignal {
   const sessionId = payload.agent?.id
   return signal('agent', 'TASK_FAILED', sessionId ? { id: sessionId } : undefined, undefined, undefined, evidence('runtime-probe', 'runtime', 'agent/error', 'DSH reported an agent error.'), { turn: payload.turn ?? -1, step: payload.step ?? -1 }, 2, sessionId ? `${sessionId}:failure` : 'host:failure')
