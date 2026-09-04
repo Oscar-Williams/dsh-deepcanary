@@ -21,7 +21,7 @@
 
 `0.1.1-rc.1` 适合试用、反馈和插件集成验证。物理触摸设备、真实屏幕阅读器和 Windows OS-visible browser notification delivery 属于独立的设备验收项；浏览器自动化、键盘操作、窄视口、强制颜色和通知拒绝分支已有自动化证据。
 
-历史 [`v0.1.0-rc.3`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.3) Git tag 保留用于版本对照；对应 npm 版本已撤销，npm 规则不允许复用。历史 [`v0.1.0-rc.2`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.2) 与官方 DSH `dsh-v0.1.2-alpha.2` 的组合仍保留用于复现。`v0.1.0-rc.1` 以及 DSH npm `0.1.1-rc.2` 仅用于历史环境排查，不属于当前安装或测试基线。测试前请先停止 DSH，移除测试配置中的旧插件，再安装目标版本。
+历史 [`v0.1.0-rc.3`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.3) Git tag 保留用于版本对照；对应 npm 版本已撤销，npm 规则不允许复用。历史 [`v0.1.0-rc.2`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.2) 与官方 DSH `dsh-v0.1.2-alpha.2` 的组合仍保留用于复现。`v0.1.0-rc.1` 以及 DSH npm `0.1.1-rc.2` 保留用于历史版本对照和复现，不属于当前安装或测试基线。测试前请先停止 DSH，移除测试配置中的旧插件，再安装目标版本。
 
 ## 能解决什么问题
 
@@ -66,7 +66,7 @@ git rev-parse HEAD
 
 #### 2. 安装插件
 
-推荐使用不可变 GitHub tag；需要离线验收时，可下载 Release 附件并使用压缩包安装。个人设计资料目录不属于安装来源。
+推荐使用不可变 GitHub tag；需要离线验收时，可下载 Release 附件并使用压缩包安装。
 
 ```powershell
 Set-Location .\dsh-runtime-alpha5
