@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "release-candidate",
+  "status": "CANDIDATE",
+  "scope": "0.1.1-rc.3 against the official DSH alpha.5 runtime, with an independent alpha.13 compatibility canary",
+  "plugin": "dsh-deepcanary",
+  "pluginVersion": "0.1.1-rc.3",
+  "pluginCommit": "9b182b6f2790fde5d70739fcfef5986847adb8f9",
+  "attentionFixtureVersion": 3,
+  "runtime": {
+    "tag": "dsh-v0.1.2-alpha.5",
+    "version": "0.1.2-alpha.5",
+    "commit": "db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5",
+    "source": "official-git-tag"
+  },
+  "compatibilityCanary": {
+    "runtime": {
+      "tag": "dsh-v0.1.3-alpha.1",
+      "commit": "d347e703908d0406b7a7ef80e3a0e594d86b2215"
+    },
+    "status": "PASS_WITH_IDENTITY_REBIND_PENDING",
+    "scope": "independent Windows Web profile; public session list and snapshotEvents surfaces; authenticated UI panel observed",
+    "reportDigest": "f66521a753a354363505d8b7bb27be4c3627747821ac91bc4a9f3aa2d59cf91c"
+  },
+  "gates": {
+    "runtimeInstall": true,
+    "runtimeBuild": true,
+    "cliVersion": true,
+    "webDumpConfig": true,
+    "pluginBuild": true,
+    "pluginTests": true,
+    "pluginWebE2E": true,
+    "settingsE2E": true,
+    "unloadRestart": true,
+    "privacyGate": true,
+    "distributionIntegrity": true,
+    "publicTagInstall": false,
+    "windowsE2E": true,
+    "wslE2E": false,
+    "modelE2E": true,
+    "u4Candidate": "not-promoted",
+    "u5WindowsOsVisibleNotification": "pending",
+    "u7ProcessIntegration": "pass",
+    "u7RealElapsedSoak": "pending",
+    "alpha13Compatibility": "pending-rebind"
+  },
+  "attentionGate": "PASS",
+  "stableDecision": "CONTINUE_RC",
+  "artifactSha256": "93d430459ea3f71763cce1ee4f05559ae9987a42034d271018cb713dced48a17",
+  "evidence": {
+    "tests": {
+      "testFiles": 20,
+      "tests": 98,
+      "typecheck": "PASS",
+      "testTypecheck": "PASS",
+      "build": "PASS",
+      "distribution": "PASS"
+    },
+    "policyReplay": {
+      "baselineCases": 12,
+      "baselinePassing": 12,
+      "candidateCases": 12,
+      "candidatePassing": 12,
+      "changedCases": 0,
+      "baselineDigest": "a0d4040645829161660f3b3eac04bfb7b28f9a581a5c97ca0828e07c75076fd6",
+      "candidateDigest": "0199df96cfe1cd3d634084d009b9f06813d08c170c71915f6a8a676044b4b12a"
+    },
+    "u4Candidate": {
+      "discoveryRunId": "real-coding-alpha5-20260905-07",
+      "holdoutRunId": "u4-rc3-candidate-20260905-01",
+      "p1TargetFix": "pass-with-scope",
+      "p2SafetyNoRegression": "pending",
+      "p3AttentionBudgetNoRegression": "pass",
+      "p4ResourceNoRegression": "pending",
+      "reportDigest": "49855d6f74db61c33252c5a4313dd2271c9de4150602357441f8c1ac26619035"
+    },
+    "u5": {
+      "capability": "Windows OS-visible browser notification delivery",
+      "n1": "not-tested",
+      "n2": "partially-observed",
+      "n3": "not-tested",
+      "n4": "partially-observed",
+      "reportDigest": "44fc1e5e68ec8936b1a8347ee90c133713261afeb77ba0c4fc0423d6ab11ce0e"
+    },
+    "u7Process": {
+      "status": "PASS",
+      "reportDigest": "6d625c580dd97a828032d415289088274d2206e8f5fe3c7c0b0518893f7e7e30"
+    },
+    "u7RealSoak": {
+      "status": "RUNNING_AT_RECEIPT_CREATION",
+      "requiredDurationHours": 8,
+      "reportDigest": null
+    },
+    "freshGate": {
+      "decision": "CONTINUE_RC",
+      "gateD": "pending",
+      "gateE": "prototype-ready",
+      "reportDigest": "e3807f801f60e4ea12c00fa0a12d7258eba232ac515c4bb1c358893a31c2187c"
+    }
+  },
+  "artifact": {
+    "file": "dsh-deepcanary-0.1.1-rc.3.tgz",
+    "sha256": "93d430459ea3f71763cce1ee4f05559ae9987a42034d271018cb713dced48a17",
+    "sha1": "97580bf7684823057a1ede6eb6756be52c3c2a40",
+    "fileCount": 117
+  },
+  "publication": {
+    "status": "READY_FOR_PUBLIC_SYNC",
+    "github": {
+      "repository": "Oscar-Williams/dsh-deepcanary",
+      "tag": "v0.1.1-rc.3",
+      "release": "https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.1-rc.3",
+      "asset": "dsh-deepcanary-0.1.1-rc.3.tgz",
+      "prerelease": true
+    },
+    "npm": {
+      "registry": "https://registry.npmjs.org/",
+      "package": "dsh-deepcanary",
+      "version": "0.1.1-rc.3",
+      "distTag": "next",
+      "status": "READY_FOR_PUBLIC_SYNC"
+    }
+  },
+  "pendingEvidence": [
+    "fresh Windows OS-visible browser notification observation bound to the RC3 notificationAttemptId",
+    "U4 frozen AttentionGold recovery case and same-scope resource comparison",
+    "real elapsed eight-hour Supervisor soak",
+    "full authoritative Supervisor reconciliation and resource delta acceptance",
+    "WSL extension matrix, real Narrator output, and physical touch hardware",
+    "identity rebind for the alpha.13 canary after the final RC3 package is installed"
+  ],
+  "privacy": {
+    "rawContentPersisted": false,
+    "promptTranscriptModelOutputToolArgsCredentialsAndCompletePathsIncluded": false
+  },
+  "note": "RC3 is a public prerelease identity with Stable decision CONTINUE_RC. The published RC1 tag, Release, npm artifact, and receipt remain immutable. Supervisor remains experimental and off by default until the open evidence gates are satisfied."
+}
