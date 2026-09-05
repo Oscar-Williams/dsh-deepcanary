@@ -10,6 +10,9 @@ const profileRoot = path.resolve(process.env.DSH_ALPHA13_PROFILE ?? path.join(pl
 const outputPath = path.resolve(process.env.DSH_ALPHA13_OUTPUT ?? path.join(pluginRoot, 'output/gates/alpha13-compatibility-20260905.json'))
 const packagePath = path.resolve(process.env.DSH_ALPHA13_PACKAGE ?? path.join(pluginRoot, 'output/local-pack/dsh-deepcanary-0.1.1-rc.3.tgz'))
 const webLogPath = path.resolve(process.env.DSH_ALPHA13_WEB_LOG ?? path.join(profileRoot, '..', 'artifacts/alpha13-compat-20260905.stdout.log'))
+const webPort = Number(process.env.DSH_ALPHA13_WEB_PORT ?? '43156')
+const profileRef = `${path.basename(profileRoot)}/web`
+const reportId = process.env.DSH_ALPHA13_REPORT_ID ?? 'alpha13-compatibility-20260905-rc3'
 const execFileAsync = promisify(execFile)
 
 async function readJson(filePath) {
@@ -71,7 +74,7 @@ const checks = {
 const passed = Object.entries(checks).every(([key, value]) => key === 'rawContentPersisted' ? value === false : value === true)
 const report = {
   schemaVersion: 1,
-  reportId: 'alpha13-compatibility-20260905-rc3',
+  reportId,
   provenance: 'controlled-real-compatibility',
   stableGateUse: 'alpha13-independent-canary',
   pluginName: 'dsh-deepcanary',
@@ -79,8 +82,8 @@ const report = {
   sourceCommit,
   packageSha256,
   dsh: { tag: 'dsh-v0.1.3-alpha.1', commit: runtimeCommit },
-  profileRef: 'dsh-deepcanary-compat-alpha13-20260905/web',
-  web: { port: 43156, status: webStatus, tokenPersisted: false, authenticatedUiObserved: checks.uiPluginPanelObserved },
+  profileRef,
+  web: { port: webPort, status: webStatus, tokenPersisted: false, authenticatedUiObserved: checks.uiPluginPanelObserved },
   checks,
   identity: {
     pluginVersion: installedPackage.version,
