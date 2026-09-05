@@ -20,7 +20,7 @@
     },
     "status": "PASS",
     "scope": "independent Windows Web profile; public session list and snapshotEvents surfaces; authenticated UI panel observed",
-    "reportDigest": "f059db5107d50b78265b0740fe1df525cb4d61dfc0c00a2f77592fd317fe72e4"
+    "reportDigest": "4fb411b6d2103b4f2795ed9c905fdd119adfe6e6d125d30c993d7a9107a273ea"
   },
   "gates": {
     "runtimeInstall": true,
@@ -84,7 +84,7 @@
     },
     "u7Process": {
       "status": "PASS",
-      "reportDigest": "77ac2bac6e23ef8f377c25d32bd0ddebf2663781b6a00440dbbfcae6b54a0467"
+      "reportDigest": "fa88e9564e4f9cc027ae4bd0b2309e1141af8ca50101599176547febff6ca82e"
     },
     "u7RealSoak": {
       "status": "RUNNING_AT_RECEIPT_CREATION",
@@ -95,7 +95,7 @@
       "decision": "CONTINUE_RC",
       "gateD": "pending",
       "gateE": "prototype-ready",
-      "reportDigest": "a3927058df7a3f891c99493bffeb773808bc5d7258e288d038c483ef67e44b4d"
+      "reportDigest": "5b955edf20b8a1b4218d292e5d2b5da75381e50ca4329eea2ae8734fddca8cb2"
     }
   },
   "artifact": {
