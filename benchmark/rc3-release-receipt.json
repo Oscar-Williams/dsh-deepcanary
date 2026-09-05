@@ -5,7 +5,7 @@
   "scope": "0.1.1-rc.3 against the official DSH alpha.5 runtime, with an independent alpha.13 compatibility canary",
   "plugin": "dsh-deepcanary",
   "pluginVersion": "0.1.1-rc.3",
-  "pluginCommit": "9b182b6f2790fde5d70739fcfef5986847adb8f9",
+  "pluginCommit": "cc0efc473e614cdf34ef016e015a08bd44e2ab2c",
   "attentionFixtureVersion": 3,
   "runtime": {
     "tag": "dsh-v0.1.2-alpha.5",
