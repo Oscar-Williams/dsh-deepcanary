@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DeepCanary Attention candidate promotion report",
+  "type": "object",
+  "required": ["schemaVersion", "reportId", "pluginVersion", "candidate", "separation", "promotionGates", "supervisorSupplement", "status", "decision", "evidenceDigests", "identity", "privacy", "generatedAt", "conclusion"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "reportId": { "type": "string", "minLength": 1 },
+    "pluginVersion": { "type": "string", "minLength": 1 },
+    "candidate": { "type": "object", "required": ["sourceClass", "pluginVersion", "sourceCommit", "packageSha256", "settingsSha256"], "properties": { "sourceClass": { "type": "string" }, "pluginVersion": { "type": "string" }, "sourceCommit": { "type": "string" }, "packageSha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" }, "settingsSha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" } }, "additionalProperties": false },
+    "separation": { "type": "object", "required": ["discoveryRunId", "holdoutRunId", "independent", "frozenGold"], "properties": { "discoveryRunId": { "type": ["string", "null"] }, "holdoutRunId": { "type": ["string", "null"] }, "independent": { "type": "boolean" }, "frozenGold": { "type": ["string", "null"] } }, "additionalProperties": false },
+    "promotionGates": { "type": "object", "required": ["P1TargetFix", "P2SafetyNoRegression", "P3AttentionBudgetNoRegression", "P4ResourceNoRegression"], "additionalProperties": true },
+    "supervisorSupplement": { "type": "object", "required": ["processIntegration", "realElapsedSoak"], "properties": { "processIntegration": { "enum": ["not-evaluated", "pending", "pass"] }, "realElapsedSoak": { "enum": ["not-evaluated", "pending", "pass"] } }, "additionalProperties": false },
+    "status": { "enum": ["promoted-after-manual-adoption", "not-promoted"] },
+    "decision": { "enum": ["promote", "hold-for-missing-gates"] },
+    "evidenceDigests": { "type": "object", "additionalProperties": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" } },
+    "identity": { "type": "object", "required": ["sourceCommit", "worktreeDirty", "pluginVersion", "evaluatorVersion"], "properties": { "sourceCommit": { "type": "string" }, "worktreeDirty": { "type": "boolean" }, "pluginVersion": { "type": "string" }, "evaluatorVersion": { "type": "string" } }, "additionalProperties": false },
+    "privacy": { "type": "object", "required": ["rawContentPersisted", "promptTranscriptModelOutputToolArgsCredentialsAndCompletePathsIncluded"], "properties": { "rawContentPersisted": { "const": false }, "promptTranscriptModelOutputToolArgsCredentialsAndCompletePathsIncluded": { "const": false } }, "additionalProperties": false },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "conclusion": { "type": "string", "minLength": 1 }
+  },
+  "additionalProperties": false
+}

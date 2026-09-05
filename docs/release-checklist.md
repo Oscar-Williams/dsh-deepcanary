@@ -1,12 +1,12 @@
 # RC release checklist
 
-This checklist records the current `0.1.1-rc.2` source engineering candidate and the published immutable `0.1.1-rc.1` prerelease against the official DSH `dsh-v0.1.2-alpha.5` tag. RC4 and historical RC2 procedures remain available for reproduction with their original identities.
+This checklist records the current `0.1.1-rc.3` release path and the published immutable `0.1.1-rc.1` prerelease against the official DSH `dsh-v0.1.2-alpha.5` tag. RC2, RC4, and earlier procedures remain available for reproduction with their original identities.
 
-The published GitHub tag, Release asset, npm `next` package, and alpha.5 source checkout provide the RC1 installation path. The RC2 local tarball and fresh Gate report provide the engineering path. The isolated Ubuntu-26.04 alpha.5 profile and device-level notification, touch, and screen-reader observations remain separately tracked below and in `benchmark/alpha5-compatibility-receipt.json`.
+The published GitHub tag, Release asset, npm `next` package, and alpha.5 source checkout provide the RC3 installation path. The isolated Ubuntu-26.04 alpha.5 profile and device-level notification, touch, and screen-reader observations remain separately tracked below and in `benchmark/alpha5-compatibility-receipt.json`.
 
-## 0.1.1-rc.2 engineering candidate: authoritative session reconciliation
+## 0.1.1-rc.3: authoritative session reconciliation
 
-The current `main` package version is `0.1.1-rc.2`. It targets the same official `dsh-v0.1.2-alpha.5` commit `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5` and contains the first reconciliation slice: subscriber-first event buffering, authoritative `ctx.sessions.list()` seeding, `Session.snapshotEvents()` metadata derivation, reconciliation epochs, sequence-aware buffered-event merge, startup Human Needed reconstruction, previously observed-session disposal convergence, bounded orphan grace, public reconciliation status, and a bounded logical browser delivery ledger.
+The `0.1.1-rc.3` package targets the official DSH `dsh-v0.1.2-alpha.5` commit `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5` and contains the first reconciliation slice: subscriber-first event buffering, authoritative `ctx.sessions.list()` seeding, `Session.snapshotEvents()` metadata derivation, reconciliation epochs, sequence-aware buffered-event merge, startup Human Needed reconstruction, previously observed-session disposal convergence, bounded orphan grace, public reconciliation status, and a bounded logical browser delivery ledger. The release identity and evidence digest index are recorded in [`../benchmark/rc3-release-receipt.json`](../benchmark/rc3-release-receipt.json).
 
 This candidate is a source-build identity. Build and verify it with:
 
@@ -14,7 +14,7 @@ This candidate is a source-build identity. Build and verify it with:
 npm ci
 npm run typecheck
 npm run typecheck:tests
-npm test -- --run
+npm test
 npm run build
 npm run verify:distribution
 npm run pack:check
@@ -22,11 +22,11 @@ npm run gate:stable
 npm pack --pack-destination output/local-pack
 ```
 
-Bind the resulting `dsh-deepcanary-0.1.1-rc.2.tgz` hash to the fresh Gate report and any local DSH profile used for validation. The candidate has no public tag, Release, or registry publication; the immutable RC1 receipt remains the historical publication record. The Persistent Supervisor is explicitly experimental and off by default; set `supervisorMode: experimental` for its engineering checks. Gate E keeps `prototype-ready` semantics until authoritative restart continuity, OS-level delivery states, cross-process orphan convergence, resource delta, and soak evidence reach their documented floor.
+Bind the resulting `dsh-deepcanary-0.1.1-rc.3.tgz` hash to the fresh Gate report and the DSH profile used for validation. The Persistent Supervisor is experimental and off by default; set `supervisorMode: experimental` for its engineering checks. Gate E keeps `prototype-ready` semantics until authoritative restart continuity, OS-level delivery states, cross-process orphan convergence, resource delta, and soak evidence reach their documented floor.
 
 ## 0.1.1-rc.1 release: official DSH alpha.5
 
-The published release record is `0.1.1-rc.1`, tested against the official `dsh-v0.1.2-alpha.5` tag at commit `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`. The alpha.5 runtime remains the compatibility baseline for both the published RC1 artifact and the RC2 source candidate. RC4 and historical RC2 sections below preserve their original evidence and reproduction commands.
+The published release record is `0.1.1-rc.1`, tested against the official `dsh-v0.1.2-alpha.5` tag at commit `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`. The alpha.5 runtime remains the compatibility baseline for the published RC1 artifact and the RC3 release. RC2, RC4, and historical sections below preserve their original evidence and reproduction commands.
 
 The Windows alpha.5 Web profile, isolated headless model smoke, package gates, and clean npm `next` installation passed. The Ubuntu-26.04 profile has a separate pending WSL gate because its alpha.5 Web health evidence has not been recorded; the alpha.4 WSL result remains historical evidence and is not promoted to alpha.5.
 
@@ -44,7 +44,7 @@ npm run gate:stable
 npm pack --pack-destination output/local-pack
 ```
 
-The historical release artifact is `dsh-deepcanary-0.1.1-rc.1.tgz`. Its SHA-256 and publication identity remain recorded in [`benchmark/alpha5-compatibility-receipt.json`](../benchmark/alpha5-compatibility-receipt.json). Keep Windows OS-visible browser notification observations separate from browser construction evidence; each new candidate uses its own fresh report and digest.
+The historical release artifact is `dsh-deepcanary-0.1.1-rc.1.tgz`. Its SHA-256 and publication identity remain recorded in [`benchmark/alpha5-compatibility-receipt.json`](../benchmark/alpha5-compatibility-receipt.json). Keep Windows OS-visible browser notification observations separate from browser construction evidence; each release uses its own fresh report and digest.
 
 For the public npm installation path, use the explicit `next` selector and verify the resolved version and dist-tags:
 
@@ -109,9 +109,9 @@ npm run verify:release-receipt
 npm pack --dry-run
 ```
 
-Select `supervisorMode: experimental` in the exact alpha.5 test profile, then inspect `GET /dsh-deepcanary/supervisor` and confirm that `supervisor.json` is bounded, `supervisor.lease` is released after shutdown, a competing process enters `standby` and retries after the active lease is released, a stale lease is archived before takeover, and a previous owner cannot overwrite the active owner's snapshot. The lease mutations and owned snapshot commits use the same local operation lock, so fencing is checked within one serialized filesystem operation. Run `npm run supervisor:soak` for the controlled virtual-clock supplemental report; it covers three normal restarts, one stale-lease takeover, old-owner fencing, bounded policy/delivery state, and shutdown release. Its `controlled-virtual` / `supplemental-only` identity keeps it separate from the real 8-hour Stable soak. Record startup, restore, write, heartbeat, wake, state-directory-size, RSS counters, policy-state version, restored dedupe/budget entries, and logical browser delivery entries. RC2 now exposes the first authoritative session reconciliation slice and orphan grace, while post-restart convergence, Windows OS observation, and the remaining Stable semantics stay as separate evidence gates.
+Select `supervisorMode: experimental` in the exact alpha.5 test profile, then inspect `GET /dsh-deepcanary/supervisor` and confirm that `supervisor.json` is bounded, `supervisor.lease` is released after shutdown, a competing process enters `standby` and retries after the active lease is released, a stale lease is archived before takeover, and a previous owner cannot overwrite the active owner's snapshot. The lease mutations and owned snapshot commits use the same local operation lock, so fencing is checked within one serialized filesystem operation. Run `npm run supervisor:soak` for the controlled virtual-clock supplemental report; it covers three normal restarts, one stale-lease takeover, old-owner fencing, bounded policy/delivery state, and shutdown release. Its `controlled-virtual` / `supplemental-only` identity keeps it separate from the real 8-hour Stable soak. Record startup, restore, write, heartbeat, wake, state-directory-size, RSS counters, policy-state version, restored dedupe/budget entries, and logical browser delivery entries. RC3 exposes the first authoritative session reconciliation slice and orphan grace, while post-restart convergence, Windows OS observation, and the remaining Stable semantics stay as separate evidence gates.
 
-The repository CI workflow starts the pinned alpha.4 Web profile in an isolated home and exercises the panel through Playwright CLI. Run [33557376591](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33557376591) passed on the final RC4 main commit across Windows and Ubuntu with Node 22 and 24, including the alpha.4 WebUI smoke. Automated checks cover the computer interaction surface; physical touch and real Screen Reader evaluation remain separate device checks.
+The repository CI workflow starts the pinned alpha.5 Web profile in an isolated home and exercises the panel through Playwright CLI. Historical run [33557376591](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33557376591) records the plugin `0.1.0-rc.4` Windows/Ubuntu and Node 22/24 checks, including its alpha.4 WebUI smoke. Each release uses CI evidence tied to its own source commit and runtime identity. Automated checks cover the computer interaction surface; physical touch and real Screen Reader evaluation remain separate device checks.
 
 ## 1. Source and documentation
 
@@ -164,7 +164,7 @@ npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
 
-The active `benchmark/release-candidate-receipt.json` uses `status: "PASS"` for the GitHub prerelease because the exact public tag, Release asset, alpha4 profiles, CI, and claimed local gates have been verified. npm publication remains separately marked `PAUSED`. The model smoke evidence is labeled by its exact runtime profile. The historical `benchmark/release-receipt.json` continues to document RC2.
+The active `benchmark/release-candidate-receipt.json` documents the historical `0.1.0-rc.4` GitHub prerelease with its exact public tag, Release asset, alpha4 profiles, CI, and claimed gates. RC3 publication uses a separate receipt bound to its own source commit, package digest, alpha.5 profile, fresh Gate, GitHub tag, Release asset, and npm `next` metadata. The model smoke evidence is labeled by its exact runtime profile. The historical `benchmark/release-receipt.json` continues to document RC2.
 
 Verify from the running local Web host:
 

@@ -22,13 +22,26 @@ const replayPath = path.resolve(root, args.get('replay') ?? 'output/replay/polic
 const dogfoodPath = args.get('dogfood') === undefined ? undefined : path.resolve(root, args.get('dogfood'))
 const notificationEvidencePath = args.get('notification-evidence') === undefined ? undefined : path.resolve(root, args.get('notification-evidence'))
 const auditPath = args.get('audit') === undefined ? undefined : path.resolve(root, args.get('audit'))
+const supplementalPaths = {
+  u4Candidate: args.get('u4-candidate') === undefined ? undefined : path.resolve(root, args.get('u4-candidate')),
+  attentionGold: args.get('attentiongold') ?? args.get('attention-gold'),
+  u5Status: args.get('u5-status'),
+  alpha13: args.get('alpha13'),
+  u7Process: args.get('u7-process'),
+  u7RealSoak: args.get('u7-real-soak'),
+  wslExisting: args.get('wsl-existing'),
+  qualification: args.get('qualification'),
+}
+for (const [key, value] of Object.entries(supplementalPaths)) {
+  if (value !== undefined && key !== 'u4Candidate') supplementalPaths[key] = path.resolve(root, value)
+}
 const supervisorSmokePath = path.resolve(root, 'output/gates/supervisor-smoke-report.json')
 const supervisorSoakPath = path.resolve(root, 'output/gates/supervisor-soak-report.json')
 const packageJson = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'))
 const runtimeDependency = packageJson.devDependencies?.['@deepseek-ai/dsh-agent']
 const runtimeBaseline = typeof runtimeDependency === 'string' ? `dsh-v${runtimeDependency}` : 'unknown'
 const runtimeCommit = process.env.DSH_COMMIT ?? 'db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5'
-const gateEvaluatorVersion = 'stable-gates.v2'
+const gateEvaluatorVersion = 'stable-gates.v3'
 
 async function command(name, args) {
   try {
@@ -47,6 +60,15 @@ async function digestFile(filePath) {
   }
 }
 
+async function readJsonOptional(filePath) {
+  if (filePath === undefined) return undefined
+  try {
+    return JSON.parse(await readFile(filePath, 'utf8'))
+  } catch {
+    return undefined
+  }
+}
+
 const gitCommit = await command('git', ['rev-parse', 'HEAD'])
 const gitStatus = await command('git', ['status', '--porcelain'])
 const sourceMaterial = [
@@ -56,6 +78,17 @@ const sourceMaterial = [
   await readFile(path.join(root, 'lib/client.js'), 'utf8').catch(() => ''),
 ].join('\n')
 const sourceDigest = createHash('sha256').update(sourceMaterial).digest('hex')
+
+const supplemental = {
+  u4Candidate: await readJsonOptional(supplementalPaths.u4Candidate),
+  attentionGold: await readJsonOptional(supplementalPaths.attentionGold),
+  u5Status: await readJsonOptional(supplementalPaths.u5Status),
+  alpha13: await readJsonOptional(supplementalPaths.alpha13),
+  u7Process: await readJsonOptional(supplementalPaths.u7Process),
+  u7RealSoak: await readJsonOptional(supplementalPaths.u7RealSoak),
+  wslExisting: await readJsonOptional(supplementalPaths.wslExisting),
+  qualification: await readJsonOptional(supplementalPaths.qualification),
+}
 const packDirectory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-stable-gate-'))
 let tarballSha256 = ''
 try {
@@ -294,6 +327,122 @@ try {
 } catch {
   supervisorSoak = { status: 'not-evaluated', provenance: 'unknown', stableGateUse: 'supplemental-only', virtualDurationHours: null, checks: 'not-evaluated', identity: 'not-evaluated', reasons: ['supplemental-supervisor-soak-report-unavailable'] }
 }
+
+const u4Candidate = supplemental.u4Candidate
+const attentionGold = supplemental.attentionGold
+const u5Status = supplemental.u5Status
+const alpha13 = supplemental.alpha13
+const u7Process = supplemental.u7Process
+const u7RealSoak = supplemental.u7RealSoak
+const wslExisting = supplemental.wslExisting
+const qualification = supplemental.qualification
+
+function everyCheck(checks, names) {
+  return names.every(name => checks?.[name] === true)
+}
+
+const processCheckNames = [
+  'initialLeaseAcquired',
+  'initialSnapshotDurable',
+  'normalRestartRestoresSnapshot',
+  'staleLeaseTakeover',
+  'oldOwnerFenced',
+  'delayedCallbackIdempotence',
+  'corruptSnapshotFailSafe',
+  'privacyBoundary',
+]
+const processIdentityMatch = u7Process !== undefined
+  && u7Process.pluginVersion === packageJson.version
+  && u7Process.identity?.sourceCommit === gitCommit
+  && u7Process.identity?.packageSha256 === tarballSha256
+  && u7Process.identity?.dshTag === runtimeBaseline
+  && u7Process.identity?.dshCommit === runtimeCommit
+const u7ProcessStatus = u7Process === undefined
+  ? 'not-evaluated'
+  : everyCheck(u7Process.checks, processCheckNames)
+    && u7Process.checks?.rawContentPersisted === false
+    && processIdentityMatch
+    ? 'pass'
+    : 'pending-or-stale'
+
+const soakCheckNames = [
+  'elapsedDuration',
+  'heartbeatObserved',
+  'snapshotsObserved',
+  'stateWithinBudget',
+  'boundedSessions',
+  'leaseReleased',
+  'privacyBoundary',
+]
+const realSoakIdentityMatch = u7RealSoak !== undefined
+  && u7RealSoak.pluginVersion === packageJson.version
+  && u7RealSoak.identity?.sourceCommit === gitCommit
+  && u7RealSoak.identity?.packageSha256 === tarballSha256
+  && u7RealSoak.identity?.dshTag === runtimeBaseline
+  && u7RealSoak.identity?.dshCommit === runtimeCommit
+const u7RealSoakStatus = u7RealSoak === undefined
+  ? 'not-evaluated'
+  : everyCheck(u7RealSoak.checks, soakCheckNames)
+    && u7RealSoak.checks?.rawContentPersisted === false
+    && u7RealSoak.checks?.interrupted === false
+    && realSoakIdentityMatch
+    ? 'pass'
+    : 'pending-or-stale'
+
+const alpha13Checks = [
+  'runtimeVersion',
+  'runtimeCommitResolved',
+  'runtimeSourceClean',
+  'profileBundlesPresent',
+  'installedPluginVersion',
+  'packageHashAvailable',
+  'webProcessResponded',
+  'publicSessionListSurface',
+  'publicSnapshotEventsSurface',
+  'uiPluginPanelObserved',
+  'privacyBoundary',
+]
+const alpha13Status = alpha13 === undefined
+  ? 'not-evaluated'
+  : everyCheck(alpha13.checks, alpha13Checks)
+    && alpha13.checks?.rawContentPersisted === false
+    && alpha13.pluginVersion === packageJson.version
+    && alpha13.packageSha256 === tarballSha256
+    ? 'pass'
+    : 'pending'
+
+const u5StatusSummary = u5Status === undefined
+  ? { status: 'not-evaluated', capability: 'Windows OS-visible browser notification delivery' }
+  : {
+      status: u5Status.overallStatus ?? u5Status.status ?? 'unknown',
+      capability: u5Status.capability ?? 'Windows OS-visible browser notification delivery',
+      N1: u5Status.checks?.N1_C2_OSVisible?.status ?? u5Status.N1?.status ?? 'unknown',
+      N2: u5Status.checks?.N2_C3_HumanNeeded?.status ?? u5Status.N2?.status ?? 'unknown',
+      N3: u5Status.checks?.N3_PermissionDenied?.status ?? u5Status.N3?.status ?? 'unknown',
+      N4: u5Status.checks?.N4_QuietAndBudget?.status ?? u5Status.N4?.status ?? 'unknown',
+    }
+
+const u4StatusSummary = u4Candidate === undefined
+  ? { status: 'not-evaluated', gates: {} }
+  : {
+      status: u4Candidate.status ?? 'unknown',
+      decision: u4Candidate.decision ?? 'unknown',
+      gates: Object.fromEntries(Object.entries(u4Candidate.promotionGates ?? {}).map(([name, gate]) => [name, gate.status ?? 'unknown'])),
+      discoveryRunId: u4Candidate.separation?.discoveryRunId ?? null,
+      holdoutRunId: u4Candidate.separation?.holdoutRunId ?? null,
+    }
+
+const wslStatusSummary = wslExisting === undefined
+  ? { status: 'not-evaluated', paused: true }
+  : {
+      status: everyCheck(wslExisting.checks, Object.keys(wslExisting.checks ?? {}).filter(name => name !== 'rawContentPersisted'))
+        && (wslExisting.checks?.rawContentPersisted === false || wslExisting.rawContentPersisted === false) ? 'pass' : 'pending',
+      paused: true,
+      identity: wslExisting.identity ?? null,
+    }
+const qualificationStatus = qualification?.status
+  ?? qualification?.qualifications?.[0]?.currentStatus
+  ?? (qualification === undefined ? 'not-evaluated' : 'unknown')
 const gateDReady = realDogfood.status === 'pass' && replayPass && notificationEvidence.status === 'pass' && notificationEvidence.binding?.status === 'pass'
 const authoritativeSessionReconciliation = fileChecks.some(check => check.file === 'lib/adapters/dsh.js' && check.present)
   ? 'partial-adapter-surface'
@@ -310,6 +459,14 @@ const evidenceDigests = {
   supervisorSoakDigest: await digestFile(supervisorSoakPath),
   attentionGoldDigest: await digestFile(path.join(root, 'benchmark', 'attention-gold-v3.json')),
   replayReportDigest: await digestFile(replayPath),
+  u4CandidateDigest: await digestFile(supplementalPaths.u4Candidate),
+  attentionGoldEvaluationDigest: await digestFile(supplementalPaths.attentionGold),
+  u5StatusDigest: await digestFile(supplementalPaths.u5Status),
+  alpha13CompatibilityDigest: await digestFile(supplementalPaths.alpha13),
+  u7ProcessDigest: await digestFile(supplementalPaths.u7Process),
+  u7RealSoakDigest: await digestFile(supplementalPaths.u7RealSoak),
+  wslExistingDigest: await digestFile(supplementalPaths.wslExisting),
+  qualificationDigest: await digestFile(supplementalPaths.qualification),
 }
 const metricSample = name => {
   const metric = dogfood?.metrics?.[name]
@@ -356,6 +513,8 @@ const report = {
     policyReplay: replayPass ? 'pass' : 'pending',
     realDogfood,
     osNativeNotification: notificationEvidence,
+    candidatePromotion: u4StatusSummary,
+    currentWindowsRun: u5StatusSummary,
     note: 'Only a validated developer-observed Edge/Windows record can satisfy Toast appearance, notification-center retention, and click-to-focus evidence; a legacy --native-toast-observed flag is not accepted as proof.',
   },
   gateE: {
@@ -365,9 +524,23 @@ const report = {
     supervisorSmoke: supervisorSmokePass ? 'pass' : supervisorSmoke === undefined ? 'not-evaluated' : 'pending',
     supervisorSoak,
     authoritativeSessionReconciliation,
+    u7ProcessIntegration: u7ProcessStatus,
+    u7RealElapsedSoak: u7RealSoakStatus,
+    alpha13Compatibility: alpha13Status,
+    wslExistingEvidence: wslStatusSummary,
     crossSinkDeliveryLedger: 'logical-browser-ledger-present-os-observation-pending',
     packageVersion: packageJson.version,
     note: 'Prototype readiness records the local lease/snapshot path, authoritative adapter slice, bounded orphan grace, and bounded logical browser delivery ledger. The Supervisor is experimental and off by default; Windows OS observation and full restart convergence remain separate Stable gates before any future default enablement.',
+  },
+  supplementalEvidence: {
+    u4Candidate: u4StatusSummary,
+    attentionGoldEvaluation: attentionGold?.status ?? 'not-evaluated',
+    u5Status: u5StatusSummary,
+    alpha13Compatibility: alpha13Status,
+    u7ProcessIntegration: u7ProcessStatus,
+    u7RealElapsedSoak: u7RealSoakStatus,
+    wslExisting: wslStatusSummary,
+    qualification: qualificationStatus,
   },
   files: fileChecks,
   generatedAt: new Date().toISOString(),

@@ -11,15 +11,15 @@
 
 ## Versions and compatibility
 
-**Published prerelease:** `0.1.1-rc.1` targets the official DSH [`dsh-v0.1.2-alpha.5`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.5). The alpha.5 dependency update, source checks, and compatibility regression have passed, and the GitHub tag, prerelease Release, and npm `next` channel are synchronized. The official release focuses on startup failures and missing session titles during upgrades from older DSH runtimes; the Gateway, client-module, WebServer, Session, Settings, and Tools surfaces used by this plugin remain compatible. The immutable alpha.5 commit is `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`, and the compatibility record is [`benchmark/alpha5-compatibility-receipt.json`](benchmark/alpha5-compatibility-receipt.json).
+**Published prerelease:** `0.1.1-rc.3` targets the official DSH [`dsh-v0.1.2-alpha.5`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.5). It includes the alpha.5 dependency update, authoritative session-snapshot reconciliation, runtime restoration, and notification-delivery records. The official release focuses on startup failures and missing session titles during upgrades from older DSH runtimes; the Gateway, client-module, WebServer, Session, Settings, and Tools surfaces used by this plugin remain compatible. The immutable alpha.5 commit is `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`, and the compatibility record is [`benchmark/alpha5-compatibility-receipt.json`](benchmark/alpha5-compatibility-receipt.json). The RC3 release identity is recorded in [`benchmark/rc3-release-receipt.json`](benchmark/rc3-release-receipt.json).
 
-**Current `main` engineering version:** `0.1.1-rc.2` adds the first alpha.5 authoritative session snapshot reconciliation slice: subscriber-first event buffering, privacy-safe state derivation from `snapshotEvents()`, epoch reconciliation, sequence-aware duplicate merging, startup Human Needed reconstruction, bounded orphan-grace convergence, and an explicit degraded status; it also keeps a bounded logical browser delivery ledger. The Persistent Supervisor is explicitly experimental and off by default in RC2; set `supervisorMode: experimental` only when running the separate Gate E engineering checks. RC2 is the source-build and regression identity for this engineering cycle; the published RC1 identity remains the daily installation path.
+`0.1.1-rc.3` adds the first alpha.5 authoritative session snapshot reconciliation slice: subscriber-first event buffering, privacy-safe state derivation from `snapshotEvents()`, epoch reconciliation, sequence-aware duplicate merging, startup Human Needed reconstruction, bounded orphan-grace convergence, and an explicit degraded status; it also keeps a bounded logical browser delivery ledger. The Persistent Supervisor is experimental and off by default in RC3; set `supervisorMode: experimental` for its separate diagnostics. Installation, rollback, and verification paths use the same RC3 identity.
 
-The public [`v0.1.0-rc.4 Release`](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.0-rc.4) remains available as the historical alpha.4 baseline, with its receipt in [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json). `0.1.1-rc.1` carries forward the verified RC4 Windows, WSL2, Node.js 22/24, and Web UI foundations while incorporating alpha.5 persistence compatibility, connection-stability maintenance, notification delivery evidence, policy replay, and Supervisor diagnostics.
+The public [`v0.1.0-rc.4 Release`](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.0-rc.4) remains available as the historical alpha.4 baseline, with its receipt in [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json). `0.1.1-rc.3` carries forward the verified RC4 Windows, WSL2, Node.js 22/24, and Web UI foundations while incorporating alpha.5 persistence compatibility, connection-stability maintenance, notification delivery evidence, policy replay, authoritative session reconciliation, and Supervisor diagnostics.
 
-The current `main` branch contains the connection-stability maintenance plus the first authoritative session reconciliation slice: debounced host-probe epochs, backoff and timeout cleanup for state requests, per-attempt notification telemetry, standby takeover for the Persistent Supervisor, bounded persistence for dedupe and interrupt-budget state, and alpha.5 session-list reconciliation.
+`0.1.1-rc.3` includes connection-stability maintenance plus the first authoritative session reconciliation slice: debounced host-probe epochs, backoff and timeout cleanup for state requests, per-attempt notification telemetry, standby takeover for the Persistent Supervisor, bounded persistence for dedupe and interrupt-budget state, and alpha.5 session-list reconciliation.
 
-`0.1.1-rc.1` is intended for trials, feedback, and plugin integration testing. Physical touch hardware, a real screen reader, and Windows OS-visible browser notification delivery are separate device acceptance checks; browser automation, keyboard interaction, narrow viewports, forced colors, and the notification-denied branch already have automated evidence.
+`0.1.1-rc.3` is intended for trials, feedback, and plugin integration testing. Physical touch hardware, a real screen reader, and Windows OS-visible browser notification delivery are separate device acceptance checks; browser automation, keyboard interaction, narrow viewports, forced colors, and the notification-denied branch already have automated evidence.
 
 Historical v0.1.0-rc.3 remains available as a Git tag for comparison; its npm version was withdrawn and cannot be reused under npm policy.
 
@@ -49,9 +49,9 @@ The four paths below serve different purposes: the GitHub tag, Release asset, an
 - pnpm `11.7.0`;
 - an official DSH source runtime; the current compatibility baseline uses `dsh-v0.1.2-alpha.5` at commit `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`. The historical RC4 receipt remains pinned to alpha.4.
 
-### GitHub tag installation (published RC1): v0.1.1-rc.1
+### GitHub tag installation (published RC3): v0.1.1-rc.3
 
-The following command installs `0.1.1-rc.1` from the immutable GitHub tag. The Release page provides the same version as a downloadable tarball asset.
+The following command installs `0.1.1-rc.3` from the immutable GitHub tag. The Release page provides the same version as a downloadable tarball asset.
 
 #### 1. Prepare the official DSH alpha.5 runtime
 
@@ -72,7 +72,7 @@ Use the immutable GitHub tag for the normal installation path; use the Release a
 
 ```powershell
 Set-Location .\dsh-runtime-alpha5
-npx --yes pnpm@11.7.0 dsh plugin --profile web add https://codeload.github.com/Oscar-Williams/dsh-deepcanary/tar.gz/refs/tags/v0.1.1-rc.1
+npx --yes pnpm@11.7.0 dsh plugin --profile web add https://codeload.github.com/Oscar-Williams/dsh-deepcanary/tar.gz/refs/tags/v0.1.1-rc.3
 npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
@@ -80,10 +80,10 @@ npx --yes pnpm@11.7.0 dsh web --no-open
 For a Release asset downloaded to disk, pass the tarball path to the same install command:
 
 ```powershell
-npx --yes pnpm@11.7.0 dsh plugin --profile web add C:\path\to\dsh-deepcanary-0.1.1-rc.1.tgz
+npx --yes pnpm@11.7.0 dsh plugin --profile web add C:\path\to\dsh-deepcanary-0.1.1-rc.3.tgz
 ```
 
-Open the DSH Web page in a browser on the same machine. `0.1.1-rc.1` keeps only the sidebar entry visible at startup; the floating Inbox opens after the entry is clicked. If browser notification permission is denied, the panel and model-visible tools remain available.
+Open the DSH Web page in a browser on the same machine. `0.1.1-rc.3` keeps only the sidebar entry visible at startup; the floating Inbox opens after the entry is clicked. If browser notification permission is denied, the panel and model-visible tools remain available.
 
 ### npm `next` channel (available now)
 
@@ -94,7 +94,7 @@ $env:npm_config_registry = 'https://registry.npmjs.org/'
 npx --yes pnpm@11.7.0 dsh plugin --profile web add dsh-deepcanary@next
 ```
 
-This `next` channel currently resolves to `0.1.1-rc.1`; use the explicit `@next` selector when installing the prerelease version.
+This `next` channel currently resolves to `0.1.1-rc.3`; use the explicit `@next` selector when installing the prerelease version.
 
 To update an existing RC installation, rebuild when using a development checkout; for an installed profile use:
 
@@ -110,11 +110,11 @@ Remove the plugin from the target DSH profile:
 npx --yes pnpm@11.7.0 dsh plugin --profile web remove dsh-deepcanary
 ```
 
-To reinstall the current published version, rerun the `0.1.1-rc.1` installation command above. To reproduce RC4 or RC2, use the matching tag and DSH runtime. Restart `dsh web` after replacing the package, then use `dsh plugin --profile web list` to confirm that the profile contains only the intended version.
+To reinstall the current published version, rerun the `0.1.1-rc.3` installation command above. To reproduce RC1, RC4, or an earlier historical version, use the matching tag and DSH runtime. Restart `dsh web` after replacing the package, then use `dsh plugin --profile web list` to confirm that the profile contains only the intended version.
 
-### Rebuild and verify the current main engineering version 0.1.1-rc.2
+### Build and verify 0.1.1-rc.3
 
-For source debugging or reproduction, use the official DSH `dsh-v0.1.2-alpha.5` and a separate profile; replace `$pluginDir` and `$dshDir` with your environment paths. The generated tarball is the direct acceptance artifact for the current RC2 engineering version; published RC1 installation and rollback continue to use the immutable tag or npm `next` channel.
+For source debugging or reproduction, use the official DSH `dsh-v0.1.2-alpha.5` and a separate profile; replace `$pluginDir` and `$dshDir` with your environment paths. The generated tarball represents `0.1.1-rc.3` and supports reconciliation, runtime recovery, and notification verification; public installation and rollback use the immutable tag, Release asset, or npm `next` channel.
 
 ```powershell
 $pluginDir = 'C:\path\to\dsh-deepcanary'
@@ -145,8 +145,8 @@ npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
 
-`dsh --version` should print `0.1.2-alpha.5`, `git rev-parse HEAD` should print `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`, and the generated tarball should show version `0.1.1-rc.2`. The bundle patch uses DSH's `dshHomePath('dsh-deepcanary')`, so setting `DSH_HOME` keeps plugin state inside the isolated DSH home. Before opening the Web UI, confirm that the profile loaded the current tarball and that the page shows only the sidebar entry, with no fixed legacy card on the right. For the maintenance build, also inspect `/dsh-deepcanary/health` and `/dsh-deepcanary/state` for host-probe state, outageId, reconciliation, and Supervisor status.
-RC2 defaults `supervisorMode` to `off`. To validate the U7 prototype, select `experimental` in DSH Settings > Plugins for DeepCanary, restart the test profile, and inspect `supervisor.json`, the lease, reconciliation status, and smoke/soak evidence. This is an engineering-validation entry point; the current Stable core claim excludes the Persistent Supervisor.
+`dsh --version` should print `0.1.2-alpha.5`, `git rev-parse HEAD` should print `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`, and the generated tarball should show version `0.1.1-rc.3`. The bundle patch uses DSH's `dshHomePath('dsh-deepcanary')`, so setting `DSH_HOME` keeps plugin state inside the isolated DSH home. Before opening the Web UI, confirm that the profile loaded the current tarball and that the page shows only the sidebar entry, with no fixed legacy card on the right. For the maintenance build, also inspect `/dsh-deepcanary/health` and `/dsh-deepcanary/state` for host-probe state, outageId, reconciliation, and Supervisor status.
+RC3 defaults `supervisorMode` to `off`. To validate the U7 prototype, select `experimental` in DSH Settings > Plugins for DeepCanary, restart the test profile, and inspect `supervisor.json`, the lease, reconciliation status, and smoke/soak evidence. This is an engineering-validation entry point; the current Stable core claim excludes the Persistent Supervisor.
 
 ### Web UI interactions
 
@@ -257,7 +257,9 @@ npm run notification:evidence -- --input <path-to-notification-evidence.json> --
 
 The quality, outcome, policy-replay, and dogfood reports store aggregate results only. Raw trial data should remain in the isolated test directory; see [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md) for the fields and privacy boundary. Policy replay executes judgment, delivery policy, dedupe, Bundles, quiet hours, budget, and recovery with a deterministic clock; pass `--candidate <path-to-config.json>` to compare alternative settings. `npm run supervisor:soak` adds a controlled virtual-clock boundedness run covering restart, takeover, fencing, policy state, and the delivery ledger; it is labeled `controlled-virtual` / `supplemental-only` and cannot replace a real eight-hour soak. Dogfood reports accept sanitized opportunity records, including C0, deduplicated, suppressed, and missed-reminder opportunities that have no Inbox item, and calculate user-facing review coverage over unique delivery units. Keep each real task-family run independent, then use `dogfood:merge` for a traceable aggregate. Outcome reports use [`benchmark/outcome-report.schema.json`](benchmark/outcome-report.schema.json) and accept one `source` per aggregate. Windows notification acceptance uses [`benchmark/notification-evidence.schema.json`](benchmark/notification-evidence.schema.json); OS fields use `observed`, `not-observed`, and `not-tested`, with a run window, notification attempt ID, browser receipt, screenshot hash, and UIA hash. The RC4 installation, test results, and release updates are recorded in [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json); an earlier alpha.3 compatibility record remains in [`benchmark/alpha3-compatibility-receipt.json`](benchmark/alpha3-compatibility-receipt.json).
 
-The regression fixture covers 20 AttentionGold v3 classification scenarios plus duplicate-event, shared-root Bundle, recovery-recurrence, and parallel-session scenarios; the public RC.2 receipt still records the historical v2 set of 15 classification scenarios. RC.2 evidence for the upstream runtime, Windows/WSL, public-tag installation, Web, settings, unload/restart, and distribution integrity is recorded in [`benchmark/release-receipt.json`](benchmark/release-receipt.json), whose status is `PASS`. Both that historical receipt and the RC4 receipt are intentionally excluded from the npm runtime package so their SHA-256 checks remain independent of the package contents. See [`docs/release-checklist.md`](docs/release-checklist.md) for the reproducible release procedure.
+The AttentionGold v3 regression fixture covers 20 classification scenarios plus duplicate-event, shared-root Bundle, recovery-recurrence, and parallel-session scenarios. The historical plugin `0.1.0-rc.2` receipt records the v2 set of 15 classification scenarios and that version's upstream runtime, Windows/WSL, public-tag installation, Web, settings, unload/restart, and distribution integrity checks. See [`benchmark/release-receipt.json`](benchmark/release-receipt.json), whose status is `PASS`.
+
+Historical receipts for `0.1.0-rc.2` and `0.1.0-rc.4` are stored in the repository separately from the npm runtime package, keeping their SHA-256 checks independently verifiable. Each result applies to the identity recorded in its receipt. See [`docs/release-checklist.md`](docs/release-checklist.md) for the reproducible release procedure.
 
 ## Documentation
 

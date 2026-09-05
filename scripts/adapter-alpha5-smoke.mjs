@@ -9,10 +9,10 @@ import { Context } from '@deepseek-ai/cordis'
 import { SessionStore } from '@deepseek-ai/dsh-session'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
-const outputPath = path.resolve(root, 'output/gates/rc2-alpha5-adapter-smoke-20260904-v2.json')
+const outputPath = path.resolve(root, process.env.DSH_ADAPTER_OUTPUT ?? 'output/gates/rc2-alpha5-adapter-smoke-20260904-v2.json')
 const execFileAsync = promisify(execFile)
 const packageJson = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'))
-const runtimeTag = 'dsh-v0.1.2-alpha.5'
+const runtimeTag = process.env.DSH_ADAPTER_DSH_TAG ?? 'dsh-v0.1.2-alpha.5'
 const runtimeCommit = process.env.DSH_COMMIT ?? 'db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5'
 
 async function command(name, args) {
@@ -24,6 +24,9 @@ async function command(name, args) {
 }
 
 async function packageSha256() {
+  if (process.env.DSH_ADAPTER_PACKAGE_TGZ) {
+    try { return createHash('sha256').update(await readFile(path.resolve(root, process.env.DSH_ADAPTER_PACKAGE_TGZ))).digest('hex') } catch { return null }
+  }
   const destination = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-adapter-pack-'))
   try {
     const npmCli = process.platform === 'win32'
@@ -74,7 +77,9 @@ try {
   }
   const report = {
     schemaVersion: 1,
-    provenance: 'controlled',
+    platform: process.platform,
+    nodeVersion: process.version,
+    provenance: process.env.DSH_ADAPTER_PROVENANCE ?? 'controlled',
     pluginName: 'dsh-deepcanary',
     pluginVersion: packageJson.version,
     sourceCommit: await command('git', ['rev-parse', 'HEAD']) || 'unknown',
@@ -82,8 +87,8 @@ try {
     dshTag: runtimeTag,
     dshCommit: runtimeCommit,
     policyVersion: 'attention-policy.v1',
-    runId: 'laneB-rc2-alpha5-adapter-smoke-20260904-v2',
-    trialId: 'laneB-rc2-alpha5-adapter-smoke-20260904-v2',
+    runId: process.env.DSH_ADAPTER_RUN_ID ?? 'laneB-rc2-alpha5-adapter-smoke-20260904-v2',
+    trialId: process.env.DSH_ADAPTER_TRIAL_ID ?? process.env.DSH_ADAPTER_RUN_ID ?? 'laneB-rc2-alpha5-adapter-smoke-20260904-v2',
     rawContentPersisted: false,
     checks,
   }

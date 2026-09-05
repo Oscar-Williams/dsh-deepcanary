@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "DeepCanary controlled virtual Supervisor soak report",
-  "description": "Supplemental bounded-state evidence for the experimental Persistent Supervisor. Virtual time never satisfies the real Stable soak gate.",
+  "description": "Supplemental bounded-state evidence for the experimental Persistent Supervisor. Virtual time remains historical support; real elapsed soak uses benchmark/u7-real-soak-report.schema.json.",
   "type": "object",
   "required": ["reportSchemaVersion", "pluginVersion", "runtimeBaseline", "runtime", "policyVersion", "runId", "trialId", "provenance", "stableGateUse", "rawContentPersisted", "virtualClock", "restartCoverage", "checks", "resources", "identity", "generatedAt", "conclusion"],
   "properties": {

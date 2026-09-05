@@ -4,7 +4,7 @@ Thank you for helping improve `dsh-deepcanary`. Contributions are most useful wh
 
 ## Development baseline
 
-Use Node.js 22.19.0 or 24.19.0. The published RC.2 evidence uses the official `dsh-v0.1.2-alpha.2` tag of DeepSeek Harness, commit `0a53fb55bea101816fa226bb964ae2bed71c343b`. New changes and compatibility tests use the latest official `dsh-v0.1.2-alpha.5` tag, commit `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`. The older `0.1.1-rc.2` runtime is reserved for historical environment diagnosis.
+Use Node.js 22.19.0 or 24.19.0. Historical plugin `0.1.0-rc.2` evidence uses the official `dsh-v0.1.2-alpha.2` tag of DeepSeek Harness, commit `0a53fb55bea101816fa226bb964ae2bed71c343b`. Development and compatibility regression use the pinned `dsh-v0.1.2-alpha.5` tag, commit `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`; newer DSH releases receive a separate compatibility run. The older DSH npm runtime `0.1.1-rc.2` is retained for historical environment diagnosis.
 
 Install dependencies and run the complete local gate from the repository root:
 

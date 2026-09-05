@@ -566,6 +566,8 @@ export class PersistentSupervisor {
       this.snapshotValue = normalizeSnapshot(this.snapshotValue, this.runtimeVersion, this.options.now(), this.options.maxSessions, this.options.maxPending) ?? emptySnapshot(this.runtimeVersion, this.options.now())
       this.lastSnapshotAt = this.snapshotValue.generatedAt
       await this.persistNow()
+      if (this.stopping || this.disposed || this.lease === undefined) return false
+      if (this.heartbeatTimer !== undefined) clearInterval(this.heartbeatTimer)
       this.heartbeatTimer = setInterval(() => { void this.heartbeat() }, this.options.heartbeatMs)
       this.heartbeatTimer.unref?.()
       return true
@@ -657,6 +659,8 @@ export class PersistentSupervisor {
   }
 
   private scheduleStandbyRetry(): void {
+    if (this.heartbeatTimer !== undefined) clearInterval(this.heartbeatTimer)
+    this.heartbeatTimer = undefined
     if (this.disposed || this.stopping || this.standbyTimer !== undefined) return
     this.standbyTimer = setTimeout(() => {
       this.standbyTimer = undefined
@@ -700,11 +704,14 @@ export class PersistentSupervisor {
   }
 
   private async heartbeat(): Promise<void> {
-    if (this.lease === undefined || this.disposed) return
-    this.wakeCount += 1
-    const heartbeatAt = new Date(this.options.now()).toISOString()
-    const next: SupervisorLease = { ...this.lease, heartbeatAt }
-    try {
+    if (this.lease === undefined || this.disposed || this.stopping) return
+    // Serialize renewal with snapshot commits so each operation captures the
+    // current lease inside the queue, after earlier renewals have completed.
+    this.saveChain = this.saveChain.then(async () => {
+      if (this.lease === undefined || this.disposed || this.stopping) return
+      this.wakeCount += 1
+      const heartbeatAt = new Date(this.options.now()).toISOString()
+      const next: SupervisorLease = { ...this.lease, heartbeatAt }
       const replaced = await this.store.replaceLease(this.lease, next)
       if (!replaced) {
         this.lease = undefined
@@ -716,9 +723,8 @@ export class PersistentSupervisor {
       this.lastHeartbeatAt = heartbeatAt
       this.heartbeatCount += 1
       if (this.lifecycle === 'degraded') this.lifecycle = 'running'
-    } catch {
-      this.lifecycle = 'degraded'
-    }
+    }).catch(() => { this.lifecycle = 'degraded' })
+    await this.saveChain
   }
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "dsh-deepcanary",
-  "version": "0.1.1-rc.2",
+  "version": "0.1.1-rc.3",
   "description": "Local attention supervision for DeepSeek Harness: evidence-first signals, quiet notifications, and an actionable inbox.",
   "type": "module",
   "repository": {
@@ -41,6 +41,8 @@
     "benchmark/notification-evidence.schema.json",
     "benchmark/supervisor-smoke-report.schema.json",
     "benchmark/supervisor-soak-report.schema.json",
+    "benchmark/u7-real-soak-report.schema.json",
+    "benchmark/attention-candidate-promotion.schema.json",
     "benchmark/policy-replay.schema.json",
     "benchmark/policy-replay-report.schema.json",
     "benchmark/stable-gates-report.schema.json",
@@ -94,6 +96,9 @@
     "adapter:smoke": "npm run build && node ./scripts/adapter-alpha5-smoke.mjs",
     "supervisor:smoke": "npm run build && node ./scripts/supervisor-smoke.mjs",
     "supervisor:soak": "npm run build && node ./scripts/supervisor-soak.mjs",
+    "supervisor:process": "npm run build && node ./scripts/supervisor-process-integration.mjs",
+    "supervisor:real-soak": "npm run build && node ./scripts/supervisor-real-soak.mjs",
+    "candidate:evaluate": "node ./scripts/evaluate-attention-candidate.mjs",
     "replay:policy": "npm run build && node ./scripts/replay-attention-policy.mjs",
     "gate:stable": "npm run build && node ./scripts/replay-attention-policy.mjs && node ./scripts/supervisor-smoke.mjs && node ./scripts/evaluate-stable-gates.mjs",
     "gates:report": "npm run gate:stable",

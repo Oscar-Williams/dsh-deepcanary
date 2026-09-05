@@ -11,15 +11,15 @@
 
 ## 版本与兼容性
 
-**公开预发布版本**：`0.1.1-rc.1` 面向官方 DSH [`dsh-v0.1.2-alpha.5`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.5)，已完成 alpha.5 依赖切换、源码与测试回归，并已同步 GitHub tag、预发布 Release 和 npm `next` 通道。alpha.5 的官方发布说明聚焦旧运行时升级时的启动失败与会话标题丢失修复；本插件使用的 Gateway、client-module、WebServer、Session、Settings 和 Tools 接口保持兼容。alpha.5 的不可变 commit 为 `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`，本轮兼容性记录见 [`benchmark/alpha5-compatibility-receipt.json`](benchmark/alpha5-compatibility-receipt.json)。
+**公开预发布版本**：`0.1.1-rc.3` 面向官方 DSH [`dsh-v0.1.2-alpha.5`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.5)，包含 alpha.5 依赖切换、权威会话快照对账、运行状态恢复和通知送达记录。alpha.5 的官方发布说明聚焦旧运行时升级时的启动失败与会话标题丢失修复；本插件使用的 Gateway、client-module、WebServer、Session、Settings 和 Tools 接口保持兼容。alpha.5 的不可变 commit 为 `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`，兼容性记录见 [`benchmark/alpha5-compatibility-receipt.json`](benchmark/alpha5-compatibility-receipt.json)，RC3 发布身份见 [`benchmark/rc3-release-receipt.json`](benchmark/rc3-release-receipt.json)。
 
-**当前 main 工程版本**：`0.1.1-rc.2` 已加入 alpha.5 authoritative session snapshot reconciliation 的第一段实现：subscriber-first 事件缓冲、基于 `snapshotEvents()` 的脱敏状态派生、epoch 对账、序列感知的重复事件合并、启动时 Human Needed 重建、orphan grace 收敛和明确的降级状态；同时保留有界的逻辑 browser delivery ledger。Persistent Supervisor 在 RC2 中明确标记为 experimental、默认关闭，只有设置 `supervisorMode: experimental` 才启动，便于独立完成 Gate E 验证。RC2 当前用于源码构建、回归和工程验证；公开日常安装继续使用上面的不可变 RC1 身份。
+`0.1.1-rc.3` 已加入 alpha.5 authoritative session snapshot reconciliation 的第一段实现：subscriber-first 事件缓冲、基于 `snapshotEvents()` 的脱敏状态派生、epoch 对账、序列感知的重复事件合并、启动时 Human Needed 重建、orphan grace 收敛和明确的降级状态；同时保留有界的逻辑 browser delivery ledger。Persistent Supervisor 在 RC3 中标记为 experimental、默认关闭，设置 `supervisorMode: experimental` 后可进行独立诊断。RC3 的安装、回滚和验证路径均绑定同一版本身份。
 
-公开 [`v0.1.0-rc.4 Release`](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.0-rc.4) 继续作为 alpha4 历史基线保存；其发布收据记录在 [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json)。`0.1.1-rc.1` 延续 RC4 已验证的 Windows、WSL2、Node.js 22/24 和 WebUI 交互基础，并吸收 alpha.5 的持久化兼容修复、连接稳定性维护、通知投递证据、策略回放与 Supervisor 诊断能力。
+公开 [`v0.1.0-rc.4 Release`](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.0-rc.4) 继续作为 alpha4 历史基线保存；其发布收据记录在 [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json)。`0.1.1-rc.3` 延续 RC4 已验证的 Windows、WSL2、Node.js 22/24 和 WebUI 交互基础，并吸收 alpha.5 的持久化兼容修复、连接稳定性维护、通知投递证据、策略回放、权威会话对账与 Supervisor 诊断能力。
 
 当前 `main` 包含 RC4 之后的连接稳定性维护：主机探针按 outage epoch 去抖、前端状态请求采用退避与超时清理、通知记录绑定独立尝试 ID、Supervisor 支持 standby 自动接管、去重与打断预算写入有界快照，并将 alpha.5 的权威会话列表纳入启动对账。上述维护代码已完成定向回归，公开 RC1 与 RC4 Release 文件保持不可变；需要验证这些维护内容时请按“从源码重建并验证”执行。
 
-`0.1.1-rc.1` 适合试用、反馈和插件集成验证。物理触摸设备、真实屏幕阅读器和 Windows OS-visible browser notification delivery 属于独立的设备验收项；浏览器自动化、键盘操作、窄视口、强制颜色和通知拒绝分支已有自动化证据。
+`0.1.1-rc.3` 适合试用、反馈和插件集成验证。物理触摸设备、真实屏幕阅读器和 Windows OS-visible browser notification delivery 属于独立的设备验收项；浏览器自动化、键盘操作、窄视口、强制颜色和通知拒绝分支已有自动化证据。
 
 历史 [`v0.1.0-rc.3`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.3) Git tag 保留用于版本对照；对应 npm 版本已撤销，npm 规则不允许复用。历史 [`v0.1.0-rc.2`](https://github.com/Oscar-Williams/dsh-deepcanary/tree/v0.1.0-rc.2) 与官方 DSH `dsh-v0.1.2-alpha.2` 的组合仍保留用于复现。`v0.1.0-rc.1` 以及 DSH npm `0.1.1-rc.2` 保留用于历史版本对照和复现，不属于当前安装或测试基线。测试前请先停止 DSH，移除测试配置中的旧插件，再安装目标版本。
 
@@ -47,9 +47,9 @@ DeepCanary 只回答一个问题：当前是否值得用户看一眼？它不重
 - pnpm `11.7.0`；
 - 已安装官方 DSH 源码运行时；当前兼容性基线使用 `dsh-v0.1.2-alpha.5`，commit 为 `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`。历史 RC4 验收仍固定在 alpha.4。
 
-### GitHub tag 安装（公开 RC1）：v0.1.1-rc.1
+### GitHub tag 安装（公开 RC3）：v0.1.1-rc.3
 
-以下命令从不可变 GitHub tag 安装 `0.1.1-rc.1`，适用于当前试用和验收。Release 页面同时提供相同版本的压缩包附件。
+以下命令从不可变 GitHub tag 安装 `0.1.1-rc.3`，适用于当前试用和验收。Release 页面同时提供相同版本的压缩包附件。
 
 #### 1. 准备官方 DSH alpha.5
 
@@ -70,7 +70,7 @@ git rev-parse HEAD
 
 ```powershell
 Set-Location .\dsh-runtime-alpha5
-npx --yes pnpm@11.7.0 dsh plugin --profile web add https://codeload.github.com/Oscar-Williams/dsh-deepcanary/tar.gz/refs/tags/v0.1.1-rc.1
+npx --yes pnpm@11.7.0 dsh plugin --profile web add https://codeload.github.com/Oscar-Williams/dsh-deepcanary/tar.gz/refs/tags/v0.1.1-rc.3
 npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
@@ -78,10 +78,10 @@ npx --yes pnpm@11.7.0 dsh web --no-open
 需要使用 Release 附件时，将下载后的压缩包路径传给同一条安装命令：
 
 ```powershell
-npx --yes pnpm@11.7.0 dsh plugin --profile web add C:\path\to\dsh-deepcanary-0.1.1-rc.1.tgz
+npx --yes pnpm@11.7.0 dsh plugin --profile web add C:\path\to\dsh-deepcanary-0.1.1-rc.3.tgz
 ```
 
-启动后，在同一台机器的浏览器打开 DSH Web 页面。`0.1.1-rc.1` 默认只保留侧栏入口，不会遮挡页面；点击入口后才打开浮动 Inbox。浏览器通知权限被拒绝时，面板和模型可见工具仍然可用。
+启动后，在同一台机器的浏览器打开 DSH Web 页面。`0.1.1-rc.3` 默认只保留侧栏入口，不会遮挡页面；点击入口后才打开浮动 Inbox。浏览器通知权限被拒绝时，面板和模型可见工具仍然可用。
 
 ### npm `next` 通道（当前可用）
 
@@ -92,7 +92,7 @@ $env:npm_config_registry = 'https://registry.npmjs.org/'
 npx --yes pnpm@11.7.0 dsh plugin --profile web add dsh-deepcanary@next
 ```
 
-本次 `next` 指向 `0.1.1-rc.1`；安装预发布版本时请显式使用 `@next`。
+本次 `next` 指向 `0.1.1-rc.3`；安装预发布版本时请显式使用 `@next`。
 
 更新已安装的 RC 时，先清理旧配置或执行：
 
@@ -108,11 +108,11 @@ npx --yes pnpm@11.7.0 dsh plugin --profile web update dsh-deepcanary
 npx --yes pnpm@11.7.0 dsh plugin --profile web remove dsh-deepcanary
 ```
 
-需要重新安装当前版本时，重新执行相应的 `0.1.1-rc.1` 安装命令；需要复现 RC4、RC3 或 RC2 时，分别使用对应 tag 和匹配的 DSH 运行时。完成替换后重启 `dsh web`，并用 `dsh plugin --profile web list` 确认 profile 中只保留目标版本。
+需要重新安装当前版本时，重新执行相应的 `0.1.1-rc.3` 安装命令；需要复现 RC1、RC4 或更早历史版本时，分别使用对应 tag 和匹配的 DSH 运行时。完成替换后重启 `dsh web`，并用 `dsh plugin --profile web list` 确认 profile 中只保留目标版本。
 
-### 从源码重建并验证当前 main 工程版本 0.1.1-rc.2
+### 从源码构建并验证 0.1.1-rc.3
 
-需要调试源码或复现构建时，可使用官方 DSH `dsh-v0.1.2-alpha.5` 和独立测试配置；请将 `$pluginDir`、`$dshDir` 改为实际路径。该流程生成的压缩包对应当前 `main` 的 RC2 工程版本，是验证对账实现和其他源码改动的直接来源；公开 RC1 的安装与回滚仍使用不可变 tag 或 npm `next`。
+需要调试源码或复现构建时，可使用官方 DSH `dsh-v0.1.2-alpha.5` 和独立测试配置；请将 `$pluginDir`、`$dshDir` 改为实际路径。该流程生成的压缩包对应 `0.1.1-rc.3`，可用于验证对账实现、运行恢复和通知行为；公开安装与回滚使用不可变 tag、Release 附件或 npm `next`。
 
 ```powershell
 $pluginDir = 'C:\path\to\dsh-deepcanary'
@@ -143,8 +143,8 @@ npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 npx --yes pnpm@11.7.0 dsh web --no-open
 ```
 
-`dsh --version` 应输出 `0.1.2-alpha.5`，`git rev-parse HEAD` 应输出 `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`，生成的压缩包应显示 `0.1.1-rc.2`。`cordis.patch.yml` 使用 DSH 的 `dshHomePath('dsh-deepcanary')`，因此设置 `DSH_HOME` 后，插件状态会跟随独立 DSH home 保存。开始 Web UI 手测前，请确认测试配置已加载当前压缩包，并且页面只显示侧栏入口，不再出现固定在右侧的旧卡片。源码维护版本还应检查 `/dsh-deepcanary/health`、`/dsh-deepcanary/state` 中的探针状态、outageId、reconciliation 和 Supervisor 状态。
-RC2 的 `supervisorMode` 默认为 `off`。需要验证 U7 原型时，在 DSH Settings > Plugins 的 DeepCanary 设置中选择 `experimental`，重启该测试 profile，再检查 `supervisor.json`、lease、对账状态和 smoke/soak 证据；该模式属于工程验证入口，当前 Stable core claim 不包含 Persistent Supervisor。
+`dsh --version` 应输出 `0.1.2-alpha.5`，`git rev-parse HEAD` 应输出 `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`，生成的压缩包应显示 `0.1.1-rc.3`。`cordis.patch.yml` 使用 DSH 的 `dshHomePath('dsh-deepcanary')`，因此设置 `DSH_HOME` 后，插件状态会跟随独立 DSH home 保存。开始 Web UI 手测前，请确认测试配置已加载当前压缩包，并且页面只显示侧栏入口，不再出现固定在右侧的旧卡片。源码维护版本还应检查 `/dsh-deepcanary/health`、`/dsh-deepcanary/state` 中的探针状态、outageId、reconciliation 和 Supervisor 状态。
+RC3 的 `supervisorMode` 默认为 `off`。需要验证 U7 原型时，在 DSH Settings > Plugins 的 DeepCanary 设置中选择 `experimental`，重启该测试 profile，再检查 `supervisor.json`、lease、对账状态和 smoke/soak 证据；该模式属于工程验证入口，当前 Stable core claim 不包含 Persistent Supervisor。
 
 ### WebUI 交互
 
@@ -257,7 +257,9 @@ npm run notification:evidence -- --input <path-to-notification-evidence.json> --
 
 质量报告、Outcome 报告、策略回放和 dogfood 报告只保存汇总结果；原始试用数据应留在隔离测试目录，具体字段和隐私边界见 [`docs/dogfood-protocol.md`](docs/dogfood-protocol.md)。策略回放会执行判断、投递策略、去重、Bundle、静默时段、预算和恢复链路，并输出逐案例结果；使用 `--candidate <path-to-config.json>` 可比较备选设置，回放使用确定性时钟并保留允许的结构化信号数据。`npm run supervisor:soak` 执行一组 8 小时虚拟时钟的 Supervisor 有界性补充检查，覆盖重启、接管、fencing、策略状态和 delivery ledger；报告明确标记为 `controlled-virtual` / `supplemental-only`，无法替代真实 8 小时运行。dogfood 报告要求脱敏机会记录，能够保留 C0、去重、抑制和漏提醒等没有 Inbox 条目的样本；跨任务试用应先按 run 分开，再用 `dogfood:merge` 汇总。Outcome 报告使用 [`benchmark/outcome-report.schema.json`](benchmark/outcome-report.schema.json)，同一次汇总只接收一个 `source`。Windows 通知验收需提供 [`benchmark/notification-evidence.schema.json`](benchmark/notification-evidence.schema.json) 规定的人工观察记录：OS 字段使用 `observed`、`not-observed`、`not-tested` 三态，并绑定 run window、notificationAttemptId、browserReceiptRef、截图哈希和 UIA 哈希；浏览器权限和 `Notification` 构造调用单独形成浏览器阶段记录。`npm run gate:stable` 会新建策略回放、Supervisor smoke、包摘要和工作树身份记录，并读取 supplemental soak digest；输出中明确 package version、runtime baseline、source digest 和 tarball SHA-256。RC4 的安装、测试和发布记录在 [`benchmark/release-candidate-receipt.json`](benchmark/release-candidate-receipt.json)；alpha.3 的历史兼容性记录仍保存在 [`benchmark/alpha3-compatibility-receipt.json`](benchmark/alpha3-compatibility-receipt.json) 中。
 
-当前 RC4 沿用并重新验证 AttentionGold v3，固定覆盖 20 个分类场景，以及重复、共享根因 Bundle、恢复复发和多 Session 场景；RC2 收据仍记录历史 v2 的 15 个分类场景。RC2 的官方运行时、Windows/WSL、公开 tag 安装、Web、设置、卸载重启和分发完整性证据记录在仓库内的 [`benchmark/release-receipt.json`](benchmark/release-receipt.json)，收据状态为 `PASS`。RC2 历史文件与 RC4 收据都不进入 npm 运行包，以避免与发布包 SHA-256 形成循环依赖。可复现检查步骤见 [`docs/release-checklist.md`](docs/release-checklist.md)。
+AttentionGold v3 回归集覆盖 20 个分类场景，以及重复、共享根因 Bundle、恢复复发和多 Session 场景。历史插件 `0.1.0-rc.2` 的收据记录 v2 的 15 个分类场景，以及该版本的官方运行时、Windows/WSL、公开 tag 安装、Web、设置、卸载重启和分发完整性检查；详见状态为 `PASS` 的 [`benchmark/release-receipt.json`](benchmark/release-receipt.json)。
+
+`0.1.0-rc.2` 与 `0.1.0-rc.4` 的历史收据保存在仓库中，与 npm 运行包分别管理，确保收据中的 SHA-256 可独立验证。各版本的检查结果适用于收据标明的身份。可复现检查步骤见 [`docs/release-checklist.md`](docs/release-checklist.md)。
 
 ## 文档
 

@@ -5,11 +5,16 @@ import { fileURLToPath } from 'node:url'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const packageJson = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'))
-if (packageJson.version !== '0.1.1-rc.1') {
-  console.log(`release receipt check skipped: ${packageJson.name}@${packageJson.version} is an unpublished engineering candidate; the immutable RC1 receipt remains historical.`)
+const receiptFile = packageJson.version === '0.1.1-rc.3'
+  ? 'rc3-release-receipt.json'
+  : packageJson.version === '0.1.1-rc.1'
+    ? 'alpha5-compatibility-receipt.json'
+    : undefined
+if (receiptFile === undefined) {
+  console.log(`release receipt check skipped: ${packageJson.name}@${packageJson.version} has no active receipt contract.`)
   process.exit(0)
 }
-const receipt = JSON.parse(await readFile(path.join(root, 'benchmark', 'alpha5-compatibility-receipt.json'), 'utf8'))
+const receipt = JSON.parse(await readFile(path.join(root, 'benchmark', receiptFile), 'utf8'))
 const gold = JSON.parse(await readFile(path.join(root, 'benchmark', 'attention-gold-v3.json'), 'utf8'))
 
 const receiptStatus = receipt.status
@@ -29,7 +34,9 @@ const requiredGates = [
   'pluginTests', 'pluginWebE2E', 'settingsE2E', 'unloadRestart', 'privacyGate',
   'distributionIntegrity', 'publicTagInstall', 'windowsE2E', 'wslE2E', 'modelE2E',
 ]
-const candidatePendingGates = new Set(['publicTagInstall', 'wslE2E'])
+const candidatePendingGates = packageJson.version === '0.1.1-rc.3'
+  ? new Set(['publicTagInstall', 'wslE2E', 'windowsOsVisibleNotification', 'supervisorStable'])
+  : new Set(['publicTagInstall', 'wslE2E'])
 for (const gate of requiredGates) {
   if (receipt.gates?.[gate] === true) continue
   if (receiptStatus === 'CANDIDATE' && candidatePendingGates.has(gate) && receipt.gates?.[gate] === false) continue
@@ -38,6 +45,15 @@ for (const gate of requiredGates) {
 if (receipt.attentionGate !== 'PASS') throw new Error('attentionGate must be PASS')
 if (typeof receipt.artifactSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(receipt.artifactSha256)) throw new Error('artifactSha256 is missing or malformed')
 if (typeof receipt.pluginCommit !== 'string' || receipt.pluginCommit.length === 0) throw new Error('pluginCommit is missing')
+if (packageJson.version === '0.1.1-rc.3') {
+  if (receipt.stableDecision !== 'CONTINUE_RC') throw new Error('RC3 receipt must preserve CONTINUE_RC while Stable evidence is open')
+  if (receipt.runtime?.tag !== 'dsh-v0.1.2-alpha.5' || receipt.runtime?.version !== '0.1.2-alpha.5') {
+    throw new Error('RC3 receipt must target official DSH alpha.5')
+  }
+  if (receipt.gates?.u4Candidate !== 'not-promoted' || receipt.gates?.u5WindowsOsVisibleNotification !== 'pending' || receipt.gates?.u7RealElapsedSoak !== 'pending') {
+    throw new Error('RC3 receipt must preserve the current open evidence gates')
+  }
+}
 
 const expectedTarball = `dsh-deepcanary-${packageJson.version}.tgz`
 const artifactCandidates = [

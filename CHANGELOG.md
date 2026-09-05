@@ -2,9 +2,18 @@
 
 All notable changes to `dsh-deepcanary` are recorded here.
 
+## 0.1.1-rc.3 — Supervisor renewal ordering (2026-09-05)
+
+- Serialize heartbeat renewal and snapshot commits within each Supervisor owner to preserve ownership during concurrent persistence.
+- Clear heartbeat timers on standby and ensure one heartbeat timer on successful startup.
+- Verify delayed snapshot/heartbeat ordering and lease release with a deterministic regression test.
+- Keep Supervisor experimental and off by default. Real-process recovery, resource limits and the real 8-hour soak remain separate release checks.
+- Add the alpha.13 independent compatibility canary and the RC3 evidence identity record.
+- Preserve the published RC1 and sealed RC2 artifact identities; RC3 evidence uses a separate package hash.
+
 ## 0.1.1-rc.2 — authoritative session reconciliation engineering candidate (2026-09-04)
 
-`0.1.1-rc.2` is the current `main` engineering candidate for the official DSH `dsh-v0.1.2-alpha.5` runtime. It introduces the first vertical slice of authoritative session reconciliation while retaining the deterministic attention core and privacy boundary.
+`0.1.1-rc.2` introduced the first vertical slice of authoritative session reconciliation for the official DSH `dsh-v0.1.2-alpha.5` runtime while retaining the deterministic attention core and privacy boundary.
 
 ### Changed
 

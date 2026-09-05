@@ -88,6 +88,8 @@
           },
           "additionalProperties": false
         },
+        "candidatePromotion": { "type": "object", "additionalProperties": true },
+        "currentWindowsRun": { "type": "object", "additionalProperties": true },
         "note": { "type": "string", "minLength": 1 }
       },
       "additionalProperties": false
@@ -116,11 +118,16 @@
         },
         "authoritativeSessionReconciliation": { "enum": ["pending-adapter-surface", "partial-adapter-surface", "pass"] },
         "crossSinkDeliveryLedger": { "const": "logical-browser-ledger-present-os-observation-pending" },
+        "u7ProcessIntegration": { "type": "string", "minLength": 1 },
+        "u7RealElapsedSoak": { "type": "string", "minLength": 1 },
+        "alpha13Compatibility": { "type": "string", "minLength": 1 },
+        "wslExistingEvidence": { "type": "object", "additionalProperties": true },
         "packageVersion": { "type": "string", "minLength": 1 },
         "note": { "type": "string", "minLength": 1 }
       },
       "additionalProperties": false
     },
+    "supplementalEvidence": { "type": "object", "additionalProperties": true },
     "files": { "type": "array", "items": { "type": "object", "required": ["file", "present"], "properties": { "file": { "type": "string" }, "present": { "type": "boolean" } }, "additionalProperties": false } },
     "generatedAt": { "type": "string", "format": "date-time" },
     "conclusion": { "type": "string", "minLength": 1, "maxLength": 500 }

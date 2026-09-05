@@ -16,6 +16,39 @@ function snapshot(now: number, revision = 7) {
 }
 
 describe('PersistentSupervisor', () => {
+  it('serializes a heartbeat queued during a delayed snapshot without self-fencing', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-renew-race-'))
+    let now = Date.now()
+    const supervisor = new PersistentSupervisor({ stateDir: directory, runtimeVersion: '0.1.2-alpha.5', now: () => now, heartbeatMs: 3600000 })
+    let release!: () => void
+    try {
+      expect(await supervisor.start()).toBe(true)
+      const save = supervisor.store.saveOwned.bind(supervisor.store)
+      let enter!: () => void
+      const entered = new Promise<void>(resolve => { enter = resolve })
+      const held = new Promise<void>(resolve => { release = resolve })
+      supervisor.store.saveOwned = async (state, lease) => { enter(); await held; return save(state, lease) }
+      supervisor.update(snapshot(now))
+      const saving = supervisor.flush()
+      await entered
+      now += 1000
+      const renewing = (supervisor as unknown as { heartbeat(): Promise<void> }).heartbeat()
+      await Promise.resolve()
+      expect(supervisor.status().metrics.heartbeatCount).toBe(0)
+      release()
+      await Promise.all([saving, renewing])
+      expect(supervisor.status()).toMatchObject({ state: 'running', leaseHeld: true })
+      expect(supervisor.status().metrics.heartbeatCount).toBe(1)
+      expect((await supervisor.store.loadLease())?.instanceId).toBe(supervisor.instanceId)
+      await supervisor.stop()
+      expect(await supervisor.store.loadLease()).toBeUndefined()
+    } finally {
+      release?.()
+      await supervisor.stop()
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
   it('flushes the latest bounded snapshot, restores it, and releases its lease', async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-supervisor-'))
     try {

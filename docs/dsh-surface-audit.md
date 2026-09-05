@@ -1,6 +1,6 @@
 # DSH interfaces used by DeepCanary
 
-This document records the DSH interfaces used by `dsh-deepcanary`. The historical RC.2 audit targets the official `dsh-v0.1.2-alpha.2` source tag at commit `0a53fb55bea101816fa226bb964ae2bed71c343b`; the historical RC4 audit targets immutable `dsh-v0.1.2-alpha.4` at commit `4e84901e6471b79ec0338099867ebb4606d12bb5`. The published `0.1.1-rc.1` audit targets the immutable `dsh-v0.1.2-alpha.5` tag at commit `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`; the current `0.1.1-rc.2` engineering candidate uses the same alpha.5 identity and adds the public `ctx.sessions.list()` plus `Session.snapshotEvents()` reconciliation adapter surface.
+This document records the DSH interfaces used by `dsh-deepcanary`. The historical RC.2 audit targets the official `dsh-v0.1.2-alpha.2` source tag at commit `0a53fb55bea101816fa226bb964ae2bed71c343b`; the historical RC4 audit targets immutable `dsh-v0.1.2-alpha.4` at commit `4e84901e6471b79ec0338099867ebb4606d12bb5`. The immutable `0.1.1-rc.1` audit targets the official `dsh-v0.1.2-alpha.5` tag at commit `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`; the `0.1.1-rc.3` release uses the same alpha.5 identity and adds the public `ctx.sessions.list()` plus `Session.snapshotEvents()` reconciliation adapter surface.
 
 ## Services and lifecycle events
 
@@ -20,7 +20,7 @@ This document records the DSH interfaces used by `dsh-deepcanary`. The historica
 - `session/disposed` marks the session inactive and closes the snapshot;
 - adapter subscriptions are disposed with the plugin service.
 
-The adapter first subscribes to lifecycle events, then reconciles the authoritative `ctx.sessions.list()` set with metadata derived from `Session.snapshotEvents()`. It exposes lifecycle events, a session snapshot lookup, reconciliation status, the host version, and an optional runtime-health check. It retains bounded metadata only and does not copy the session log. The RC2 service exposes the Persistent Supervisor behind `supervisorMode: experimental`; the composed bundle keeps that mode off by default while Gate E remains open.
+The adapter first subscribes to lifecycle events, then reconciles the authoritative `ctx.sessions.list()` set with metadata derived from `Session.snapshotEvents()`. It exposes lifecycle events, a session snapshot lookup, reconciliation status, the host version, and an optional runtime-health check. It retains bounded metadata only and does not copy the session log. The RC3 service exposes the Persistent Supervisor behind `supervisorMode: experimental`; the composed bundle keeps that mode off by default while Gate E remains open.
 
 ## Event vocabulary consumed
 
