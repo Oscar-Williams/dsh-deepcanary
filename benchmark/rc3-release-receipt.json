@@ -18,9 +18,9 @@
       "tag": "dsh-v0.1.3-alpha.1",
       "commit": "d347e703908d0406b7a7ef80e3a0e594d86b2215"
     },
-    "status": "PASS_WITH_IDENTITY_REBIND_PENDING",
+    "status": "PASS",
     "scope": "independent Windows Web profile; public session list and snapshotEvents surfaces; authenticated UI panel observed",
-    "reportDigest": "f66521a753a354363505d8b7bb27be4c3627747821ac91bc4a9f3aa2d59cf91c"
+    "reportDigest": "f059db5107d50b78265b0740fe1df525cb4d61dfc0c00a2f77592fd317fe72e4"
   },
   "gates": {
     "runtimeInstall": true,
@@ -34,7 +34,7 @@
     "unloadRestart": true,
     "privacyGate": true,
     "distributionIntegrity": true,
-    "publicTagInstall": false,
+    "publicTagInstall": true,
     "windowsE2E": true,
     "wslE2E": false,
     "modelE2E": true,
@@ -42,7 +42,7 @@
     "u5WindowsOsVisibleNotification": "pending",
     "u7ProcessIntegration": "pass",
     "u7RealElapsedSoak": "pending",
-    "alpha13Compatibility": "pending-rebind"
+    "alpha13Compatibility": true
   },
   "attentionGate": "PASS",
   "stableDecision": "CONTINUE_RC",
@@ -84,7 +84,7 @@
     },
     "u7Process": {
       "status": "PASS",
-      "reportDigest": "64f21c4dca9250b0ded09096cb7102498354bde2a6d79c5c041b0661bcac76ae"
+      "reportDigest": "77ac2bac6e23ef8f377c25d32bd0ddebf2663781b6a00440dbbfcae6b54a0467"
     },
     "u7RealSoak": {
       "status": "RUNNING_AT_RECEIPT_CREATION",
@@ -105,7 +105,7 @@
     "fileCount": 117
   },
   "publication": {
-    "status": "READY_FOR_PUBLIC_SYNC",
+    "status": "PUBLISHED",
     "github": {
       "repository": "Oscar-Williams/dsh-deepcanary",
       "tag": "v0.1.1-rc.3",
@@ -118,7 +118,9 @@
       "package": "dsh-deepcanary",
       "version": "0.1.1-rc.3",
       "distTag": "next",
-      "status": "READY_FOR_PUBLIC_SYNC"
+      "status": "PUBLISHED",
+      "shasum": "97580bf7684823057a1ede6eb6756be52c3c2a40",
+      "integrity": "sha512-mZIih/8FetjKFTW1ojS1uxPLEim3U6kvlMZNaKZzMuO2XMdbhf5/YqkDyKSkcHGFq/usH9GlzJcXent8elBvpw=="
     }
   },
   "pendingEvidence": [
@@ -127,7 +129,7 @@
     "real elapsed eight-hour Supervisor soak",
     "full authoritative Supervisor reconciliation and resource delta acceptance",
     "WSL extension matrix, real Narrator output, and physical touch hardware",
-    "identity rebind for the alpha.13 canary after the final RC3 package is installed"
+    "fresh Gate re-evaluation after the final publication and supplemental evidence updates"
   ],
   "privacy": {
     "rawContentPersisted": false,
