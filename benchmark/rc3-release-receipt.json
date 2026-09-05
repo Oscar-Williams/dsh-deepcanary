@@ -5,7 +5,7 @@
   "scope": "0.1.1-rc.3 against the official DSH alpha.5 runtime, with an independent alpha.13 compatibility canary",
   "plugin": "dsh-deepcanary",
   "pluginVersion": "0.1.1-rc.3",
-  "pluginCommit": "9b182b6f2790fde5d70739fcfef5986847adb8f9",
+  "pluginCommit": "c36cfe89de80178c2a80d86c7444746c5f08b019",
   "attentionFixtureVersion": 3,
   "runtime": {
     "tag": "dsh-v0.1.2-alpha.5",
@@ -84,7 +84,7 @@
     },
     "u7Process": {
       "status": "PASS",
-      "reportDigest": "6d625c580dd97a828032d415289088274d2206e8f5fe3c7c0b0518893f7e7e30"
+      "reportDigest": "64f21c4dca9250b0ded09096cb7102498354bde2a6d79c5c041b0661bcac76ae"
     },
     "u7RealSoak": {
       "status": "RUNNING_AT_RECEIPT_CREATION",
@@ -95,7 +95,7 @@
       "decision": "CONTINUE_RC",
       "gateD": "pending",
       "gateE": "prototype-ready",
-      "reportDigest": "e3807f801f60e4ea12c00fa0a12d7258eba232ac515c4bb1c358893a31c2187c"
+      "reportDigest": "a3927058df7a3f891c99493bffeb773808bc5d7258e288d038c483ef67e44b4d"
     }
   },
   "artifact": {
