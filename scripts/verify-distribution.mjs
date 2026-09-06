@@ -14,6 +14,13 @@ const required = [
   'cordis.patch.yml',
   'README.md',
   'README.en.md',
+  'README.zh-CN.md',
+  'CONTRIBUTING.md',
+  'docs/README.md',
+  'docs/development.md',
+  'assets/deepcanary-panel-en.png',
+  'assets/deepcanary-panel-zh.png',
+  'screenshots.json',
   'CHANGELOG.md',
   'docs/architecture.md',
   'docs/compatibility.md',
@@ -60,6 +67,24 @@ const commandArgs = npmCli === undefined ? npmArgs : [npmCli, ...npmArgs]
 const { stdout } = await execFileAsync(npmCommand, commandArgs, { cwd: root, maxBuffer: 2_000_000 })
 const packReport = JSON.parse(stdout)
 const packedFiles = new Set(packReport[0]?.files?.map(file => file.path) ?? [])
+for (const file of required.filter(file => !/benchmark\/.*-receipt\.json$/.test(file))) {
+  if (!packedFiles.has(file)) throw new Error(`required file is absent from npm package: ${file}`)
+}
+const builtService = await readFile(path.join(root, 'lib/service.js'), 'utf8')
+if (!builtService.includes(`const PLUGIN_VERSION = '${packageJson.version}'`)) {
+  throw new Error('built runtime version does not match package.json; run npm run build')
+}
+for (const file of [...packedFiles].filter(file => file.endsWith('.md'))) {
+  const markdown = await readFile(path.join(root, file), 'utf8')
+  for (const match of markdown.matchAll(/!?\[[^\]\n]*\]\(([^\s)]+)(?:\s+"[^"]*")?\)/g)) {
+    const target = match[1].replace(/^<|>$/g, '')
+    if (/^(?:[a-z][a-z\d+.-]*:|#|\/\/)/i.test(target)) continue
+    const relative = decodeURIComponent(target.split(/[?#]/)[0])
+    if (!relative) continue
+    const resolved = path.posix.normalize(path.posix.join(path.posix.dirname(file), relative))
+    if (!packedFiles.has(resolved)) throw new Error(`broken packaged documentation link: ${file} -> ${target}`)
+  }
+}
 for (const file of ['lib/index.js', 'lib/client.js', 'cordis.patch.yml', 'benchmark/attention-gold.json', 'benchmark/attention-gold-v3.json', 'benchmark/attention-quality-report.schema.json', 'benchmark/outcome-receipt.schema.json', 'benchmark/outcome-report.schema.json', 'benchmark/dogfood.schema.json', 'benchmark/dogfood-aggregate.schema.json', 'benchmark/notification-evidence.schema.json', 'benchmark/supervisor-smoke-report.schema.json', 'benchmark/supervisor-soak-report.schema.json', 'benchmark/policy-replay.schema.json', 'benchmark/policy-replay-report.schema.json', 'benchmark/stable-gates-report.schema.json', 'benchmark/policy-replay.json']) {
   if (![...packedFiles].some(candidate => candidate === file || candidate.endsWith(`/${file}`))) throw new Error(`required file is absent from npm package: ${file}`)
 }
@@ -79,6 +104,7 @@ for (const file of ['lib/client.d.ts', 'lib/client.d.ts.map', 'lib/client.js.map
   }
 }
 for (const file of packedFiles) {
+  if (/^benchmark\/.*-receipt\.json$/.test(file)) throw new Error(`publication receipts must remain outside the package: ${file}`)
   if (/^(src|test|tests|node_modules|设计思路\(不提交\)|\.dsh-deepcanary-test)(\/|\\)/i.test(file) || /设计指南|设计方案|制作建议/.test(file)) {
     throw new Error(`private or development file entered the npm package: ${file}`)
   }

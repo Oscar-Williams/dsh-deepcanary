@@ -2,9 +2,22 @@ import { createHash } from 'node:crypto'
 import { access, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { verifyPublicationReceipt } from './verify-publication-receipt.mjs'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const packageJson = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'))
+if (['0.1.1-rc.4', '0.1.1-rc.5'].includes(packageJson.version)) {
+  const rc = packageJson.version.split('-')[1].replace('.', '')
+  const receipt = JSON.parse(await readFile(path.join(root, 'benchmark', `${rc}-release-receipt.json`), 'utf8'))
+  const artifactFlag = process.argv.indexOf('--tarball')
+  const artifactPath = artifactFlag < 0
+    ? path.join(root, 'output', 'releases', packageJson.version, receipt.artifact.fileName)
+    : process.argv[artifactFlag + 1]
+  if (!artifactPath) throw new Error('--tarball requires an artifact path')
+  const digest = verifyPublicationReceipt(receipt, await readFile(artifactPath), packageJson)
+  console.log(`publication receipt ok: ${packageJson.name}@${packageJson.version} (${digest}); Stable qualification remains separate`)
+  process.exit(0)
+}
 const receiptFile = packageJson.version === '0.1.1-rc.3'
   ? 'rc3-release-receipt.json'
   : packageJson.version === '0.1.1-rc.1'

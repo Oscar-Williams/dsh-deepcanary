@@ -5,6 +5,7 @@ import { promisify } from 'node:util'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
+import { version as esbuildVersion } from 'esbuild'
 import { loadRuntimeCheckout, runtimeTypePaths } from './runtime-checkout.mjs'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
@@ -13,6 +14,12 @@ const runtimeMode = process.argv.includes('--alpha13')
 const checkOnly = process.argv.includes('--typecheck')
 const runtime = runtimeMode ? await loadRuntimeCheckout(process.env.DSH_ALPHA13_RUNTIME) : undefined
 const packageJson = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'))
+const lockfile = JSON.parse(await readFile(path.join(root, 'package-lock.json'), 'utf8'))
+const buildTools = { typescript: ts.version, esbuild: esbuildVersion }
+for (const [name, installed] of Object.entries(buildTools)) {
+  const locked = lockfile.packages?.[`node_modules/${name}`]?.version
+  if (installed !== locked) throw new Error(`Installed ${name} ${installed} does not match package-lock.json (${locked}). Run npm ci before building.`)
+}
 const config = ts.readConfigFile(path.join(root, 'tsconfig.json'), ts.sys.readFile)
 if (config.error) throw new Error(ts.flattenDiagnosticMessageText(config.error.messageText, '\n'))
 const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, root)
@@ -35,7 +42,7 @@ async function digestTree(directory) {
 
 const input = createHash('sha256').update(await digestTree(path.join(root, 'src')))
 for (const file of ['tsconfig.json', 'package-lock.json', 'scripts/build.mjs', 'scripts/build-client.mjs', 'scripts/runtime-checkout.mjs']) input.update(await readFile(path.join(root, file)))
-input.update(JSON.stringify({ version: packageJson.version, dependencies: packageJson.dependencies, devDependencies: packageJson.devDependencies, runtime: runtime?.commit ?? 'npm-type-floor' }))
+input.update(JSON.stringify({ version: packageJson.version, dependencies: packageJson.dependencies, devDependencies: packageJson.devDependencies, buildTools, runtime: runtime?.commit ?? 'npm-type-floor' }))
 const inputHash = input.digest('hex')
 const stampPath = path.join(root, 'output/build/stamp.json')
 const stamp = await readFile(stampPath, 'utf8').then(JSON.parse).catch(() => undefined)

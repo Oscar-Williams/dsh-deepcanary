@@ -1,34 +1,41 @@
-# Contributing to dsh-deepcanary
+# Contributing to DeepCanary
 
-Thank you for helping improve `dsh-deepcanary`. Contributions are most useful when they preserve the plugin's evidence-first behavior, keep the local privacy boundary explicit, and remain compatible with the exact DeepSeek Harness interfaces under test.
+Bug reports, focused pull requests, and translations are welcome. For a substantial behavior change, open an issue first so the expected runtime signal, user benefit, and compatibility scope are clear.
 
-## Development baseline
+## Development
 
-Use Node.js 22.19.0 or 24.19.0. Historical plugin `0.1.0-rc.2` evidence uses the official `dsh-v0.1.2-alpha.2` tag of DeepSeek Harness, commit `0a53fb55bea101816fa226bb964ae2bed71c343b`. Development and compatibility regression use the pinned `dsh-v0.1.2-alpha.5` tag, commit `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`; newer DSH releases receive a separate compatibility run. The older DSH npm runtime `0.1.1-rc.2` is retained for historical environment diagnosis.
+Use Node.js `22.19+`. Dependencies are locked to the DSH `0.1.2-alpha.5` compatibility baseline.
 
-Install dependencies and run the complete local gate from the repository root:
-
-```powershell
+```sh
 npm ci
 npm run typecheck
 npm run typecheck:tests
 npm test
 npm run build
 npm run verify:distribution
-npm pack --dry-run
 ```
 
-The repository tracks the generated `lib/` directory because DSH installs a public Git tag without running this repository's TypeScript toolchain. After changing `src/`, run `npm run build` and include the resulting `lib/` changes in the same commit. CI rejects stale generated output.
+Commit generated `lib/` changes with their source changes. DSH can install the repository's Git tag without running the TypeScript toolchain, so CI rejects stale output. Builds validate the installed compiler and bundler against the lockfile.
 
-## Design and testing expectations
+For a different DSH revision, use the isolated checks in the [development guide](docs/development.md). Do not mix generated output or evidence from different runtime checkouts.
 
-- Keep C3 decisions tied to Host or Runtime authority. A heuristic or model-shaped summary must not promote an event to C3 by itself.
-- Preserve deduplication, Decision Bundle merging, hourly budget, quiet-hour behavior, and bounded evidence summaries when adding providers.
-- Persisted state contains only bounded metadata. Session and Workspace references remain hashed; a bounded opaque DSH session handle may be retained locally when the host provides it, solely to reopen the native DSH session. Never persist prompts, transcripts, tool arguments, workspace paths, credentials, or opaque runtime payloads.
-- Add or update AttentionGold fixtures and focused tests for new event mappings, including normal completion and recovery paths.
-- Keep Web routes same-origin and `no-store`; render untrusted values with safe DOM APIs.
-- Do not add shell, file-write, process-control, approval, or rejection capabilities to the plugin tools.
+## Design boundaries
+
+- Keep DSH runtime facts in adapters/providers and attention interpretation in the deterministic core.
+- Highest-severity (C3) decisions require host or runtime authority. A heuristic or model summary cannot supply that authority.
+- Preserve deduplication, grouping, budgets, quiet hours, recovery, and bounded state.
+- Keep persisted data limited to allowlisted metadata. Session/workspace references are hashed; a bounded local session handle is allowed only for navigation. Never persist prompts, transcripts, tool arguments, workspace paths, or credentials.
+- Keep Web routes same-origin and `no-store`, and render untrusted values with safe DOM APIs.
+- Do not add shell, arbitrary file-write, process-control, approval, or rejection capabilities.
+
+## Tests and documentation
+
+Add focused tests for the behavior you change, including healthy and recovery paths. Update AttentionGold fixtures when event mappings or policy change. Tests must use platform-appropriate paths and must not depend on a contributor's home directory or private runtime state.
+
+Keep [English](README.md) and [Chinese](README.zh-CN.md) user instructions aligned. The main README is English; `README.en.md` remains a compatibility link for existing references. Put implementation details in developer documentation and describe visible changes in the changelog.
 
 ## Pull requests
 
-Describe the user-visible behavior, the DSH event or API interface involved, and the tests run. For changes that affect compatibility, update `docs/dsh-surface-audit.md` and `docs/compatibility.md`. Keep the local design notes under `设计思路(不提交)/`; they are intentionally excluded from commits and release artifacts.
+Explain the problem, the user-visible change, relevant DSH APIs, and tests run. Update the [surface audit](docs/dsh-surface-audit.md) and [compatibility matrix](docs/compatibility.md) when those contracts change. Never include private session data, credentials, local runtime profiles, or generated observation logs.
+
+Reports of suspected security issues should omit exploit payloads containing private data. Start from the boundaries described in [security and privacy](docs/security.md).

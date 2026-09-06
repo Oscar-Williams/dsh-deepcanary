@@ -1,3 +1,4 @@
+import path from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
 import { SessionStore } from '@deepseek-ai/dsh-session'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -15,7 +16,7 @@ describe('DSH alpha.5 adapter integration', () => {
   it('reconciles the public SessionStore list and Session snapshotEvents contract', async () => {
     const ctx = new Context()
     storeFiber = await ctx.plugin(SessionStore)
-    const session = ctx.sessions.create('alpha5-adapter-session' as SessionId, { meta: { cwd: 'C:\\work' } })
+    const session = ctx.sessions.create('alpha5-adapter-session' as SessionId, { meta: { cwd: path.resolve('work') } })
     session.append('turn/start', { turn: 1 })
 
     const adapter = new ContextDshAdapter(ctx, { hostVersion: 'dsh-v0.1.2-alpha.5' })

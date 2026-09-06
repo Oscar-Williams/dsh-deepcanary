@@ -4,7 +4,7 @@ This page contains the longer commands omitted from the README. Keep the alpha.5
 
 ## Build lanes
 
-The normal lane uses the published alpha.5 packages in `package.json` and produces the package consumed by the RC4 candidate. The alpha.13 lane overlays the public declarations from a clean local checkout; it does not claim that an alpha.13 npm package exists.
+The normal lane uses the published alpha.5 packages in `package.json` and produces the release package. The alpha.13 lane overlays the public declarations from a clean local checkout; it does not claim that an alpha.13 npm package exists.
 
 ```powershell
 Set-Location <pluginDir>
@@ -23,7 +23,7 @@ npm run build:alpha13
 $env:DSH_ALPHA13_RUNTIME = $null
 ```
 
-`build.mjs` hashes the source tree, compiler configuration, lockfile, build scripts, dependency graph and selected runtime identity. A matching `output/build/stamp.json` plus matching `lib/` digest makes a repeated build a no-op; `--force` is available when deliberately regenerating output. `pack:check` uses `--ignore-scripts` so a dry-run does not start a second build.
+`build.mjs` validates the installed TypeScript and esbuild versions against the lockfile, then hashes their actual versions, the source tree, compiler configuration, lockfile, build scripts, dependency graph, and selected runtime identity. A matching `output/build/stamp.json` plus matching `lib/` digest makes a repeated build a no-op; `--force` is available when deliberately regenerating output. `pack:check` uses `--ignore-scripts` so a dry-run does not start a second build.
 
 ## Alpha.13 public contract
 
@@ -59,7 +59,7 @@ The UI evidence file is a sanitized observation record, not a transcript. Its mi
   "schemaVersion": 1,
   "status": "observed",
   "surface": "Edge DSH Web UI",
-  "pluginVersion": "0.1.1-rc.4",
+  "pluginVersion": "<version-of-the-installed-package>",
   "dshTag": "dsh-v0.1.3-alpha.1",
   "checks": {
     "authenticated": true,
@@ -73,13 +73,13 @@ The UI evidence file is a sanitized observation record, not a transcript. Its mi
 
 ## Playwright CLI loop
 
-Use the bundled Playwright CLI from `output/playwright/<label>/`. Keep a named session for the DSH tab, snapshot before using element references, and capture screenshots after meaningful state changes. The browser observation proves browser/UI state; it does not by itself prove Windows notification-center visibility.
+Use Playwright CLI from `output/playwright/<label>/`. Keep a named session for the DSH tab, snapshot before using element references, and capture screenshots after meaningful state changes. The browser observation proves browser/UI state; it does not by itself prove Windows notification-center visibility.
 
 ```powershell
 Set-Location '<pluginDir>\output\playwright\alpha13-lifecycle-<date>'
-& 'C:\Program Files\Git\bin\bash.exe' 'C:/Users/Oscar/.codex/skills/playwright/scripts/playwright_cli.sh' --session=deepcanary-alpha13 open '<fresh authenticated DSH URL>' --headed
-& 'C:\Program Files\Git\bin\bash.exe' 'C:/Users/Oscar/.codex/skills/playwright/scripts/playwright_cli.sh' --session=deepcanary-alpha13 snapshot
-& 'C:\Program Files\Git\bin\bash.exe' 'C:/Users/Oscar/.codex/skills/playwright/scripts/playwright_cli.sh' --session=deepcanary-alpha13 screenshot --filename=panel.png
+npx --yes --package @playwright/cli playwright-cli --session=deepcanary-alpha13 open '<fresh authenticated DSH URL>' --headed
+npx --yes --package @playwright/cli playwright-cli --session=deepcanary-alpha13 snapshot
+npx --yes --package @playwright/cli playwright-cli --session=deepcanary-alpha13 screenshot --filename=panel.png
 ```
 
 For the current lifecycle window, record only bounded facts: panel loaded, current version/runtime labels, Inbox state, ask/answer closure, child summary routing, pause/abort or reopen result, and any screenshot hash. Do not place credentials, prompts, model output, tool arguments, raw event payloads, or complete local paths into the observation file.
@@ -105,8 +105,8 @@ npm run pack:check
 npm run gate:stable
 ```
 
-`gate:stable` is a decision report, not a release command. Missing natural-use, OS-visible, independent audit, or full restart evidence remains pending and yields `CONTINUE_RC`; it must not be converted into Stable by a flag or by reusing a historical receipt. The virtual Supervisor soak is supplemental-only. The current candidate is not published by these commands.
+`gate:stable` is a decision report, not a release command. Missing natural-use, OS-visible, independent audit, or full restart evidence remains pending and yields `CONTINUE_RC`; it must not be converted into Stable by a flag or by reusing a historical receipt. The virtual Supervisor soak is supplemental-only. These commands do not publish a package.
 
 ## Release boundary
 
-Before any future public RC, freeze one tgz and bind its SHA-256 to the source/runtime/profile evidence. Check the official GitHub repository and npm registry once, then request the exact publish scope if it has not been explicitly authorized. Never alter historical tags, release assets, receipts, or withdrawn version identities.
+Before a public release, freeze one tgz and bind its SHA-256 to the source/runtime/profile evidence. Check the official GitHub repository and npm registry once, then request the exact publish scope if it has not been explicitly authorized. Never alter historical tags, release assets, receipts, or withdrawn version identities.

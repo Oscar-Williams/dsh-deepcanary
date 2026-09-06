@@ -1,16 +1,18 @@
-# RC release checklist
+# Release checklist
 
-This checklist records the local `0.1.1-rc.4` engineering candidate, the published `0.1.1-rc.3` alpha.5 baseline, and the immutable historical receipts. RC4 has no GitHub/npm publication identity; historical RC4 and earlier procedures remain available for reproduction with their original identities.
+This is the maintainer workflow. Installation instructions belong in the [README](../README.md); release-specific results belong in immutable, versioned records in the repository's [benchmark directory](https://github.com/Oscar-Williams/dsh-deepcanary/tree/main/benchmark).
 
-The published GitHub tag, Release asset, npm `next` package, and alpha.5 source checkout provide the RC3 installation path. The candidate uses the same alpha.5 package/type floor and a separate alpha.13 checkout/profile. The isolated Ubuntu-26.04 alpha.5 profile and device-level notification, touch, and screen-reader observations remain separately tracked below and in `benchmark/alpha5-compatibility-receipt.json`.
+## 1. Source and documentation
 
-## 0.1.1-rc.4: Session v2 engineering candidate
+- Keep `package.json`, both lockfile version fields, the runtime version, and current installation examples aligned.
+- Review the English and Chinese README, changelog, compatibility matrix, and package description for accuracy and user relevance.
+- Preserve historical version labels and receipts. Never overwrite an existing tag, npm version, or published artifact.
+- Review the diff for credentials, private content, personal paths, and unrelated changes.
+- Use the normal alpha.5 build for release output. Separate alpha.13 checks must retain their own runtime/profile/artifact identities.
 
-The `0.1.1-rc.4` candidate targets the official DSH alpha.5 commit `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5` for its normal build and the official alpha.13 commit `d347e703908d0406b7a7ef80e3a0e594d86b2215` for its isolated compatibility lane. It contains the authoritative session reconciliation slice plus Session v2 tool-result correlation, Human Needed recovery ordering, parent-session completion summaries, finite notification claims, a cached build identity, and a public runtime contract check. The candidate has no release receipt; its local evidence must stay separate from `benchmark/rc3-release-receipt.json`.
+## 2. Code and package checks
 
-This candidate is a source-build identity. Build and verify it with:
-
-```powershell
+```sh
 npm ci
 npm run typecheck
 npm run typecheck:tests
@@ -18,211 +20,56 @@ npm test
 npm run build
 npm run verify:distribution
 npm run pack:check
-npm run gate:stable
-npm pack --pack-destination output/local-pack
 ```
 
-Bind the resulting `dsh-deepcanary-0.1.1-rc.4.tgz` hash to the fresh Gate report and the DSH profile used for validation. For an exact, non-repacked Gate input use `node scripts/evaluate-stable-gates.mjs --package-tgz <frozen-tgz>`. The Persistent Supervisor is experimental and off by default; set `supervisorMode: experimental` for its engineering checks. Gate E reports prototype readiness and a separate `stableEligible` boolean; it does not turn missing restart, OS-delivery, resource, or soak evidence into Stable.
+The locked toolchain must produce the committed `lib/` output. Require passing CI for the release commit on Windows and Ubuntu with Node 22 and 24, plus the alpha.5 WebUI smoke. A cache hit alone does not prove reproducibility; a clean CI build is required.
 
-## Independent alpha.13 compatibility canary
+For behavior changes, also run focused provider, lifecycle, policy, privacy, recovery, and notification tests. AttentionGold must cover both positive decisions and healthy/suppressed/recovered cases. Run the quality report and attention benchmark when policy or resource behavior changes.
 
-Keep this check separate from the alpha.5 release identity. Use the official DSH `dsh-v0.1.3-alpha.1` source checkout at commit `d347e703908d0406b7a7ef80e3a0e594d86b2215`, a fresh isolated Web profile, the exact locally built RC4 tarball, and a sanitized UI evidence file. Confirm the runtime reports `0.1.3-alpha.1`, install the plugin into that profile, observe the authenticated Edge/WebUI panel, and run:
+## 3. Runtime and UI scope
 
-```powershell
-npm run build:alpha13
-$env:DSH_ALPHA13_UI_EVIDENCE = 'output/playwright/alpha13-lifecycle-<date>/ui-observation.json'
-$env:DSH_ALPHA13_RUNTIME = '<path-to-dsh-v0.1.3-alpha.1-checkout>'
-$env:DSH_ALPHA13_PROFILE = '<path-to-isolated-alpha13-profile>'
-$env:DSH_ALPHA13_PACKAGE = '<path-to-dsh-deepcanary-0.1.1-rc.4.tgz>'
-npm run compatibility:alpha13
-```
+Use an isolated profile and the exact artifact being evaluated. Verify:
 
-The canary report records runtime/package byte identity, public session-list and `snapshotEvents()` surfaces, the public Session v2 contract, the authenticated Web response, UI observation, and privacy flags. It is controlled-real compatibility evidence only: do not use it to relabel alpha.5 dogfood, Windows, WSL, or release-receipt results, and do not assume the DSH alpha.13 prerelease is available from npm.
+- plugin registration, required services, nine model-visible tools, and health/state/settings/action/outcome routes;
+- the DSH client-module entry, sidebar trigger, settings card, and on-demand Inbox;
+- close/reopen, Escape/outside-click behavior, focus return, pointer/keyboard resize, narrow viewports, and language changes;
+- acknowledge, snooze, mute, feedback, outcome retention/withdrawal, and session navigation;
+- permission-denied fallback, unload/restart cleanup, and no duplicate listeners, tools, or routes.
 
-## 0.1.1-rc.1 release: official DSH alpha.5
+Separate automated browser results from physical touch, screen-reader output, and OS notification observations. A live-model smoke, when needed, uses an authorized credential profile and records only a bounded result; it must not inspect or copy workspace data.
 
-The published release record is `0.1.1-rc.1`, tested against the official `dsh-v0.1.2-alpha.5` tag at commit `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`. The alpha.5 runtime remains the compatibility baseline for the published RC1 artifact and the RC3 release. RC2, RC4, and historical sections below preserve their original evidence and reproduction commands.
+For alpha.13, use the exact source pin and commands in [development](development.md). The canary requires package-byte identity plus separately captured, sanitized authenticated UI evidence. Do not promote that check into Windows, WSL, natural-use, or Stable evidence.
 
-The Windows alpha.5 Web profile, isolated headless model smoke, package gates, and clean npm `next` installation passed. The Ubuntu-26.04 profile has a separate pending WSL gate because its alpha.5 Web health evidence has not been recorded; the alpha.4 WSL result remains historical evidence and is not promoted to alpha.5.
+## 4. Stable qualification
 
-Run the following sequence from the plugin repository after confirming the alpha.5 DSH checkout:
+An RC can remain useful without meeting Stable criteria. Keep Persistent Supervisor experimental and off by default until its operational criteria are met.
 
-```powershell
-npm ci
-npm run typecheck
-npm run typecheck:tests
-npm test
-npm run build
-npm run verify:distribution
-npm run pack:check
-npm run gate:stable
-npm pack --pack-destination output/local-pack
-```
+- **Gate D — usefulness and delivery:** validated multi-run natural-use evidence, required task families and opportunities, independent qualified DSH audit, and reviewed visible final delivery units. Task intent, capture provenance, review source/basis/confidence, policy correctness, usefulness, and unknown visibility remain distinct.
+- **Windows notification observation:** bind OS display, notification-center retention, and click-back to the exact run, attempt, delivery unit, screenshots, and observation hashes. Browser construction is not OS visibility.
+- **Gate E — operational continuity:** authoritative reconciliation, post-restart pending/recovery convergence, cross-process ownership and fencing, orphan convergence, resource bounds, and real elapsed-time soak. A virtual-clock soak is supplemental only.
 
-The historical release artifact is `dsh-deepcanary-0.1.1-rc.1.tgz`. Its SHA-256 and publication identity remain recorded in [`benchmark/alpha5-compatibility-receipt.json`](../benchmark/alpha5-compatibility-receipt.json). Keep Windows OS-visible browser notification observations separate from browser construction evidence; each release uses its own fresh report and digest.
+See the [evaluation protocol](dogfood-protocol.md) and the checked-in schemas for thresholds and evidence fields. Missing evidence stays pending. The four outcomes remain `STABLE_READY`, `STABLE_WITH_EXCEPTIONS`, `CONTINUE_RC`, and `HOLD`; prototype readiness is separate from `stableEligible`.
 
-For the public npm installation path, use the explicit `next` selector and verify the resolved version and dist-tags:
+For a Stable assessment, generate relevant evidence once and bind the evaluation to the frozen artifact:
 
-```powershell
-$env:npm_config_registry = 'https://registry.npmjs.org/'
-npx --yes pnpm@11.7.0 dsh plugin --profile web add dsh-deepcanary@next
-npm view dsh-deepcanary@0.1.1-rc.1 version dist --json
-npm view dsh-deepcanary dist-tags --json
-```
-
-The public synchronization order is: commit and push `main`, create and push the immutable `v0.1.1-rc.1` tag, create the prerelease Release with the exact tarball, verify the remote tag and Release asset, then publish the same tarball to npm with dist-tag `next`. After npm publication, verify the package version and dist-tag from the public registry and update the receipt and bilingual README publication status in a follow-up commit. The GitHub tag remains immutable throughout this process.
-
-- [x] alpha.5 source checkout, CLI version, package lock, and plugin version agree;
-- [x] local unit, type, build, distribution, package, and stable-gate checks pass;
-- [x] fresh alpha.5 Web profile loads the exact local artifact and passes the WebUI smoke;
-- [x] public CI run [33630531423](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33630531423) passes on Windows and Ubuntu with Node 22 and 24 plus the alpha.5 WebUI smoke;
-- [ ] isolated Ubuntu-26.04 WSL alpha.5 profile completes the package install and Web health check;
-- [x] `main`, tag `v0.1.1-rc.1`, and GitHub Release are synchronized;
-- [x] npm `dsh-deepcanary@0.1.1-rc.1` is published with dist-tag `next` and verified from the public registry;
-- [x] README, English README, changelog, compatibility matrix, and release receipt reflect the final publication state.
-
-## Historical 0.1.0-rc.4 release: official DSH alpha.4
-
-Run the following from a clean or verified checkout before evaluating a new plugin tag:
-
-```powershell
-git fetch --tags https://github.com/deepseek-ai/deepseek-harness.git
-git switch --detach dsh-v0.1.2-alpha.4
-npx --yes pnpm@11.7.0 install --frozen-lockfile
-npx --yes pnpm@11.7.0 run build
-npx --yes pnpm@11.7.0 dsh --version
-npx --yes pnpm@11.7.0 dsh --profile web --dump-config
-```
-
-The version must be `0.1.2-alpha.4` and the checkout must resolve to `4e84901e6471b79ec0338099867ebb4606d12bb5`. Install the locally generated historical RC4 tarball into isolated `web` and `headless` profiles, then record the plugin package version, health and OutcomeReceipt routes, nine model-visible tools, settings namespace, client-module boot graph, unload/reload result, and model smoke result. Repeat with the immutable GitHub tag in fresh public-source profiles; the npm package remains pending. Keep the alpha.4 result in its historical receipt and preserve alpha.3 evidence separately.
-
-RC4 also runs `npm run quality:report` and `npm run benchmark:attention`. These commands provide the frozen replay and local resource baseline. A sanitized trial records OutcomeReceipts through `/dsh-deepcanary/outcome` and produces a source-filtered report with `npm run outcomes:report`; the public schemas are [`benchmark/outcome-receipt.schema.json`](../benchmark/outcome-receipt.schema.json) and [`benchmark/outcome-report.schema.json`](../benchmark/outcome-report.schema.json). The RC4 public receipt is [`benchmark/release-candidate-receipt.json`](../benchmark/release-candidate-receipt.json); the earlier alpha.3 compatibility record remains separate and does not replace the historical RC2 receipt.
-
-## 2A. Stable Gate D: real usefulness and delivery evidence
-
-Gate D is the product-quality gate. Run the checked-in policy replay first:
-
-```powershell
-npm run replay:policy
-```
-
-The report must pass every expected case for judgment, deduplication, Bundle escalation, budget downgrade, quiet hours, and recovery. Then collect a sanitized dogfood bundle with [`benchmark/dogfood.schema.json`](../benchmark/dogfood.schema.json) across the task families and scenarios in [`docs/dogfood-protocol.md`](dogfood-protocol.md), including positive decisions and negative opportunities. Generate its report with `npm run dogfood:report -- --input <path-to-sanitized-dogfood.json>`. Review labels, numerators, denominators, and sample-status values are part of the gate evidence.
-
-Gate D requires a validated multi-run real dogfood aggregate covering coding, build/test, research, multi-stage, and Subagent work plus concrete opportunity evidence for every declared scenario. It also requires reviewed Human Needed opportunities, separate policy and usefulness labels for delivered C2/C3 decisions, false-stall and wrong-level review, duplicate-final-interrupt review, recovery-before-open observations, negative opportunities for C0/dedupe/suppression, and a real Edge/Windows notification observation. Reviewed visible-final delivery units must carry non-unknown review source and basis, an explicit confidence field (which may be `unknown` because confidence is an annotation rather than a calibrated probability), and explicit `deliveryVisibility.status=visible`; constructed or materialized units whose user visibility is unknown remain outside the denominator. Browser permission and client callback evidence can be automated; actual Windows OS-visible browser notification appearance, Notification Center retention, and click-to-focus behavior require a schema-validated record bound to the matching dogfood observation and delivery unit. A small single-task sample or the legacy `--native-toast-observed` flag remains diagnostic evidence and does not pass Gate D.
-
-## 2B. Stable Gate E: release integrity and operational continuity
-
-Gate E combines a reproducible package with the explicitly enabled Persistent Supervisor prototype. In addition to the standard checks above, run:
-
-```powershell
+```sh
 npm run replay:policy
 npm run adapter:smoke
 npm run supervisor:smoke
 npm run supervisor:soak
-npm run verify:distribution
-npm run verify:release-receipt
-npm pack --dry-run
+node scripts/evaluate-stable-gates.mjs --package-tgz <frozen-tgz>
 ```
 
-Select `supervisorMode: experimental` in the exact alpha.5 test profile, then inspect `GET /dsh-deepcanary/supervisor` and confirm that `supervisor.json` is bounded, `supervisor.lease` is released after shutdown, a competing process enters `standby` and retries after the active lease is released, a stale lease is archived before takeover, and a previous owner cannot overwrite the active owner's snapshot. The lease mutations and owned snapshot commits use the same local operation lock, so fencing is checked within one serialized filesystem operation. Run `npm run supervisor:soak` for the controlled virtual-clock supplemental report; it covers three normal restarts, one stale-lease takeover, old-owner fencing, bounded policy/delivery state, and shutdown release. Its `controlled-virtual` / `supplemental-only` identity keeps it separate from the real 8-hour Stable soak. Record startup, restore, write, heartbeat, wake, state-directory-size, RSS counters, policy-state version, restored dedupe/budget entries, and logical browser delivery entries. RC3 exposes the first authoritative session reconciliation slice and orphan grace, while post-restart convergence, Windows OS observation, and the remaining Stable semantics stay as separate evidence gates.
+Do not restart active user work, re-enable a paused WSL/long-soak lane, or invent missing observations merely to complete a checklist.
 
-The repository CI workflow starts the pinned alpha.5 Web profile in an isolated home and exercises the panel through Playwright CLI. Historical run [33557376591](https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/33557376591) records the plugin `0.1.0-rc.4` Windows/Ubuntu and Node 22/24 checks, including its alpha.4 WebUI smoke. Each release uses CI evidence tied to its own source commit and runtime identity. Automated checks cover the computer interaction surface; physical touch and real Screen Reader evaluation remain separate device checks.
+## 5. Freeze and publish
 
-## 1. Source and documentation
+1. Commit the verified source and generated output. Require passing CI on that commit.
+2. Pack once into a version-specific directory. Record SHA-256, npm shasum/integrity, byte size, and source commit; keep receipts outside the package.
+3. Confirm the archive contains the built entry, client module, bundle patch, both README languages, docs, images, schemas, and license. Exclude source/tests, local profiles, private notes, and observation logs.
+4. With publication authorized, push the immutable version tag and create a GitHub prerelease with the exact tarball.
+5. Verify the remote tag, Release asset identity, and digest. Publish that same tarball to the official npm registry with `--tag next --ignore-scripts`.
+6. Independently verify npm version, dist-tag, shasum/integrity, and tarball bytes. Leave `latest` unchanged unless a stable-channel change was explicitly authorized.
+7. Record publication results in a follow-up commit and run `npm run verify:release-receipt`. Do not change the tag or repack the published version.
 
-- [x] Confirm `package.json`, `package-lock.json`, `CHANGELOG.md`, README files, compatibility matrix, surface audit, and release receipt use the same plugin version and alpha.5 DSH release tag; keep the separate alpha.13 canary identity explicit.
-- [x] Confirm `设计思路(不提交)/` is ignored and no design guide is tracked or present in the package artifact.
-- [x] Confirm the public README uses the immutable GitHub tag and labels the historical tag separately.
-- [x] Review the diff for secrets, local paths, credentials, raw prompts, and unrelated changes.
-- [x] Confirm dogfood review source/basis/confidence and visible-versus-unknown final-delivery semantics are documented alongside the schemas and evaluator.
-
-## 2. Plugin gates
-
-Run from the repository root:
-
-```powershell
-npm ci
-npm run typecheck
-npm run typecheck:tests
-npm test
-npm run build
-npm run verify:distribution
-npm pack --dry-run
-```
-
-The AttentionGold gate must pass offline. It must cover normal completion, approval, question, repeated failure, host unreachable, host stall, no-progress, Subagent pressure, compaction, context pressure, healthy long-running work, background completion, user viewing DSH, suspicious completion, recovered stall, duplicate events, and a shared-root Decision Bundle. The privacy gate must confirm that Session/Workspace references and conversation content remain absent from persisted metadata. A bounded opaque local DSH session handle may be present solely for native `sessions.open` navigation.
-
-## 3. Historical DSH alpha.2 gates
-
-Use a clean checkout or verify the existing checkout before installing the plugin:
-
-```powershell
-git clone --depth 1 --branch dsh-v0.1.2-alpha.2 https://github.com/deepseek-ai/deepseek-harness.git dsh-runtime-alpha2
-Set-Location .\dsh-runtime-alpha2
-npx --yes pnpm@11.7.0 install
-npx --yes pnpm@11.7.0 run build
-npx --yes pnpm@11.7.0 dsh --version
-npx --yes pnpm@11.7.0 dsh --profile web --dump-config
-```
-
-The version must be `0.1.2-alpha.2`, and the checkout must resolve to commit `0a53fb55bea101816fa226bb964ae2bed71c343b`.
-
-For the live-model smoke gate, use the same DSH home in which the API credential was configured and run one headless task from the dedicated acceptance workspace. The task must request an exact fixed response while explicitly prohibiting file inspection and file mutation. Record only the pass/fail result and the fixed response marker; never copy credentials, raw prompts, transcripts, or workspace contents into the release receipt.
-
-## 4. Public GitHub distribution and Web E2E
-
-The published RC3 client-module revision is verified remotely; the current RC4 candidate is verified locally only. The historical RC4 GitHub tag/Release remains available. npm publication of the current candidate remains paused; keep any public publication checklist pending until a separate decision is made.
-
-```powershell
-npx --yes pnpm@11.7.0 dsh plugin --profile web remove dsh-deepcanary
-npx --yes pnpm@11.7.0 dsh plugin --profile web add https://codeload.github.com/Oscar-Williams/dsh-deepcanary/tar.gz/refs/tags/v0.1.0-rc.4
-npx --yes pnpm@11.7.0 dsh --profile web --dump-config
-npx --yes pnpm@11.7.0 dsh web --no-open
-```
-
-The active `benchmark/release-candidate-receipt.json` documents the historical `0.1.0-rc.4` GitHub prerelease with its exact public tag, Release asset, alpha4 profiles, CI, and claimed gates. RC3 publication uses a separate receipt bound to its own source commit, package digest, alpha.5 profile, fresh Gate, GitHub tag, Release asset, and npm `next` metadata. The model smoke evidence is labeled by its exact runtime profile. The historical `benchmark/release-receipt.json` continues to document RC2.
-
-Verify from the running local Web host:
-
-- the bundle patch is active;
-- all nine `deepcanary_*` tools are registered once;
-- `/dsh-deepcanary/health`, `/state`, `/settings`, and `/action` return the documented status codes;
-- the installed package exposes `exports["./client"]`, declares `dsh.client`, and the DSH boot graph includes the plugin client module;
-- the Web UI starts with no DeepCanary panel covering the page, opens from `sidebar.footer.action`, closes through its button/`Esc`/outside click, reopens from the entry, and leaves the page underneath usable;
-- width and height change through both pointer handles and keyboard controls, with the constrained size reflected in `aria-valuenow`;
-- switching DSH between Chinese and English updates the DeepCanary panel without a page reload;
-- a C2 Inbox item can be acknowledged, snoozed, muted, and rated;
-- a permission-granted notification click focuses DSH, opens its target alert, and brings that item into the visible panel range;
-- settings update and validation behave as documented;
-- a clean unload/restart leaves no duplicate routes, tools, timers, slot registrations, or client module factories;
-- browser permission denial still leaves the Web Inbox and model tools available.
-- a live-model smoke task returns the expected fixed marker without workspace file access;
-- the standard `settings.plugin.item` card is visible under DSH Settings > Plugins and the overlay contains only the settings location hint.
-- a redacted OutcomeReceipt can be recorded and read back through `/dsh-deepcanary/outcome` and `/dsh-deepcanary/outcomes` without storing session content;
-- an explicit trial or time cutoff can withdraw OutcomeReceipts through `DELETE /dsh-deepcanary/outcomes`;
-
-## 5. Windows and WSL gates
-
-Run the same public-tag install path on Windows x64 and WSL2 Ubuntu. Freeze evidence for:
-
-- Windows DSH with browser fallback;
-- WSL DSH with a Windows browser client;
-- `/mnt/c` and CJK workspace paths;
-- interop available, unavailable, and unknown;
-- HTTP probe failure and recovery;
-- notification permission denied;
-- Node.js 22 and Node.js 24 compatibility;
-- plugin unload and restart.
-
-## 6. Artifact and publication
-
-- [x] Run `npm pack --dry-run` and record the SHA-256 digest.
-- [x] Confirm the package contains `lib/`, user-facing docs, AttentionGold fixtures, license, and bundle patch, and excludes the repository-only release receipt, `src/`, tests, local design notes, `.dsh` state, and credentials.
-- [x] Confirm `benchmark/release-receipt.json` remains tracked in the repository as release evidence and is not included in the npm runtime package; this keeps the artifact digest independently verifiable.
-- [x] Update `benchmark/release-receipt.json` only with gates that actually passed on the exact runtime and artifact.
-- [x] Commit and push `main` after the design guide was complete and synchronization was authorized.
-- [x] Create and push the immutable `v0.1.0-rc.4` tag for this revision.
-- [x] Install from the public tag in fresh isolated `web` and `headless` profiles and repeat the Web installation checks; keep the authorized-profile model smoke evidence separate.
-- [ ] Publish `dsh-deepcanary@0.1.0-rc.4` to the official npm registry under the `next` channel and verify its dist-tags and integrity metadata when npm publication is authorized.
-- [x] Create a separate GitHub Release entry with release notes and the artifact digest.
-- [x] Verify the GitHub repository retains the `dsh` topic and that the README installation URL resolves to the published tag.
+Release notes should explain user-visible changes, installation, compatibility scope, and important limitations. Gate detail and working-environment state belong in maintainer records, not the release headline.
