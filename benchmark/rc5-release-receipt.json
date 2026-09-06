@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "publication",
+  "status": "PUBLISHED",
+  "plugin": "dsh-deepcanary",
+  "pluginVersion": "0.1.1-rc.5",
+  "sourceCommit": "0c60c9488041b5c8d8258462aac4dcc672d4d137",
+  "artifact": {
+    "fileName": "dsh-deepcanary-0.1.1-rc.5.tgz",
+    "bytes": 279240,
+    "files": 124,
+    "unpackedBytes": 1070367,
+    "sha256": "4a71a5d7bccb5b09917c67a8e8b6e9d04297339a911ba9d097492e6299da478c",
+    "sha1": "96729b914fce05951d003ba093d9b7cf47aa5728",
+    "integrity": "sha512-wPnpJSOxxPJiC0pWABh6eTmwfUyhronMg+PcNe50vatsxXclhL6gyUmC076spVL37Pl/SVNPI6twZR+ewna+Vw=="
+  },
+  "github": {
+    "tag": "v0.1.1-rc.5",
+    "tagCommit": "0c60c9488041b5c8d8258462aac4dcc672d4d137",
+    "releaseUrl": "https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.1-rc.5",
+    "releaseId": 383568190,
+    "publishedAt": "2026-09-06T12:01:58Z",
+    "assetId": 547144872,
+    "assetUrl": "https://github.com/Oscar-Williams/dsh-deepcanary/releases/download/v0.1.1-rc.5/dsh-deepcanary-0.1.1-rc.5.tgz",
+    "assetDigest": "sha256:4a71a5d7bccb5b09917c67a8e8b6e9d04297339a911ba9d097492e6299da478c"
+  },
+  "npm": {
+    "registry": "https://registry.npmjs.org/",
+    "version": "0.1.1-rc.5",
+    "distTagAtPublication": "next",
+    "tarball": "https://registry.npmjs.org/dsh-deepcanary/-/dsh-deepcanary-0.1.1-rc.5.tgz",
+    "shasum": "96729b914fce05951d003ba093d9b7cf47aa5728",
+    "integrity": "sha512-wPnpJSOxxPJiC0pWABh6eTmwfUyhronMg+PcNe50vatsxXclhL6gyUmC076spVL37Pl/SVNPI6twZR+ewna+Vw==",
+    "publishedAt": "2026-09-06T12:03:07.483Z"
+  },
+  "validation": {
+    "scope": "Publication identity and explicitly listed checks; not a Stable qualification.",
+    "ci": {
+      "runId": 34031570505,
+      "url": "https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/34031570505",
+      "commit": "0c60c9488041b5c8d8258462aac4dcc672d4d137",
+      "conclusion": "success",
+      "jobs": 5,
+      "testCases": 128
+    },
+    "localTypes": "PASS",
+    "localTests": 128,
+    "distributionAndDocumentationLinks": "PASS",
+    "frozenTarballInstall": {
+      "runtime": "0.1.2-alpha.5",
+      "filesCompared": 124,
+      "mismatches": 0
+    },
+    "alpha13": {
+      "runtime": "0.1.3-alpha.1",
+      "commit": "d347e703908d0406b7a7ef80e3a0e594d86b2215",
+      "typecheck": "PASS",
+      "publicSessionContract": "PASS",
+      "webUi": "Inherited RC4 evidence; no new RC5 WebUI claim"
+    },
+    "supervisor": {
+      "unitRegression": "PASS",
+      "smoke": "PASS",
+      "controlledRealProcess": "PASS",
+      "virtualSoak": "PASS; supplemental-only",
+      "realEightHourSoak": "not run; paused",
+      "enabledByDefault": false
+    },
+    "npmTarballBytesIndependentlyVerified": true,
+    "windowsDesktopNotifications": "Inherited RC4 observations; no new RC5 device claim",
+    "pending": [
+      "Broader qualified natural-use and usefulness evidence",
+      "WSL2 end-to-end desktop delivery",
+      "Physical touch and screen-reader output",
+      "Stable Supervisor operational qualification"
+    ]
+  },
+  "toolchain": {
+    "node": "24.19.0",
+    "npm": "11.17.0",
+    "pnpm": "11.7.0",
+    "typescript": "5.9.3",
+    "esbuild": "0.21.5",
+    "vitest": "2.1.9",
+    "dshBuildBaseline": "0.1.2-alpha.5"
+  }
+}
