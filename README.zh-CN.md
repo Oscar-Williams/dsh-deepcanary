@@ -1,12 +1,19 @@
+<div align="center">
+
 # DeepCanary
 
-让长任务安静运行，在需要你时提醒。
+**让长任务安静运行，在需要你时提醒。**
 
 [![npm latest](https://img.shields.io/npm/v/dsh-deepcanary/latest?label=npm)](https://www.npmjs.com/package/dsh-deepcanary)
 [![CI](https://github.com/Oscar-Williams/dsh-deepcanary/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Oscar-Williams/dsh-deepcanary/actions/workflows/ci.yml)
+[![DSH Web](https://img.shields.io/badge/DSH-Web-2563eb)](docs/compatibility.md)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f.svg)](LICENSE)
 
 [English](README.md) · 简体中文 · [文档](docs/README.md) · [更新日志](CHANGELOG.md)
+
+[功能](#能帮你做什么) · [快速开始](#快速开始) · [常见问题](#常见问题) · [参与贡献](#参与贡献) · [致谢](#致谢)
+
+</div>
 
 DeepCanary 是 [DeepSeek Harness（DSH）](https://github.com/deepseek-ai/deepseek-harness) 的本地任务提醒收件箱。审批、提问、异常和完成摘要集中在一处，让你无需持续盯着任务页面，在需要处理时回到对应会话。
 
@@ -24,11 +31,11 @@ DeepCanary 是 [DeepSeek Harness（DSH）](https://github.com/deepseek-ai/deepse
 
 ## 快速开始
 
-需要已配置的 DSH Web 和 Node.js `22.19+`。构建与 CI 基线为 DSH `0.1.2-alpha.5`，`0.1.3-alpha.1` 有独立兼容性验证。使用其他宿主前，请查看[版本与平台限制](docs/compatibility.md)。
+需要已配置的 DSH Web，以及 Node.js `22.19+`（22.x 系列）或 `24+`。构建与 CI 基线为 DSH `0.1.2-alpha.5`，`0.1.3-alpha.1` 有独立兼容性验证。使用其他宿主前，请查看[版本与平台限制](docs/compatibility.md)。
 
 当前默认版本为 **`0.1.1-rc.5`（预发布版）**。npm 默认渠道 `latest` 与预览渠道 `next` 目前均指向该版本。
 
-如果终端中可以直接运行 `dsh`：
+如果终端中可以直接运行 `dsh`，将插件安装到实际使用的 profile：
 
 ```sh
 dsh plugin --profile web add dsh-deepcanary@latest
@@ -45,6 +52,16 @@ npx --yes pnpm@11.7.0 dsh web
 ```
 
 需要可复现安装时，将 `dsh-deepcanary@latest` 替换为 `dsh-deepcanary@0.1.1-rc.5`；需要预览渠道时使用 `dsh-deepcanary@next`。也可以从 [GitHub Releases](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.1-rc.5) 下载固定版本的 `.tgz`，将同一条 `plugin add` 命令中的包名替换为文件路径。若镜像源尚未同步，请使用 npm 官方源或 Release 附件。
+
+### 更新或卸载
+
+更新时，重新运行上方安装命令即可。若需从同一个 profile 卸载 DeepCanary：
+
+```sh
+dsh plugin --profile web remove dsh-deepcanary
+```
+
+使用 DSH 源码安装时，在命令前加上 `npx --yes pnpm@11.7.0`。请先完成当前任务，再重启 DSH 以应用变更。卸载包后，[本地数据目录](docs/security.md#stored-data)中的提醒记录仍会保留；无需删除 DSH profile 或会话。
 
 ## 收到第一条提醒
 
@@ -72,11 +89,41 @@ npx --yes pnpm@11.7.0 dsh web
 - 持续监督功能（Persistent Supervisor）仍为实验功能，默认关闭；它不是独立后台服务，DSH 退出后不会继续运行。
 - WSL2 端到端桌面通知、实体触控设备和屏幕阅读器输出尚未完成发布级验证。详见[兼容说明](docs/compatibility.md)。
 
+## 常见问题
+
+<details>
+<summary>为什么终端提示 dsh: command not found？</summary>
+
+DeepCanary 需要已有的 DSH 环境。如果你使用 DSH 源码安装，请在源码目录运行[快速开始](#快速开始)中的固定 pnpm 版本命令。单独安装本插件不会安装 DSH 宿主。
+
+</details>
+
+<details>
+<summary>为什么收件箱有条目，却没有桌面通知？</summary>
+
+并非每条收件箱记录都会触发打断。请检查提醒级别、静默时段、浏览器权限和系统通知设置，并保持 DSH 与网页运行。详见[通知排查](docs/compatibility.md#troubleshooting)。
+
+</details>
+
+<details>
+<summary>为什么更新后仍显示旧版本？</summary>
+
+npm 渠道调整不会自动更新现有安装。请对实际使用的 profile 重新运行安装命令，完成当前任务后再重启 DSH。若镜像源尚未同步，请使用 npm 官方源或上方固定版本的 Release 附件。
+
+</details>
+
 ## 参与贡献
 
 欢迎报告问题、提出针对性改进或完善翻译。提交 [GitHub Issue](https://github.com/Oscar-Williams/dsh-deepcanary/issues) 时，请附插件版本、DSH 版本、操作系统、浏览器和复现步骤；分享日志前请移除密钥与私人会话内容。
 
 开发从[贡献指南](CONTRIBUTING.md)和[开发文档](docs/development.md)开始，版本变更见[更新日志](CHANGELOG.md)。
+
+## 致谢
+
+- 感谢 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 及其维护者，提供 DeepCanary 所依托的运行时、插件 API 与 WebUI 扩展接口。
+- 感谢 [React](https://react.dev/) 及其贡献者，提供 DSH Web 集成所使用的组件库。
+
+DeepCanary 是独立开发的社区插件。
 
 ## 许可证
 

@@ -4,7 +4,7 @@ Bug reports, focused pull requests, and translations are welcome. For a substant
 
 ## Development
 
-Use Node.js `22.19+`. Dependencies are locked to the DSH `0.1.2-alpha.5` compatibility baseline.
+Use Node.js `22.19+` within the 22.x line, or `24+`, matching DSH's supported range. Dependencies are locked to the DSH `0.1.2-alpha.5` compatibility baseline.
 
 ```sh
 npm ci

@@ -26,7 +26,7 @@ RC5 improves documentation, interface wording, build validation, test portabilit
 | WSL2 + Windows browser | Path normalization and capability-detected interop in tests | Current-runtime end-to-end desktop delivery; this lane remains pending |
 | macOS or other browsers | No release-level device validation | Native notification and accessibility behavior |
 
-Requires Node.js `22.19+`; CI uses `22.19.0` and `24.19.0`. Source-checkout commands use pnpm `11.7.0`.
+DSH requires Node.js `^22.19.0 || >=24.0.0`: Node 22.19+ within the 22.x line, or Node 24 and newer. Node 23 is outside this host range. CI uses `22.19.0` and `24.19.0`. Source-checkout commands use pnpm `11.7.0`.
 
 ## Notification behavior
 

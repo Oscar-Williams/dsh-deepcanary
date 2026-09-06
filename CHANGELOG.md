@@ -4,6 +4,7 @@ User-visible changes and notable compatibility updates. The current default rele
 
 ## Unreleased
 
+- Add README navigation, update/removal instructions, a concise FAQ, and acknowledgments; clarify the DSH-compatible Node.js range in user and contributor guidance.
 - Check all direct installed dependencies against the lockfile and document the different plugin, runtime, compiler, and package-manager versions.
 - Use one version-specific frozen-artifact location, reject ambiguous or mismatched package bytes, and prevent ordinary repacking of published versions.
 - Make compatibility checks explicit about their runtime/profile and artifact identity; stop verification from silently creating a replacement tarball.
