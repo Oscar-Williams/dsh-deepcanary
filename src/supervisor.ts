@@ -508,6 +508,8 @@ export class PersistentSupervisor {
   private standbyTimer: ReturnType<typeof setTimeout> | undefined
   private persistTimer: ReturnType<typeof setTimeout> | undefined
   private saveChain = Promise.resolve()
+  private startTask: Promise<boolean> | undefined
+  private stopTask: Promise<void> | undefined
   private disposed = false
   private stopping = false
 
@@ -529,6 +531,18 @@ export class PersistentSupervisor {
   }
 
   async start(): Promise<boolean> {
+    if (this.disposed || this.stopping) return false
+    if (this.startTask !== undefined) return this.startTask
+    const task = this.startOnce()
+    this.startTask = task
+    try {
+      return await task
+    } finally {
+      if (this.startTask === task) this.startTask = undefined
+    }
+  }
+
+  private async startOnce(): Promise<boolean> {
     if (this.lifecycle === 'running' || this.lifecycle === 'degraded') return this.lease !== undefined
     if (this.disposed) return false
     const started = this.options.now()
@@ -640,17 +654,27 @@ export class PersistentSupervisor {
   }
 
   async stop(): Promise<void> {
+    if (this.stopTask !== undefined) return this.stopTask
     if (this.disposed || this.lifecycle === 'stopped') return
-    if (this.stopping) {
-      await this.saveChain
-      return
-    }
     this.stopping = true
+    const task = this.stopOnce()
+    this.stopTask = task
+    try {
+      await task
+    } finally {
+      if (this.stopTask === task) this.stopTask = undefined
+    }
+  }
+
+  private async stopOnce(): Promise<void> {
     if (this.heartbeatTimer !== undefined) clearInterval(this.heartbeatTimer)
     this.heartbeatTimer = undefined
     if (this.standbyTimer !== undefined) clearTimeout(this.standbyTimer)
     this.standbyTimer = undefined
     try {
+      // A standby retry may still be acquiring a lease. Drain that startup
+      // before flushing and releasing, so shutdown cannot leave a late owner.
+      await this.startTask
       // Flush while the lease is still held. This keeps the latest bounded
       // snapshot durable when stop follows a just-observed session event.
       await this.flush()

@@ -1,7 +1,7 @@
 import { readFile, writeFile, readdir, mkdtemp, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { PersistentSupervisor, supervisorSnapshotFor } from '../src/supervisor.js'
 
 function snapshot(now: number, revision = 7) {
@@ -16,6 +16,66 @@ function snapshot(now: number, revision = 7) {
 }
 
 describe('PersistentSupervisor', () => {
+  it('shares one startup transaction between concurrent callers', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-supervisor-start-once-'))
+    const supervisor = new PersistentSupervisor({ stateDir: directory, runtimeVersion: '0.1.2-alpha.5', heartbeatMs: 60_000 })
+    const load = supervisor.store.load.bind(supervisor.store)
+    let loads = 0
+    let release!: () => void
+    const held = new Promise<void>(resolve => { release = resolve })
+    supervisor.store.load = async (...args) => { loads += 1; await held; return load(...args) }
+    const first = supervisor.start()
+    const second = supervisor.start()
+    const results = Promise.all([first, second])
+    try {
+      expect(loads).toBe(1)
+      release()
+      expect(await results).toEqual([true, true])
+      expect(supervisor.status()).toMatchObject({ state: 'running', leaseHeld: true })
+    } finally {
+      release()
+      await results
+      await supervisor.stop()
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
+  it('waits for a pending lease acquisition before completing concurrent shutdowns', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-supervisor-stop-start-'))
+    const supervisor = new PersistentSupervisor({ stateDir: directory, runtimeVersion: '0.1.2-alpha.5', heartbeatMs: 60_000 })
+    const acquire = supervisor.store.tryCreateLease.bind(supervisor.store)
+    let entered!: () => void
+    let release!: () => void
+    const entering = new Promise<void>(resolve => { entered = resolve })
+    const held = new Promise<void>(resolve => { release = resolve })
+    supervisor.store.tryCreateLease = async lease => { entered(); await held; return acquire(lease) }
+    const starting = supervisor.start()
+    let firstStopped = false
+    let secondStopped = false
+    let firstStop: Promise<void> | undefined
+    let secondStop: Promise<void> | undefined
+    try {
+      await entering
+      firstStop = supervisor.stop().then(() => { firstStopped = true })
+      secondStop = supervisor.stop().then(() => { secondStopped = true })
+      await new Promise<void>(resolve => setImmediate(resolve))
+      expect(firstStopped).toBe(false)
+      expect(secondStopped).toBe(false)
+      release()
+      expect(await starting).toBe(false)
+      await Promise.all([firstStop, secondStop])
+      expect(supervisor.status()).toMatchObject({ state: 'stopped', leaseHeld: false })
+      expect(await supervisor.store.loadLease()).toBeUndefined()
+      expect(await supervisor.start()).toBe(false)
+    } finally {
+      release()
+      await starting
+      await Promise.all([firstStop, secondStop])
+      await supervisor.stop()
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
   it('serializes a heartbeat queued during a delayed snapshot without self-fencing', async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-renew-race-'))
     let now = Date.now()
@@ -160,9 +220,11 @@ describe('PersistentSupervisor', () => {
 
   it('retries standby ownership and becomes the active supervisor after release', async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-supervisor-standby-'))
+    let first: PersistentSupervisor | undefined
+    let contender: PersistentSupervisor | undefined
     try {
       const now = 1_756_800_000_000
-      const first = new PersistentSupervisor({
+      first = new PersistentSupervisor({
         stateDir: directory,
         runtimeVersion: '0.1.2-alpha.5',
         now: () => now,
@@ -171,7 +233,7 @@ describe('PersistentSupervisor', () => {
         heartbeatMs: 60_000,
         standbyRetryMs: 5,
       })
-      const contender = new PersistentSupervisor({
+      contender = new PersistentSupervisor({
         stateDir: directory,
         runtimeVersion: '0.1.2-alpha.5',
         now: () => now,
@@ -184,10 +246,11 @@ describe('PersistentSupervisor', () => {
       expect(await contender.start()).toBe(false)
       expect(contender.status().state).toBe('standby')
       await first.stop()
-      await new Promise(resolve => setTimeout(resolve, 25))
-      expect(contender.status()).toMatchObject({ state: 'running', leaseHeld: true })
+      await vi.waitFor(() => expect(contender?.status()).toMatchObject({ state: 'running', leaseHeld: true }), { timeout: 2000, interval: 10 })
       await contender.stop()
     } finally {
+      await contender?.stop()
+      await first?.stop()
       await rm(directory, { recursive: true, force: true })
     }
   })
@@ -236,9 +299,11 @@ describe('PersistentSupervisor', () => {
 
   it('derives the default standby retry from a custom lease TTL', async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-supervisor-derived-retry-'))
+    let owner: PersistentSupervisor | undefined
+    let contender: PersistentSupervisor | undefined
     try {
       const now = 1_756_800_000_000
-      const owner = new PersistentSupervisor({
+      owner = new PersistentSupervisor({
         stateDir: directory,
         runtimeVersion: '0.1.2-alpha.5',
         now: () => now,
@@ -247,7 +312,7 @@ describe('PersistentSupervisor', () => {
         heartbeatMs: 60_000,
         staleLeaseMs: 60,
       })
-      const contender = new PersistentSupervisor({
+      contender = new PersistentSupervisor({
         stateDir: directory,
         runtimeVersion: '0.1.2-alpha.5',
         now: () => now,
@@ -259,10 +324,11 @@ describe('PersistentSupervisor', () => {
       expect(await owner.start()).toBe(true)
       expect(await contender.start()).toBe(false)
       await owner.stop()
-      await new Promise(resolve => setTimeout(resolve, 120))
-      expect(contender.status()).toMatchObject({ state: 'running', leaseHeld: true })
+      await vi.waitFor(() => expect(contender?.status()).toMatchObject({ state: 'running', leaseHeld: true }), { timeout: 2000, interval: 10 })
       await contender.stop()
     } finally {
+      await contender?.stop()
+      await owner?.stop()
       await rm(directory, { recursive: true, force: true })
     }
   })

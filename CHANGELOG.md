@@ -15,6 +15,7 @@ User-visible changes and notable compatibility updates. DeepCanary is currently 
 ### Fixed
 
 - Use a platform-appropriate absolute path in the SessionStore integration test so it works on Linux as well as Windows.
+- Wait for an in-flight Supervisor startup before completing shutdown, share concurrent startup/shutdown transactions, and make standby tests wait for observable state with reliable cleanup.
 - Validate installed TypeScript and esbuild versions against the lockfile and include actual tool versions in the build cache identity.
 - Regenerate distribution output with the locked toolchain and add publication-receipt validation for the current release line.
 
