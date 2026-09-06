@@ -2,7 +2,7 @@
 
 让长任务安静运行，在需要你时提醒。
 
-[![npm next](https://img.shields.io/npm/v/dsh-deepcanary/next?label=npm%20next)](https://www.npmjs.com/package/dsh-deepcanary)
+[![npm latest](https://img.shields.io/npm/v/dsh-deepcanary/latest?label=npm)](https://www.npmjs.com/package/dsh-deepcanary)
 [![CI](https://github.com/Oscar-Williams/dsh-deepcanary/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Oscar-Williams/dsh-deepcanary/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f.svg)](LICENSE)
 
@@ -26,10 +26,12 @@ DeepCanary 是 [DeepSeek Harness（DSH）](https://github.com/deepseek-ai/deepse
 
 需要已配置的 DSH Web 和 Node.js `22.19+`。构建与 CI 基线为 DSH `0.1.2-alpha.5`，`0.1.3-alpha.1` 有独立兼容性验证。使用其他宿主前，请查看[版本与平台限制](docs/compatibility.md)。
 
+当前默认版本为 **`0.1.1-rc.5`（预发布版）**。npm 默认渠道 `latest` 与预览渠道 `next` 目前均指向该版本。
+
 如果终端中可以直接运行 `dsh`：
 
 ```sh
-dsh plugin --profile web add dsh-deepcanary@0.1.1-rc.5
+dsh plugin --profile web add dsh-deepcanary@latest
 dsh web
 ```
 
@@ -38,11 +40,11 @@ dsh web
 使用 DSH 源码安装时，在 DSH 源码目录运行等价命令：
 
 ```sh
-npx --yes pnpm@11.7.0 dsh plugin --profile web add dsh-deepcanary@0.1.1-rc.5
+npx --yes pnpm@11.7.0 dsh plugin --profile web add dsh-deepcanary@latest
 npx --yes pnpm@11.7.0 dsh web
 ```
 
-预发布渠道为 `dsh-deepcanary@next`。也可以从 [GitHub Releases](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.1-rc.5) 下载固定版本的 `.tgz`，将同一条 `plugin add` 命令中的包名替换为文件路径。若镜像源尚未同步，请使用 npm 官方源或 Release 附件。
+需要可复现安装时，将 `dsh-deepcanary@latest` 替换为 `dsh-deepcanary@0.1.1-rc.5`；需要预览渠道时使用 `dsh-deepcanary@next`。也可以从 [GitHub Releases](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.1-rc.5) 下载固定版本的 `.tgz`，将同一条 `plugin add` 命令中的包名替换为文件路径。若镜像源尚未同步，请使用 npm 官方源或 Release 附件。
 
 ## 收到第一条提醒
 

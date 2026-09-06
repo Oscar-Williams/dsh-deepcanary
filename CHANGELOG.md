@@ -1,6 +1,6 @@
 # Changelog
 
-User-visible changes and notable compatibility updates. DeepCanary is currently distributed through the `next` prerelease channel.
+User-visible changes and notable compatibility updates. The current default release is `0.1.1-rc.5` (prerelease); npm `latest` and `next` both point to it. The default-channel update on 2026-09-06 does not change the published package or promote it to Stable.
 
 ## Unreleased
 

@@ -1,6 +1,6 @@
 # Compatibility
 
-DeepCanary is a prerelease plugin for DSH Web. Use a pinned plugin version when you need reproducible behavior; `next` follows the current prerelease.
+DeepCanary is a prerelease plugin for DSH Web. The current default is `0.1.1-rc.5`, available through both npm `latest` and `next`. Use a pinned plugin version when you need reproducible behavior. `latest` selects the default installation; it does not certify Stable readiness.
 
 ## Runtime coverage
 

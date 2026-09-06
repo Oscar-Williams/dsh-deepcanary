@@ -2,7 +2,7 @@
 
 Let long tasks run quietly. Know when they need you.
 
-[![npm next](https://img.shields.io/npm/v/dsh-deepcanary/next?label=npm%20next)](https://www.npmjs.com/package/dsh-deepcanary)
+[![npm latest](https://img.shields.io/npm/v/dsh-deepcanary/latest?label=npm)](https://www.npmjs.com/package/dsh-deepcanary)
 [![CI](https://github.com/Oscar-Williams/dsh-deepcanary/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Oscar-Williams/dsh-deepcanary/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f.svg)](LICENSE)
 
@@ -26,10 +26,12 @@ DeepCanary is a local attention inbox for [DeepSeek Harness (DSH)](https://githu
 
 Requires an existing DSH Web installation and Node.js `22.19+`. DSH `0.1.2-alpha.5` is the build and CI baseline; `0.1.3-alpha.1` has separate compatibility coverage. Read the [version and platform limits](docs/compatibility.md) before using a different host.
 
+The current default release is **`0.1.1-rc.5` (prerelease)**. npm `latest` and the preview channel `next` currently point to this version.
+
 With `dsh` available in your terminal:
 
 ```sh
-dsh plugin --profile web add dsh-deepcanary@0.1.1-rc.5
+dsh plugin --profile web add dsh-deepcanary@latest
 dsh web
 ```
 
@@ -38,11 +40,11 @@ Finish active tasks before restarting an existing DSH process. Open the address 
 Using a DSH source checkout? Run the equivalent commands from that checkout:
 
 ```sh
-npx --yes pnpm@11.7.0 dsh plugin --profile web add dsh-deepcanary@0.1.1-rc.5
+npx --yes pnpm@11.7.0 dsh plugin --profile web add dsh-deepcanary@latest
 npx --yes pnpm@11.7.0 dsh web
 ```
 
-The prerelease channel is `dsh-deepcanary@next`. For a fixed artifact, download the `.tgz` from [GitHub Releases](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.1-rc.5) and pass its path to the same `plugin add` command. If a registry mirror has not synchronized the version, use the official npm registry or the release artifact.
+For a reproducible installation, replace `dsh-deepcanary@latest` with `dsh-deepcanary@0.1.1-rc.5`. Use `dsh-deepcanary@next` when you want the preview channel. You can also download the fixed `.tgz` from [GitHub Releases](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.1-rc.5) and pass its path to the same `plugin add` command. If a registry mirror has not synchronized the version, use the official npm registry or the release artifact.
 
 ## Your first reminder
 
