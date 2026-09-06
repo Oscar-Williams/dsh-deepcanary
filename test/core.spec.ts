@@ -29,6 +29,11 @@ describe('attention judge', () => {
   it('requires authoritative evidence before assigning C3', () => {
     expect(judgeSignal(signal({ kind: 'HOST_UNREACHABLE', severityHint: 3, evidence: [{ type: 'model-judgment', authority: 'heuristic', ref: 'model', summary: 'heuristic only' }] }))).toMatchObject({ level: 'C2' })
     expect(judgeSignal(signal({ kind: 'HOST_UNREACHABLE', severityHint: 3 }))).toMatchObject({ level: 'C3', action: 'ESCALATE' })
+    expect(judgeSignal(signal({
+      kind: 'SUBAGENT_PRESSURE',
+      severityHint: 3,
+      evidence: [{ type: 'model-judgment', authority: 'heuristic', ref: 'model', summary: 'many subagents' }],
+    }))).toMatchObject({ level: 'C2', action: 'INTERRUPT', decisionTrace: { matchedRules: ['subagent.pressure-threshold', 'authority.guard-c3-to-c2'] } })
   })
 
   it('keeps an authoritative escalation at C3 while the user is viewing DSH', () => {

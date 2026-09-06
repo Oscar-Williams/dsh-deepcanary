@@ -7,7 +7,14 @@ import type {
   DogfoodTaskFamily,
   DogfoodScenario,
 } from './dogfood.js'
-import { isDogfoodBundle, summarizeDogfood } from './dogfood.js'
+import {
+  hasQualifiedDogfoodReview,
+  isDogfoodBundle,
+  isUnknownVisibilityFinalDeliveryObservation,
+  isUserFacingDeliveryObservation,
+  isVisibleFinalDeliveryObservation,
+  summarizeDogfood,
+} from './dogfood.js'
 
 export const DOGFOOD_AGGREGATE_SCHEMA_VERSION = 1 as const
 
@@ -150,11 +157,12 @@ export function summarizeDogfoodAggregate(aggregate: DogfoodAggregate): DogfoodA
   const observedTasks = [...new Set(taskValues)].sort()
   const observedScenarios = [...new Set(scenarioValues)].sort()
   const deliveryUnits = new Set(observations.flatMap(observation => observation.deliveryUnitRef === undefined ? [] : [scopedRef(observation, observation.deliveryUnitRef)]))
-  const userFacing = observations.filter(observation => ['inbox', 'digest', 'interrupt', 'escalate'].includes(observation.decisionDisposition))
-  const userFacingDeliveryUnits = new Set(userFacing.flatMap(observation => observation.deliveryUnitRef === undefined ? [] : [scopedRef(observation, observation.deliveryUnitRef)]))
-  const reviewedUserFacingUnits = new Set(userFacing
-    .filter(observation => observation.deliveryUnitRef !== undefined && (observation.reviewLabel !== undefined || observation.policyReview !== undefined || observation.userFeedback !== undefined))
-    .map(observation => scopedRef(observation, observation.deliveryUnitRef as string)))
+  const userFacing = observations.filter(isUserFacingDeliveryObservation)
+  const userFacingDeliveryUnits = new Set(observations.filter(isVisibleFinalDeliveryObservation).flatMap(observation => observation.deliveryUnitRef === undefined ? [] : [scopedRef(observation, observation.deliveryUnitRef)]))
+  const unknownVisibilityDeliveryUnits = new Set(observations.filter(isUnknownVisibilityFinalDeliveryObservation).flatMap(observation => observation.deliveryUnitRef === undefined ? [] : [scopedRef(observation, observation.deliveryUnitRef)]))
+  const reviewedUserFacingUnits = new Set(observations
+    .filter(observation => isVisibleFinalDeliveryObservation(observation) && hasQualifiedDogfoodReview(observation))
+    .flatMap(observation => observation.deliveryUnitRef === undefined ? [] : [scopedRef(observation, observation.deliveryUnitRef)]))
   const negativeOpportunityUnits = new Set(observations
     .filter(observation => observation.expectedDecision?.action === 'IGNORE')
     .map(observation => scopedRef(observation, observation.deliveryUnitRef ?? observation.observationRef)))
@@ -177,6 +185,7 @@ export function summarizeDogfoodAggregate(aggregate: DogfoodAggregate): DogfoodA
     decisions: decisions.length,
     deliveryUnits: deliveryUnits.size,
     userFacingDeliveryUnits: userFacingDeliveryUnits.size,
+    unknownVisibilityDeliveryUnits: unknownVisibilityDeliveryUnits.size,
     reviewedUserFacingUnits: reviewedUserFacingUnits.size,
     negativeOpportunityUnits: negativeOpportunityUnits.size,
     bundles: bundles.size,

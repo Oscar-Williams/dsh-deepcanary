@@ -1,6 +1,6 @@
 {
   "name": "dsh-deepcanary",
-  "version": "0.1.1-rc.3",
+  "version": "0.1.1-rc.4",
   "description": "Local attention supervision for DeepSeek Harness: evidence-first signals, quiet notifications, and an actionable inbox.",
   "type": "module",
   "repository": {
@@ -77,13 +77,15 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && node ./scripts/build-client.mjs",
+    "build": "node ./scripts/build.mjs",
+    "build:alpha13": "node ./scripts/build.mjs --alpha13",
+    "typecheck:alpha13": "node ./scripts/build.mjs --alpha13 --typecheck",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "typecheck:tests": "tsc -p tsconfig.test.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "prepack": "npm run build && npm run verify:distribution",
-    "pack:check": "npm pack --dry-run",
+    "pack:check": "npm pack --dry-run --ignore-scripts",
     "verify:distribution": "node ./scripts/verify-distribution.mjs",
     "verify:release-receipt": "node ./scripts/verify-release-receipt.mjs",
     "quality:report": "npm run build && node ./scripts/generate-attention-quality-report.mjs",
@@ -94,6 +96,7 @@
     "dogfood:capture": "npm run build && node ./scripts/capture-dogfood-run.mjs",
     "notification:evidence": "npm run build && node ./scripts/validate-notification-evidence.mjs",
     "adapter:smoke": "npm run build && node ./scripts/adapter-alpha5-smoke.mjs",
+    "compatibility:alpha13": "node ./scripts/alpha13-compat-canary.mjs",
     "supervisor:smoke": "npm run build && node ./scripts/supervisor-smoke.mjs",
     "supervisor:soak": "npm run build && node ./scripts/supervisor-soak.mjs",
     "supervisor:process": "npm run build && node ./scripts/supervisor-process-integration.mjs",

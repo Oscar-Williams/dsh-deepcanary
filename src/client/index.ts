@@ -43,6 +43,8 @@ type ClientItem = {
   recoveredAt?: string
   expiredAt?: string
   mutedUntil?: string
+  targetAvailable?: boolean
+  taskState?: 'running' | 'waiting-human' | 'completed' | 'failed' | 'aborted' | 'disposed' | 'unknown'
   feedback?: { useful: boolean; value?: 'useful' | 'not-relevant' | 'wrong-level' | 'already-resolved'; at: string }
   bundleCount: number
 }
@@ -97,7 +99,7 @@ type ActionNotice = {
 
 type ClientContext = {
   effect: (setup: () => void | (() => void), label?: string) => unknown
-  sessions: Pick<ISessions, 'open'>
+  sessions: Pick<ISessions, 'open'> & { list?: { subscribe?: (listener: () => void) => () => void } }
   locale: { register: (namespace: string, dictionaries: { zh: Record<string, string>; en: Record<string, string> }) => () => void }
   slots: {
     inject: (name: string, callback: () => unknown) => unknown
@@ -134,6 +136,7 @@ type Controller = {
   setTrigger: (element: HTMLButtonElement | null) => void
   setSize: (width: number, height: number) => void
   action: (id: string, payload: Record<string, unknown>) => Promise<void>
+  claimDelivery: (id: string, expiresAt: string) => Promise<'granted' | 'already-claimed' | 'already-complete' | 'unavailable'>
   recordDelivery: (id: string, payload: {
     notificationStage: 'attempted' | 'constructed' | 'click-handler-attached' | 'clicked' | 'error'
     notificationAttemptId: string
@@ -246,13 +249,14 @@ const zh = {
   'item.reason.HUMAN_APPROVAL_REQUIRED': 'DSH 正在等待人工审批。',
   'item.reason.HUMAN_QUESTION_PENDING': 'DSH 正在等待你的回答。',
   'item.reason.HOST_UNREACHABLE': 'DSH 主机暂时无法访问。',
-  'item.reason.HOST_SUSPECTED_STALL': '会话已连续 {idleMinutes} 分钟没有新事件。',
+  'item.reason.HOST_SUSPECTED_STALL': '会话已连续 {idleMinutes} 分钟没有可证明的有效进展。',
   'item.reason.TOOL_FAILURE_LOOP': '工具“{toolName}”已连续失败 {failureCount} 次。',
   'item.reason.NO_MEANINGFUL_PROGRESS': '会话持续运行，但暂未观察到有效进展。',
   'item.reason.SUBAGENT_PRESSURE': '活动 Subagent 已达 {activeSubagents} 个（阈值 {threshold}）。',
   'item.reason.CONTEXT_PRESSURE': '会话上下文压力需要关注。',
   'item.reason.COMPACTION_OCCURRED': 'DSH 已完成第 {contextCompactions} 次上下文压缩。',
   'item.reason.TASK_COMPLETED': '会话报告了一次正常完成。',
+  'item.reason.SUBTASK_COMPLETED': '子任务已完成，可在父会话查看汇总。',
   'item.reason.TASK_FAILED': '会话报告执行失败。',
   'item.reason.TASK_ABORTED': '会话被中止，可能需要确认是否继续。',
   'item.reason.COMPLETION_SUSPICIOUS': '任务看似完成，但最终证据仍值得检查。',
@@ -332,6 +336,7 @@ const zh = {
   'item.feedbackAlreadyResolved': '已记录“问题已解决”反馈',
   'item.suppressedTypes': '不再提醒：{types}',
   'item.noSessionLink': '该历史提醒未保存可用的 DSH 会话入口',
+  'item.sessionEnded': '任务已结束，当前 DSH 会话入口不可用；提醒摘要仍会保留。',
   'notification.title.HUMAN_APPROVAL_REQUIRED': '等待人工审批',
   'notification.title.HUMAN_QUESTION_PENDING': '等待你的回答',
   'notification.title.HOST_UNREACHABLE': 'DSH 主机连接中断',
@@ -440,13 +445,14 @@ const en = {
   'item.reason.HUMAN_APPROVAL_REQUIRED': 'DSH is waiting for human approval.',
   'item.reason.HUMAN_QUESTION_PENDING': 'DSH is waiting for your answer.',
   'item.reason.HOST_UNREACHABLE': 'The DSH host is temporarily unreachable.',
-  'item.reason.HOST_SUSPECTED_STALL': 'The session has received no new event for {idleMinutes} minutes.',
+  'item.reason.HOST_SUSPECTED_STALL': 'The session has made no provable meaningful progress for {idleMinutes} minutes.',
   'item.reason.TOOL_FAILURE_LOOP': 'Tool “{toolName}” has failed {failureCount} times in a row.',
   'item.reason.NO_MEANINGFUL_PROGRESS': 'The session is running without meaningful progress so far.',
   'item.reason.SUBAGENT_PRESSURE': 'Active subagents reached {activeSubagents} (threshold {threshold}).',
   'item.reason.CONTEXT_PRESSURE': 'The session context pressure needs attention.',
   'item.reason.COMPACTION_OCCURRED': 'DSH completed context compaction number {contextCompactions}.',
   'item.reason.TASK_COMPLETED': 'The session reported a normal completion.',
+  'item.reason.SUBTASK_COMPLETED': 'A subtask completed; review the summary in its parent session.',
   'item.reason.TASK_FAILED': 'The session reported a failure.',
   'item.reason.TASK_ABORTED': 'The session was aborted and may need a follow-up decision.',
   'item.reason.COMPLETION_SUSPICIOUS': 'The task looks complete, but its final evidence is worth checking.',
@@ -526,6 +532,7 @@ const en = {
   'item.feedbackAlreadyResolved': '“Already resolved” feedback recorded',
   'item.suppressedTypes': 'Silenced: {types}',
   'item.noSessionLink': 'This historical alert has no saved DSH session link',
+  'item.sessionEnded': 'The task has ended and its DSH session is unavailable; the alert summary is retained.',
   'notification.title.HUMAN_APPROVAL_REQUIRED': 'Human approval needed',
   'notification.title.HUMAN_QUESTION_PENDING': 'Your answer is needed',
   'notification.title.HOST_UNREACHABLE': 'DSH host connection lost',
@@ -676,8 +683,11 @@ async function opaqueRef(value: string): Promise<string> {
   return [...new Uint8Array(digest)].slice(0, 8).map(byte => byte.toString(16).padStart(2, '0')).join('')
 }
 
-function createController(sessions: Pick<ISessions, 'open'>): Controller {
+function createController(sessions: Pick<ISessions, 'open'> & { list?: { subscribe?: (listener: () => void) => () => void } }): Controller {
   const initial = safeSize()
+  // This is a per-page opaque owner identity. The server hashes it before any
+  // delivery state is persisted; localStorage remains only a best-effort UI hint.
+  const clientInstance = makeRequestId()
   let state: ControllerState = {
     open: false,
     snapshot: undefined,
@@ -699,6 +709,7 @@ function createController(sessions: Pick<ISessions, 'open'>): Controller {
   let trigger: HTMLButtonElement | null = null
   let failureCount = 0
   let etag: string | undefined
+  let sessionFeedSubscription: (() => void) | undefined
   let visibilityHandler: (() => void) | undefined
   let resizeHandler: (() => void) | undefined
   let noticeTimer: number | undefined
@@ -743,6 +754,14 @@ function createController(sessions: Pick<ISessions, 'open'>): Controller {
     return Math.min(120_000, base * (2 ** Math.min(failureCount, 3)))
   }
 
+  const scheduleFromSessionRevision = (): void => {
+    // The DSH session list is a host-owned revision feed. Coalesce bursts so
+    // a token/event stream cannot turn the fallback state route into a second
+    // high-frequency heartbeat; periodic polling still covers reconnects and
+    // runtimes without this optional feed.
+    schedule(document.visibilityState === 'hidden' ? 1_000 : 250)
+  }
+
   const controller: Controller = {
     getState: () => state,
     subscribe: listener => {
@@ -769,6 +788,8 @@ function createController(sessions: Pick<ISessions, 'open'>): Controller {
       }
       document.addEventListener('visibilitychange', visibilityHandler)
       window.addEventListener('resize', resizeHandler)
+      const subscribe = sessions.list?.subscribe
+      if (typeof subscribe === 'function') sessionFeedSubscription = subscribe(scheduleFromSessionRevision)
       void controller.refresh()
     },
     dispose: () => {
@@ -778,6 +799,8 @@ function createController(sessions: Pick<ISessions, 'open'>): Controller {
       if (timer !== undefined) window.clearTimeout(timer)
       if (noticeTimer !== undefined) window.clearTimeout(noticeTimer)
       abort?.abort()
+      sessionFeedSubscription?.()
+      sessionFeedSubscription = undefined
       if (visibilityHandler !== undefined) document.removeEventListener('visibilitychange', visibilityHandler)
       if (resizeHandler !== undefined) window.removeEventListener('resize', resizeHandler)
       listeners.clear()
@@ -880,6 +903,29 @@ function createController(sessions: Pick<ISessions, 'open'>): Controller {
         const finished = new Set(state.pending)
         finished.delete(id)
         publish({ pending: finished })
+      }
+    },
+    claimDelivery: async (id, expiresAt) => {
+      try {
+        const response = await request('/dsh-deepcanary/action', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            id,
+            action: 'notification-claim',
+            requestId: makeRequestId(),
+            notificationClientInstance: clientInstance,
+            notificationExpiresAt: expiresAt,
+          }),
+        })
+        if (!response?.ok) return 'unavailable'
+        const body = await response.json() as { result?: { outcome?: unknown } }
+        const outcome = body.result?.outcome
+        return outcome === 'granted' || outcome === 'already-claimed' || outcome === 'already-complete' || outcome === 'unavailable'
+          ? outcome
+          : 'unavailable'
+      } catch {
+        return 'unavailable'
       }
     },
     recordDelivery: async (id, payload) => {
@@ -1182,13 +1228,15 @@ async function notify(snapshot: ClientSnapshot, t: Translate, controller: Contro
     .filter(value => {
       const mutedUntil = value.mutedUntil === undefined ? Number.NaN : Date.parse(value.mutedUntil)
       return (value.action === 'INTERRUPT' || value.action === 'ESCALATE')
-        && !attempted.has(value.id)
         && (!Number.isFinite(mutedUntil) || mutedUntil <= Date.now())
+        && !attempted.has(value.id)
     })
     .slice(0, 3)) {
     const titleKey = notificationTitleKey(item)
     if (titleKey === undefined) continue
-    const navigationUrl = item.sessionId ? `/?session=${encodeURIComponent(item.sessionId)}` : undefined
+    const navigationUrl = item.sessionId && item.targetAvailable !== false
+      ? `/?session=${encodeURIComponent(item.sessionId)}`
+      : undefined
     const body = notificationBody(item, t)
     let delivery: {
       notificationRef: string
@@ -1206,6 +1254,8 @@ async function notify(snapshot: ClientSnapshot, t: Translate, controller: Contro
       // receives the user-facing notification through the authoritative Inbox.
       delivery = undefined
     }
+    const claim = await controller.claimDelivery(item.id, new Date(Date.now() + 30_000).toISOString())
+    if (claim !== 'granted') continue
     const observedAt = new Date().toISOString()
     attempted.add(item.id)
     try {
@@ -1213,7 +1263,16 @@ async function notify(snapshot: ClientSnapshot, t: Translate, controller: Contro
     } catch {
       // Notification deduplication is best effort.
     }
-    const notificationAttemptId = delivery === undefined ? undefined : await opaqueRef(`${item.id}:attempt:${Date.now()}:${Math.random()}`)
+    let notificationAttemptId: string | undefined
+    if (delivery !== undefined) {
+      try {
+        notificationAttemptId = await opaqueRef(`${item.id}:attempt:${Date.now()}:${Math.random()}`)
+      } catch {
+        // A transient Web Crypto failure must not cancel the user-facing
+        // notification; only its optional delivery telemetry is omitted.
+        notificationAttemptId = undefined
+      }
+    }
     if (delivery !== undefined && notificationAttemptId !== undefined) {
       void controller.recordDelivery(item.id, {
         notificationStage: 'attempted',
@@ -1723,6 +1782,9 @@ function itemCard(item: ClientItem, state: ControllerState, t: Translate, contro
   if (item.sessionId === undefined) {
     children.push(createElement('small', { className: 'dsc-card-suggestion', key: 'session-link' },
       translate(t, 'item.noSessionLink')))
+  } else if (item.targetAvailable === false) {
+    children.push(createElement('small', { className: 'dsc-card-suggestion', key: 'session-ended' },
+      translate(t, 'item.sessionEnded')))
   }
   if (item.mutedUntil !== undefined && Number.isFinite(Date.parse(item.mutedUntil)) && Date.parse(item.mutedUntil) > Date.now()) {
     children.push(createElement('small', { className: 'dsc-card-suggestion', key: 'muted' },
@@ -1753,7 +1815,7 @@ function itemCard(item: ClientItem, state: ControllerState, t: Translate, contro
         : translate(t, item.feedback.useful ? 'item.notice.feedbackUseful' : 'item.notice.feedbackIrrelevant')))
   }
   const actions: ReactNode[] = [
-    item.sessionId
+    item.sessionId && item.targetAvailable !== false
       ? actionButton(translate(t, (`item.open.${item.level}`) as LocaleKey), () => {
         void controller.jump(item.id)
       }, busy, true)

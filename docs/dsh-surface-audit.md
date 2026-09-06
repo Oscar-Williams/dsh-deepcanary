@@ -1,6 +1,6 @@
 # DSH interfaces used by DeepCanary
 
-This document records the DSH interfaces used by `dsh-deepcanary`. The historical RC.2 audit targets the official `dsh-v0.1.2-alpha.2` source tag at commit `0a53fb55bea101816fa226bb964ae2bed71c343b`; the historical RC4 audit targets immutable `dsh-v0.1.2-alpha.4` at commit `4e84901e6471b79ec0338099867ebb4606d12bb5`. The immutable `0.1.1-rc.1` audit targets the official `dsh-v0.1.2-alpha.5` tag at commit `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`; the `0.1.1-rc.3` release uses the same alpha.5 identity and adds the public `ctx.sessions.list()` plus `Session.snapshotEvents()` reconciliation adapter surface.
+This document records the DSH interfaces used by `dsh-deepcanary`. The historical RC.2 audit targets the official `dsh-v0.1.2-alpha.2` source tag at commit `0a53fb55bea101816fa226bb964ae2bed71c343b`; the historical RC4 audit targets immutable `dsh-v0.1.2-alpha.4` at commit `4e84901e6471b79ec0338099867ebb4606d12bb5`. The immutable `0.1.1-rc.1` and published `0.1.1-rc.3` audits target the official `dsh-v0.1.2-alpha.5` tag at commit `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`; the current `0.1.1-rc.4` candidate uses that same alpha.5 build lane and adds an independent alpha.13 public Session v2 contract at commit `d347e703908d0406b7a7ef80e3a0e594d86b2215`.
 
 ## Services and lifecycle events
 
@@ -20,11 +20,11 @@ This document records the DSH interfaces used by `dsh-deepcanary`. The historica
 - `session/disposed` marks the session inactive and closes the snapshot;
 - adapter subscriptions are disposed with the plugin service.
 
-The adapter first subscribes to lifecycle events, then reconciles the authoritative `ctx.sessions.list()` set with metadata derived from `Session.snapshotEvents()`. It exposes lifecycle events, a session snapshot lookup, reconciliation status, the host version, and an optional runtime-health check. It retains bounded metadata only and does not copy the session log. The RC3 service exposes the Persistent Supervisor behind `supervisorMode: experimental`; the composed bundle keeps that mode off by default while Gate E remains open.
+The adapter first subscribes to lifecycle events, then reconciles the authoritative `ctx.sessions.list()` set with metadata derived from `Session.snapshotEvents()`. It exposes lifecycle events, a session snapshot lookup, reconciliation status, the host version, and an optional runtime-health check. It retains bounded metadata only and does not copy the session log. The RC4 candidate also correlates Session v2 tool results through public structured call identity, preserves attempt/settlement versus completion boundaries, and routes child completion summaries to a parent session without sharing a private `SessionHandle`. The service exposes the Persistent Supervisor behind `supervisorMode: experimental`; the composed bundle keeps that mode off by default while Gate E remains open.
 
 ## Event vocabulary consumed
 
-The alpha.2, alpha.4, and alpha.5 Session packages expose these relevant core events:
+The alpha.2, alpha.4, alpha.5, and alpha.13 Session packages expose these relevant core events:
 
 - `turn/end` with `{ reason: { kind: 'completed' | 'blocked' | 'aborted' | 'interrupted' | 'error' | 'max-tokens' } }`;
 - `tool/call` and `tool/result`, including structured result errors;
@@ -32,6 +32,8 @@ The alpha.2, alpha.4, and alpha.5 Session packages expose these relevant core ev
 - other event names are ignored unless a provider has a documented structured marker.
 
 Providers read event type, sequence, time, reason kind, small boolean/number markers, and tool name. They do not inspect `user/message`, `assistant/message`, raw tool arguments, raw tool results, or transcript content.
+
+On alpha.13, a tool result may carry its public identity in the structured message source (`source.kind=tool`, `source.callId`) and result content metadata. The adapter only reads the call identifier and does not retain result content. A missing, malformed, or non-contiguous snapshot is treated as unavailable/degraded rather than as an empty authoritative history.
 
 ## Provider mapping
 

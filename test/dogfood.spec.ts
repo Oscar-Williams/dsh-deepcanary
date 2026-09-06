@@ -43,7 +43,7 @@ describe('dogfood observation and taxonomy', () => {
       schemaVersion: DOGFOOD_SCHEMA_VERSION,
       run,
       observations: [
-        observation({ observationRef: 'aaaaaaaaaaaaaaaa', decisionDisposition: 'interrupt', deliveryUnitRef: 'bbbbbbbbbbbbbbbb', expectedDecision: { level: 'C2', action: 'INTERRUPT', reasonCode: 'HUMAN_APPROVAL_REQUIRED' }, observedDecision: { level: 'C2', action: 'INTERRUPT', reasonCode: 'HUMAN_APPROVAL_REQUIRED' }, reviewLabel: 'correct-useful' }),
+        observation({ observationRef: 'aaaaaaaaaaaaaaaa', decisionDisposition: 'interrupt', deliveryUnitRef: 'bbbbbbbbbbbbbbbb', expectedDecision: { level: 'C2', action: 'INTERRUPT', reasonCode: 'HUMAN_APPROVAL_REQUIRED' }, observedDecision: { level: 'C2', action: 'INTERRUPT', reasonCode: 'HUMAN_APPROVAL_REQUIRED' }, reviewLabel: 'correct-useful', reviewSource: 'engineering-review', reviewBasis: 'policy-expectation', reviewConfidence: 'low', deliveryVisibility: { status: 'visible', source: 'inbox-materialized' } }),
         observation({ observationRef: 'cccccccccccccccc', decisionDisposition: 'c0-silent', deliveryChannel: 'none', expectedDecision: { level: 'C0', action: 'IGNORE', reasonCode: 'TASK_COMPLETED' }, observedDecision: { level: 'C0', action: 'IGNORE', reasonCode: 'TASK_COMPLETED' } }),
         observation({ observationRef: 'dddddddddddddddd', decisionDisposition: 'dropped-event', deliveryChannel: 'none', reviewLabel: 'dropped-event' }),
       ],
@@ -64,12 +64,14 @@ describe('dogfood observation and taxonomy', () => {
       observations: Array.from({ length: 5 }, (_, index) => observation({
         observationRef: `${String(index + 1).padStart(16, '0')}`,
         decisionDisposition: 'interrupt',
+        deliveryUnitRef: `${String(index + 1).padStart(16, '0')}`,
         expectedDecision: { level: 'C2', action: 'INTERRUPT', reasonCode: 'HUMAN_APPROVAL_REQUIRED' },
       })),
       receipts: [],
     }
     const report = summarizeDogfood(bundle)
     expect(report.metrics.reviewCoverage).toMatchObject({ numerator: 0, denominator: 0, status: 'no-data' })
+    expect(report.coverage.unknownVisibilityDeliveryUnits).toBe(5)
   })
 
   it('persists a sanitized bundle atomically and restores it', async () => {

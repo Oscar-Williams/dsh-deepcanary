@@ -14,6 +14,8 @@ import type {
 export const DOGFOOD_SCHEMA_VERSION = 1 as const
 
 export type DogfoodProvenance = 'real' | 'controlled' | 'replay'
+/** The intent of the task is separate from the transport/provenance of the capture. */
+export type DogfoodTaskOrigin = 'natural' | 'controlled' | 'replay' | 'unknown'
 export type DogfoodTaskFamily = 'coding' | 'build-test' | 'research' | 'multi-stage' | 'subagent'
 export type DogfoodScenario = 'approval-boundary' | 'network-recovery' | 'healthy-long-run' | 'normal-completion' | 'explicit-failure' | 'recovery-continued'
 export type DogfoodEventClass = OutcomeEventClass | 'healthy-run'
@@ -23,6 +25,11 @@ export type DogfoodDeliveryChannel = 'none' | 'inbox' | 'browser-notification' |
 export type DogfoodReviewLabel = 'correct-useful' | 'correct-low-value' | 'not-relevant' | 'already-resolved' | 'wrong-level' | 'false-stall' | 'missed-human-needed' | 'duplicate-final-interrupt' | 'too-late' | 'provider-error' | 'sink-error' | 'dropped-event' | 'uncertain'
 export type DogfoodPolicyReview = 'correct' | 'wrong-level' | 'false-stall' | 'missed-human-needed' | 'duplicate-final-interrupt' | 'too-late' | 'uncertain'
 export type DogfoodUserFeedback = 'useful' | 'not-useful' | 'unrated' | 'not-applicable'
+export type DogfoodReviewSource = 'user-feedback' | 'engineering-review' | 'independent-audit' | 'unknown'
+export type DogfoodReviewBasis = 'explicit-user-feedback' | 'direct-user-observation' | 'runtime-ledger' | 'independent-session-audit' | 'policy-expectation' | 'unknown'
+export type DogfoodReviewConfidence = 'high' | 'medium' | 'low' | 'unknown'
+export type DogfoodDeliveryVisibilityStatus = 'visible' | 'unknown'
+export type DogfoodDeliveryVisibilitySource = 'inbox-materialized' | 'browser-constructed' | 'os-observed' | 'user-confirmed' | 'unknown'
 export type DogfoodUsefulnessReason = 'actionable' | 'prevented-block' | 'status-only' | 'not-relevant' | 'already-resolved' | 'wrong-level' | 'too-late' | 'duplicate'
 export type DogfoodNotificationStage = 'attempted' | 'constructed' | 'click-handler-attached' | 'clicked' | 'error'
 export type DogfoodEventSource = 'session' | 'agent' | 'subagent' | 'tool' | 'host' | 'windows' | 'usage' | 'external'
@@ -51,6 +58,8 @@ export interface DogfoodRun {
   runId: string
   trialId: string
   provenance: DogfoodProvenance
+  /** Optional on v1 records; absent/unknown never qualifies a natural-real Gate D run. */
+  taskOrigin?: DogfoodTaskOrigin
   taskFamily: DogfoodTaskFamily
   scenario: DogfoodScenario
   pluginVersion: string
@@ -85,7 +94,17 @@ export interface DogfoodObservation {
   policyReview?: DogfoodPolicyReview
   /** User value is kept separate from policy correctness. */
   userFeedback?: DogfoodUserFeedback
+  /** Review provenance is metadata, never a proxy for user value. */
+  reviewSource?: DogfoodReviewSource
+  reviewBasis?: DogfoodReviewBasis
+  /** This is a reviewer confidence annotation, not a calibrated probability. */
+  reviewConfidence?: DogfoodReviewConfidence
   usefulnessReason?: DogfoodUsefulnessReason
+  /** Explicitly separates a final delivery unit from merely materialized bookkeeping. */
+  deliveryVisibility?: {
+    status: DogfoodDeliveryVisibilityStatus
+    source: DogfoodDeliveryVisibilitySource
+  }
   /** Browser-sink facts are recorded without notification text or content. */
   notificationDelivery?: DogfoodNotificationDelivery
   recoveredBeforeOpen?: boolean
@@ -123,8 +142,10 @@ export interface DogfoodReport {
     reviewedDecisions: number
     decisions: number
     deliveryUnits: number
-    /** User-facing review coverage uses unique delivery units as its denominator. */
+    /** User-facing review coverage uses unique final units with explicit visibility evidence. */
     userFacingDeliveryUnits: number
+    /** Final user-facing units whose visibility is not established. */
+    unknownVisibilityDeliveryUnits: number
     reviewedUserFacingUnits: number
     negativeOpportunityUnits: number
     bundles: number
@@ -166,6 +187,12 @@ const deliveryChannels = new Set<DogfoodDeliveryChannel>(['none', 'inbox', 'brow
 const reviewLabels = new Set<DogfoodReviewLabel>(['correct-useful', 'correct-low-value', 'not-relevant', 'already-resolved', 'wrong-level', 'false-stall', 'missed-human-needed', 'duplicate-final-interrupt', 'too-late', 'provider-error', 'sink-error', 'dropped-event', 'uncertain'])
 const policyReviews = new Set<DogfoodPolicyReview>(['correct', 'wrong-level', 'false-stall', 'missed-human-needed', 'duplicate-final-interrupt', 'too-late', 'uncertain'])
 const userFeedbackValues = new Set<DogfoodUserFeedback>(['useful', 'not-useful', 'unrated', 'not-applicable'])
+const taskOrigins = new Set<DogfoodTaskOrigin>(['natural', 'controlled', 'replay', 'unknown'])
+const reviewSources = new Set<DogfoodReviewSource>(['user-feedback', 'engineering-review', 'independent-audit', 'unknown'])
+const reviewBases = new Set<DogfoodReviewBasis>(['explicit-user-feedback', 'direct-user-observation', 'runtime-ledger', 'independent-session-audit', 'policy-expectation', 'unknown'])
+const reviewConfidences = new Set<DogfoodReviewConfidence>(['high', 'medium', 'low', 'unknown'])
+const visibilityStatuses = new Set<DogfoodDeliveryVisibilityStatus>(['visible', 'unknown'])
+const visibilitySources = new Set<DogfoodDeliveryVisibilitySource>(['inbox-materialized', 'browser-constructed', 'os-observed', 'user-confirmed', 'unknown'])
 const usefulnessReasons = new Set<DogfoodUsefulnessReason>(['actionable', 'prevented-block', 'status-only', 'not-relevant', 'already-resolved', 'wrong-level', 'too-late', 'duplicate'])
 const notificationStages = new Set<DogfoodNotificationStage>(['attempted', 'constructed', 'click-handler-attached', 'clicked', 'error'])
 const eventSources = new Set<DogfoodEventSource>(['session', 'agent', 'subagent', 'tool', 'host', 'windows', 'usage', 'external'])
@@ -196,6 +223,7 @@ function isDogfoodRun(value: unknown): value is DogfoodRun {
     && typeof value.runId === 'string' && runIdPattern.test(value.runId)
     && typeof value.trialId === 'string' && runIdPattern.test(value.trialId)
     && provenances.has(value.provenance as DogfoodProvenance)
+    && (value.taskOrigin === undefined || taskOrigins.has(value.taskOrigin as DogfoodTaskOrigin))
     && taskFamilies.has(value.taskFamily as DogfoodTaskFamily)
     && scenarios.has(value.scenario as DogfoodScenario)
     && isPrintable(value.pluginVersion)
@@ -228,7 +256,17 @@ function isDogfoodObservation(value: unknown, runId: string): value is DogfoodOb
   if (value.reviewLabel !== undefined && !reviewLabels.has(value.reviewLabel as DogfoodReviewLabel)) return false
   if (value.policyReview !== undefined && !policyReviews.has(value.policyReview as DogfoodPolicyReview)) return false
   if (value.userFeedback !== undefined && !userFeedbackValues.has(value.userFeedback as DogfoodUserFeedback)) return false
+  if (value.reviewSource !== undefined && !reviewSources.has(value.reviewSource as DogfoodReviewSource)) return false
+  if (value.reviewBasis !== undefined && !reviewBases.has(value.reviewBasis as DogfoodReviewBasis)) return false
+  if (value.reviewConfidence !== undefined && !reviewConfidences.has(value.reviewConfidence as DogfoodReviewConfidence)) return false
+  const reviewMetadata = [value.reviewSource, value.reviewBasis, value.reviewConfidence].filter(candidate => candidate !== undefined)
+  if (reviewMetadata.length !== 0 && reviewMetadata.length !== 3) return false
   if (value.usefulnessReason !== undefined && !usefulnessReasons.has(value.usefulnessReason as DogfoodUsefulnessReason)) return false
+  if (value.deliveryVisibility !== undefined) {
+    if (!isRecord(value.deliveryVisibility)
+      || !visibilityStatuses.has(value.deliveryVisibility.status as DogfoodDeliveryVisibilityStatus)
+      || !visibilitySources.has(value.deliveryVisibility.source as DogfoodDeliveryVisibilitySource)) return false
+  }
   if (value.notificationDelivery !== undefined) {
     const delivery = value.notificationDelivery
     if (!isRecord(delivery)
@@ -254,6 +292,66 @@ export function isDogfoodBundle(value: unknown): value is DogfoodBundle {
   if (new Set(refs).size !== refs.length) return false
   if (run.endedAt !== undefined && Date.parse(run.endedAt) < Date.parse(run.startedAt)) return false
   return value.receipts.every(receipt => isOutcomeReceipt(receipt) && receipt.source === run.provenance && receipt.trialId === run.trialId)
+}
+
+const userFacingDispositions = new Set<DogfoodDecisionDisposition>(['inbox', 'digest', 'interrupt', 'escalate'])
+
+export function hasDogfoodReview(observation: DogfoodObservation): boolean {
+  return observation.reviewLabel !== undefined || observation.policyReview !== undefined || observation.userFeedback !== undefined
+}
+
+/**
+ * A legacy review may be read, but it cannot satisfy a current evidence gate
+ * until its source and basis are recorded. Confidence is deliberately not a
+ * qualification filter: it is an annotation, not a calibrated probability.
+ */
+export function hasQualifiedDogfoodReview(observation: DogfoodObservation): boolean {
+  return hasDogfoodReview(observation)
+    && observation.reviewSource !== undefined
+    && observation.reviewSource !== 'unknown'
+    && observation.reviewBasis !== undefined
+    && observation.reviewBasis !== 'unknown'
+    && observation.reviewConfidence !== undefined
+}
+
+export function isUserFacingDeliveryObservation(observation: DogfoodObservation): boolean {
+  return userFacingDispositions.has(observation.decisionDisposition)
+    && observation.deliveryUnitRef !== undefined
+    && observation.deliveryChannel !== 'none'
+}
+
+export function isVisibleFinalDeliveryObservation(observation: DogfoodObservation): boolean {
+  return isUserFacingDeliveryObservation(observation) && observation.deliveryVisibility?.status === 'visible'
+}
+
+export function isUnknownVisibilityFinalDeliveryObservation(observation: DogfoodObservation): boolean {
+  return isUserFacingDeliveryObservation(observation) && !isVisibleFinalDeliveryObservation(observation)
+}
+
+function mergeFinalDeliveryObservation(previous: DogfoodObservation, current: DogfoodObservation): DogfoodObservation {
+  return {
+    ...previous,
+    ...(current.observedDecision !== undefined && previous.observedDecision === undefined ? { observedDecision: current.observedDecision } : {}),
+    ...(current.expectedDecision !== undefined && previous.expectedDecision === undefined ? { expectedDecision: current.expectedDecision } : {}),
+    ...(current.deliveryVisibility?.status === 'visible' ? { deliveryVisibility: current.deliveryVisibility } : {}),
+    ...(previous.reviewLabel === undefined && current.reviewLabel !== undefined ? { reviewLabel: current.reviewLabel } : {}),
+    ...(previous.policyReview === undefined && current.policyReview !== undefined ? { policyReview: current.policyReview } : {}),
+    ...(previous.userFeedback === undefined && current.userFeedback !== undefined ? { userFeedback: current.userFeedback } : {}),
+    ...(previous.reviewSource === undefined && current.reviewSource !== undefined ? { reviewSource: current.reviewSource } : {}),
+    ...(previous.reviewBasis === undefined && current.reviewBasis !== undefined ? { reviewBasis: current.reviewBasis } : {}),
+    ...(previous.reviewConfidence === undefined && current.reviewConfidence !== undefined ? { reviewConfidence: current.reviewConfidence } : {}),
+    ...(previous.usefulnessReason === undefined && current.usefulnessReason !== undefined ? { usefulnessReason: current.usefulnessReason } : {}),
+  }
+}
+
+function uniqueFinalDeliveryUnits(observations: readonly DogfoodObservation[]): DogfoodObservation[] {
+  const units = new Map<string, DogfoodObservation>()
+  for (const observation of observations) {
+    if (!isUserFacingDeliveryObservation(observation) || observation.deliveryUnitRef === undefined) continue
+    const previous = units.get(observation.deliveryUnitRef)
+    units.set(observation.deliveryUnitRef, previous === undefined ? observation : mergeFinalDeliveryObservation(previous, observation))
+  }
+  return [...units.values()]
 }
 
 function countBy<T>(values: readonly T[], key: (value: T) => string): Record<string, number> {
@@ -283,27 +381,30 @@ function levelAtLeast(level: AttentionLevel | undefined, minimum: AttentionLevel
 
 export function summarizeDogfood(bundle: DogfoodBundle): DogfoodReport {
   const observations = bundle.observations
-  const labeled = observations.filter(observation => observation.reviewLabel !== undefined || observation.policyReview !== undefined || observation.userFeedback !== undefined)
+  const labeled = observations.filter(hasDogfoodReview)
   const reviewed = labeled.filter(observation => observation.observedDecision !== undefined || observation.expectedDecision !== undefined)
   const decisions = observations.filter(observation => observation.observedDecision !== undefined || observation.expectedDecision !== undefined)
   const humanNeeded = observations.filter(observation => observation.eventClass === 'human-needed' && levelAtLeast(observation.expectedDecision?.level, 'C2'))
   const humanNeededHits = humanNeeded.filter(observation => levelAtLeast(observation.observedDecision?.level, 'C2'))
-  const usefulness = reviewed.filter(observation => userFeedbackOf(observation) === 'useful' || userFeedbackOf(observation) === 'not-useful')
+  const finalDeliveryUnits = uniqueFinalDeliveryUnits(observations)
+  const visibleFinalDeliveryUnits = finalDeliveryUnits.filter(isVisibleFinalDeliveryObservation)
+  const unknownFinalDeliveryUnits = finalDeliveryUnits.filter(isUnknownVisibilityFinalDeliveryObservation)
+  const reviewedFinalDeliveryUnits = visibleFinalDeliveryUnits.filter(hasQualifiedDogfoodReview)
+  const usefulness = reviewedFinalDeliveryUnits.filter(observation => userFeedbackOf(observation) === 'useful' || userFeedbackOf(observation) === 'not-useful')
   const useful = usefulness.filter(observation => userFeedbackOf(observation) === 'useful')
-  const interruptDecisions = observations.filter(observation => observation.observedDecision?.action === 'INTERRUPT')
+  const interruptDecisions = visibleFinalDeliveryUnits.filter(observation => observation.observedDecision?.action === 'INTERRUPT')
   const usefulInterrupts = interruptDecisions.filter(observation => userFeedbackOf(observation) === 'useful')
-  const reviewedInterrupts = interruptDecisions.filter(observation => observation.reviewLabel !== undefined || observation.policyReview !== undefined || observation.userFeedback !== undefined)
-  const wrongLevel = reviewed.filter(observation => policyReviewOf(observation) === 'wrong-level')
-  const stallReviews = observations.filter(observation => observation.eventClass === 'stuck-progress' && (observation.reviewLabel !== undefined || observation.policyReview !== undefined))
+  const reviewedInterrupts = interruptDecisions.filter(hasQualifiedDogfoodReview)
+  const wrongLevel = reviewedFinalDeliveryUnits.filter(observation => policyReviewOf(observation) === 'wrong-level')
+  const stallReviews = visibleFinalDeliveryUnits.filter(observation => observation.eventClass === 'stuck-progress' && hasQualifiedDogfoodReview(observation))
   const falseStalls = stallReviews.filter(observation => policyReviewOf(observation) === 'false-stall')
   const recoveryOpportunities = observations.filter(observation => observation.recoveredBeforeOpen !== undefined)
   const recoveredBeforeOpen = recoveryOpportunities.filter(observation => observation.recoveredBeforeOpen === true)
   const deliveryUnits = new Set(observations.filter(observation => observation.deliveryUnitRef !== undefined).map(observation => observation.deliveryUnitRef))
-  const userFacing = observations.filter(observation => observation.decisionDisposition === 'inbox' || observation.decisionDisposition === 'digest' || observation.decisionDisposition === 'interrupt' || observation.decisionDisposition === 'escalate')
-  const userFacingDeliveryUnits = new Set(userFacing.flatMap(observation => observation.deliveryUnitRef === undefined ? [] : [observation.deliveryUnitRef]))
-  const reviewedUserFacingUnits = new Set(userFacing
-    .filter(observation => observation.deliveryUnitRef !== undefined && (observation.reviewLabel !== undefined || observation.policyReview !== undefined || observation.userFeedback !== undefined))
-    .map(observation => observation.deliveryUnitRef as string))
+  const userFacing = observations.filter(isUserFacingDeliveryObservation)
+  const userFacingDeliveryUnits = new Set(visibleFinalDeliveryUnits.flatMap(observation => observation.deliveryUnitRef === undefined ? [] : [observation.deliveryUnitRef]))
+  const unknownVisibilityDeliveryUnits = new Set(unknownFinalDeliveryUnits.flatMap(observation => observation.deliveryUnitRef === undefined ? [] : [observation.deliveryUnitRef]))
+  const reviewedUserFacingUnits = new Set(reviewedFinalDeliveryUnits.flatMap(observation => observation.deliveryUnitRef === undefined ? [] : [observation.deliveryUnitRef]))
   const negativeOpportunityUnits = new Set(observations
     .filter(observation => observation.expectedDecision !== undefined && observation.expectedDecision.action === 'IGNORE')
     .map(observation => observation.deliveryUnitRef ?? observation.observationRef))
@@ -327,6 +428,7 @@ export function summarizeDogfood(bundle: DogfoodBundle): DogfoodReport {
       decisions: decisions.length,
       deliveryUnits: deliveryUnits.size,
       userFacingDeliveryUnits: userFacingDeliveryUnits.size,
+      unknownVisibilityDeliveryUnits: unknownVisibilityDeliveryUnits.size,
       reviewedUserFacingUnits: reviewedUserFacingUnits.size,
       negativeOpportunityUnits: negativeOpportunityUnits.size,
       bundles: new Set(observations.filter(observation => observation.bundleRef !== undefined).map(observation => observation.bundleRef)).size,
@@ -339,7 +441,7 @@ export function summarizeDogfood(bundle: DogfoodBundle): DogfoodReport {
       humanNeededRecall: metric(humanNeededHits.length, humanNeeded.length),
       usefulnessRate: metric(useful.length, usefulness.length),
       usefulInterruptPrecision: metric(usefulInterrupts.length, reviewedInterrupts.length),
-      wrongLevelRate: metric(wrongLevel.length, reviewed.length),
+      wrongLevelRate: metric(wrongLevel.length, reviewedFinalDeliveryUnits.length),
       falseStallRate: metric(falseStalls.length, stallReviews.length),
       recoveryBeforeOpenRate: metric(recoveredBeforeOpen.length, recoveryOpportunities.length),
       attentionCompressionRatio: metric(observations.length, Math.max(1, deliveryUnits.size || userFacing.length)),
@@ -395,7 +497,7 @@ export class DogfoodLedger {
     this.bundleValue.receipts = [...receipts]
   }
 
-  updateObservationsByAttention(attentionRef: string, patch: Pick<DogfoodObservation, 'reviewLabel' | 'policyReview' | 'userFeedback' | 'usefulnessReason'>): number {
+  updateObservationsByAttention(attentionRef: string, patch: Pick<DogfoodObservation, 'reviewLabel' | 'policyReview' | 'userFeedback' | 'reviewSource' | 'reviewBasis' | 'reviewConfidence' | 'deliveryVisibility' | 'usefulnessReason'>): number {
     if (!opaqueRefPattern.test(attentionRef)) throw new TypeError('dogfood attentionRef is invalid')
     let updated = 0
     for (const [index, observation] of this.bundleValue.observations.entries()) {
@@ -498,19 +600,5 @@ function policyReviewOf(observation: DogfoodObservation): DogfoodPolicyReview | 
 }
 
 function userFeedbackOf(observation: DogfoodObservation): DogfoodUserFeedback {
-  if (observation.userFeedback !== undefined) return observation.userFeedback
-  switch (observation.reviewLabel) {
-    case 'correct-useful': return 'useful'
-    case 'correct-low-value':
-    case 'not-relevant':
-    case 'already-resolved':
-    case 'wrong-level':
-    case 'false-stall':
-    case 'missed-human-needed':
-    case 'duplicate-final-interrupt':
-    case 'too-late':
-      return 'not-useful'
-    default:
-      return 'unrated'
-  }
+  return observation.userFeedback ?? 'unrated'
 }

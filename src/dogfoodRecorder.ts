@@ -25,10 +25,12 @@ export const DOGFOOD_ENVIRONMENT = {
   taskFamily: 'DSH_DEEPCANARY_DOGFOOD_TASK_FAMILY',
   scenario: 'DSH_DEEPCANARY_DOGFOOD_SCENARIO',
   runtimeTag: 'DSH_DEEPCANARY_DOGFOOD_RUNTIME_TAG',
+  taskOrigin: 'DSH_DEEPCANARY_DOGFOOD_TASK_ORIGIN',
 } as const
 
 const taskFamilies = new Set<DogfoodRun['taskFamily']>(['coding', 'build-test', 'research', 'multi-stage', 'subagent'])
 const scenarios = new Set<DogfoodRun['scenario']>(['approval-boundary', 'network-recovery', 'healthy-long-run', 'normal-completion', 'explicit-failure', 'recovery-continued'])
+const taskOrigins = new Set<NonNullable<DogfoodRun['taskOrigin']>>(['natural', 'controlled', 'replay', 'unknown'])
 const runIdPattern = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/
 const printablePattern = /^[^\u0000-\u001f\u007f]{1,128}$/
 
@@ -48,6 +50,7 @@ export function dogfoodRunFromEnvironment(pluginVersion: string, defaultRuntimeT
   const trialId = value(DOGFOOD_ENVIRONMENT.trialId)
   const taskFamily = value(DOGFOOD_ENVIRONMENT.taskFamily) as DogfoodRun['taskFamily'] | undefined
   const scenario = value(DOGFOOD_ENVIRONMENT.scenario) as DogfoodRun['scenario'] | undefined
+  const taskOrigin = value(DOGFOOD_ENVIRONMENT.taskOrigin) as NonNullable<DogfoodRun['taskOrigin']> | undefined
   if (runId === undefined || !runIdPattern.test(runId) || trialId === undefined || !runIdPattern.test(trialId)) return undefined
   if (taskFamily === undefined || !taskFamilies.has(taskFamily) || scenario === undefined || !scenarios.has(scenario)) return undefined
   return {
@@ -55,6 +58,7 @@ export function dogfoodRunFromEnvironment(pluginVersion: string, defaultRuntimeT
     runId,
     trialId,
     provenance: 'real',
+    ...(taskOrigin === undefined || !taskOrigins.has(taskOrigin) ? {} : { taskOrigin }),
     taskFamily,
     scenario,
     pluginVersion,
@@ -112,11 +116,17 @@ function observedDecision(verdict: AttentionVerdict): { level: AttentionLevel; a
   return { level: verdict.level, action: verdict.action, reasonCode: verdict.reasonCode }
 }
 
-function usefulnessPatch(useful: boolean, value: FeedbackValue | undefined): Pick<DogfoodObservation, 'reviewLabel' | 'policyReview' | 'userFeedback' | 'usefulnessReason'> {
-  if (useful) return { reviewLabel: 'correct-useful', policyReview: 'correct', userFeedback: 'useful', usefulnessReason: 'actionable' }
-  if (value === 'already-resolved') return { reviewLabel: 'already-resolved', policyReview: 'too-late', userFeedback: 'not-useful', usefulnessReason: 'already-resolved' }
-  if (value === 'wrong-level') return { reviewLabel: 'wrong-level', policyReview: 'wrong-level', userFeedback: 'not-useful', usefulnessReason: 'wrong-level' }
-  return { reviewLabel: 'not-relevant', userFeedback: 'not-useful', usefulnessReason: 'not-relevant' }
+function usefulnessPatch(useful: boolean, value: FeedbackValue | undefined): Pick<DogfoodObservation, 'reviewLabel' | 'policyReview' | 'userFeedback' | 'reviewSource' | 'reviewBasis' | 'reviewConfidence' | 'deliveryVisibility' | 'usefulnessReason'> {
+  const common = {
+    reviewSource: 'user-feedback' as const,
+    reviewBasis: 'explicit-user-feedback' as const,
+    reviewConfidence: 'unknown' as const,
+    deliveryVisibility: { status: 'visible' as const, source: 'user-confirmed' as const },
+  }
+  if (useful) return { ...common, reviewLabel: 'correct-useful', policyReview: 'correct', userFeedback: 'useful', usefulnessReason: 'actionable' }
+  if (value === 'already-resolved') return { ...common, reviewLabel: 'already-resolved', policyReview: 'too-late', userFeedback: 'not-useful', usefulnessReason: 'already-resolved' }
+  if (value === 'wrong-level') return { ...common, reviewLabel: 'wrong-level', policyReview: 'wrong-level', userFeedback: 'not-useful', usefulnessReason: 'wrong-level' }
+  return { ...common, reviewLabel: 'not-relevant', userFeedback: 'not-useful', usefulnessReason: 'not-relevant' }
 }
 
 /** Persisted observation state for one explicitly enabled real trial. */
@@ -159,6 +169,7 @@ export class DogfoodRuntimeRecorder {
       ...(input.deliveryUnit === undefined ? {} : { deliveryUnitRef: hashMetadata(`${this.run.runId}:delivery:${input.deliveryUnit}`) }),
       ...(input.bundleKey === undefined ? {} : { bundleRef: hashMetadata(`${this.run.runId}:bundle:${input.bundleKey}`) }),
       ...(input.recoveredBeforeOpen === undefined ? {} : { recoveredBeforeOpen: input.recoveredBeforeOpen }),
+      ...(input.deliveryUnit === undefined || !['inbox', 'digest', 'interrupt', 'escalate'].includes(input.disposition) ? {} : { deliveryVisibility: { status: 'unknown' as const, source: 'unknown' as const } }),
     }
     this.append(observation)
   }

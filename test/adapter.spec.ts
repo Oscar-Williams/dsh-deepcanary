@@ -2,6 +2,33 @@ import { describe, expect, it } from 'vitest'
 import { ContextDshAdapter } from '../src/adapters/dsh.js'
 
 describe('DSH adapter boundary', () => {
+  it.each([
+    { id: 'missing-snapshot' },
+    { id: 'throwing-snapshot', snapshotEvents: () => { throw new Error('unavailable') } },
+    { id: 'invalid-snapshot', snapshotEvents: () => [null] },
+    { id: 'gapped-snapshot', snapshotEvents: () => [{ type: 'turn/start', seq: 7, time: 1, data: {} }] },
+  ])('does not certify an unreadable or incomplete public snapshot: $id', async (session) => {
+    const adapter = new ContextDshAdapter({ sessions: { list: () => [session] } } as never)
+    await adapter.start()
+    expect(adapter.getReconciliationStatus()).toMatchObject({ authoritative: false, verified: false, phase: 'unavailable' })
+  })
+
+  it('matches concurrent results by Session v2 message.source.callId without reading content', async () => {
+    const events = [
+      { type: 'turn/start', seq: 0, time: 1, data: {} },
+      { type: 'tool/call', seq: 1, time: 2, data: { name: 'ask_user_question', callId: 'question-1' } },
+      { type: 'tool/call', seq: 2, time: 3, data: { name: 'read_file', callId: 'read-1' } },
+      { type: 'tool/result', seq: 3, time: 4, data: { message: { source: { kind: 'tool', callId: 'read-1' } } } },
+    ]
+    const session = { id: 'concurrent-tools', snapshotEvents: () => events }
+    const adapter = new ContextDshAdapter({ sessions: { list: () => [session] } } as never)
+    await adapter.start()
+    expect(await adapter.getSessionSnapshot(session.id)).toMatchObject({ activeToolCount: 1, waitingForHuman: true })
+    events.push({ type: 'tool/result', seq: 4, time: 5, data: { message: { source: { kind: 'tool', callId: 'question-1' } } } })
+    await adapter.reconcile()
+    expect(await adapter.getSessionSnapshot(session.id)).toMatchObject({ activeToolCount: 0, waitingForHuman: false })
+  })
+
   it('normalizes lifecycle events and exposes session snapshots', async () => {
     const listeners = new Map<string, (...args: any[]) => void>()
     const adapter = new ContextDshAdapter({

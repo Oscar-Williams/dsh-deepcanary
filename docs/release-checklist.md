@@ -1,12 +1,12 @@
 # RC release checklist
 
-This checklist records the current `0.1.1-rc.3` release path and the published immutable `0.1.1-rc.1` prerelease against the official DSH `dsh-v0.1.2-alpha.5` tag. RC2, RC4, and earlier procedures remain available for reproduction with their original identities.
+This checklist records the local `0.1.1-rc.4` engineering candidate, the published `0.1.1-rc.3` alpha.5 baseline, and the immutable historical receipts. RC4 has no GitHub/npm publication identity; historical RC4 and earlier procedures remain available for reproduction with their original identities.
 
-The published GitHub tag, Release asset, npm `next` package, and alpha.5 source checkout provide the RC3 installation path. The isolated Ubuntu-26.04 alpha.5 profile and device-level notification, touch, and screen-reader observations remain separately tracked below and in `benchmark/alpha5-compatibility-receipt.json`.
+The published GitHub tag, Release asset, npm `next` package, and alpha.5 source checkout provide the RC3 installation path. The candidate uses the same alpha.5 package/type floor and a separate alpha.13 checkout/profile. The isolated Ubuntu-26.04 alpha.5 profile and device-level notification, touch, and screen-reader observations remain separately tracked below and in `benchmark/alpha5-compatibility-receipt.json`.
 
-## 0.1.1-rc.3: authoritative session reconciliation
+## 0.1.1-rc.4: Session v2 engineering candidate
 
-The `0.1.1-rc.3` package targets the official DSH `dsh-v0.1.2-alpha.5` commit `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5` and contains the first reconciliation slice: subscriber-first event buffering, authoritative `ctx.sessions.list()` seeding, `Session.snapshotEvents()` metadata derivation, reconciliation epochs, sequence-aware buffered-event merge, startup Human Needed reconstruction, previously observed-session disposal convergence, bounded orphan grace, public reconciliation status, and a bounded logical browser delivery ledger. The release identity and evidence digest index are recorded in [`../benchmark/rc3-release-receipt.json`](../benchmark/rc3-release-receipt.json).
+The `0.1.1-rc.4` candidate targets the official DSH alpha.5 commit `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5` for its normal build and the official alpha.13 commit `d347e703908d0406b7a7ef80e3a0e594d86b2215` for its isolated compatibility lane. It contains the authoritative session reconciliation slice plus Session v2 tool-result correlation, Human Needed recovery ordering, parent-session completion summaries, finite notification claims, a cached build identity, and a public runtime contract check. The candidate has no release receipt; its local evidence must stay separate from `benchmark/rc3-release-receipt.json`.
 
 This candidate is a source-build identity. Build and verify it with:
 
@@ -22,7 +22,22 @@ npm run gate:stable
 npm pack --pack-destination output/local-pack
 ```
 
-Bind the resulting `dsh-deepcanary-0.1.1-rc.3.tgz` hash to the fresh Gate report and the DSH profile used for validation. The Persistent Supervisor is experimental and off by default; set `supervisorMode: experimental` for its engineering checks. Gate E keeps `prototype-ready` semantics until authoritative restart continuity, OS-level delivery states, cross-process orphan convergence, resource delta, and soak evidence reach their documented floor.
+Bind the resulting `dsh-deepcanary-0.1.1-rc.4.tgz` hash to the fresh Gate report and the DSH profile used for validation. For an exact, non-repacked Gate input use `node scripts/evaluate-stable-gates.mjs --package-tgz <frozen-tgz>`. The Persistent Supervisor is experimental and off by default; set `supervisorMode: experimental` for its engineering checks. Gate E reports prototype readiness and a separate `stableEligible` boolean; it does not turn missing restart, OS-delivery, resource, or soak evidence into Stable.
+
+## Independent alpha.13 compatibility canary
+
+Keep this check separate from the alpha.5 release identity. Use the official DSH `dsh-v0.1.3-alpha.1` source checkout at commit `d347e703908d0406b7a7ef80e3a0e594d86b2215`, a fresh isolated Web profile, the exact locally built RC4 tarball, and a sanitized UI evidence file. Confirm the runtime reports `0.1.3-alpha.1`, install the plugin into that profile, observe the authenticated Edge/WebUI panel, and run:
+
+```powershell
+npm run build:alpha13
+$env:DSH_ALPHA13_UI_EVIDENCE = 'output/playwright/alpha13-lifecycle-<date>/ui-observation.json'
+$env:DSH_ALPHA13_RUNTIME = '<path-to-dsh-v0.1.3-alpha.1-checkout>'
+$env:DSH_ALPHA13_PROFILE = '<path-to-isolated-alpha13-profile>'
+$env:DSH_ALPHA13_PACKAGE = '<path-to-dsh-deepcanary-0.1.1-rc.4.tgz>'
+npm run compatibility:alpha13
+```
+
+The canary report records runtime/package byte identity, public session-list and `snapshotEvents()` surfaces, the public Session v2 contract, the authenticated Web response, UI observation, and privacy flags. It is controlled-real compatibility evidence only: do not use it to relabel alpha.5 dogfood, Windows, WSL, or release-receipt results, and do not assume the DSH alpha.13 prerelease is available from npm.
 
 ## 0.1.1-rc.1 release: official DSH alpha.5
 
@@ -66,7 +81,7 @@ The public synchronization order is: commit and push `main`, create and push the
 - [x] npm `dsh-deepcanary@0.1.1-rc.1` is published with dist-tag `next` and verified from the public registry;
 - [x] README, English README, changelog, compatibility matrix, and release receipt reflect the final publication state.
 
-## RC4 release: official DSH alpha.4
+## Historical 0.1.0-rc.4 release: official DSH alpha.4
 
 Run the following from a clean or verified checkout before evaluating a new plugin tag:
 
@@ -79,7 +94,7 @@ npx --yes pnpm@11.7.0 dsh --version
 npx --yes pnpm@11.7.0 dsh --profile web --dump-config
 ```
 
-The version must be `0.1.2-alpha.4` and the checkout must resolve to `4e84901e6471b79ec0338099867ebb4606d12bb5`. Install the locally generated RC4 tarball into isolated `web` and `headless` profiles, then record the plugin package version, health and OutcomeReceipt routes, nine model-visible tools, settings namespace, client-module boot graph, unload/reload result, and model smoke result. Repeat with the immutable GitHub tag in fresh public-source profiles; the npm package remains pending. Keep the alpha.4 result in the active RC4 receipt and preserve alpha.3 evidence in its historical receipt.
+The version must be `0.1.2-alpha.4` and the checkout must resolve to `4e84901e6471b79ec0338099867ebb4606d12bb5`. Install the locally generated historical RC4 tarball into isolated `web` and `headless` profiles, then record the plugin package version, health and OutcomeReceipt routes, nine model-visible tools, settings namespace, client-module boot graph, unload/reload result, and model smoke result. Repeat with the immutable GitHub tag in fresh public-source profiles; the npm package remains pending. Keep the alpha.4 result in its historical receipt and preserve alpha.3 evidence separately.
 
 RC4 also runs `npm run quality:report` and `npm run benchmark:attention`. These commands provide the frozen replay and local resource baseline. A sanitized trial records OutcomeReceipts through `/dsh-deepcanary/outcome` and produces a source-filtered report with `npm run outcomes:report`; the public schemas are [`benchmark/outcome-receipt.schema.json`](../benchmark/outcome-receipt.schema.json) and [`benchmark/outcome-report.schema.json`](../benchmark/outcome-report.schema.json). The RC4 public receipt is [`benchmark/release-candidate-receipt.json`](../benchmark/release-candidate-receipt.json); the earlier alpha.3 compatibility record remains separate and does not replace the historical RC2 receipt.
 
@@ -93,7 +108,7 @@ npm run replay:policy
 
 The report must pass every expected case for judgment, deduplication, Bundle escalation, budget downgrade, quiet hours, and recovery. Then collect a sanitized dogfood bundle with [`benchmark/dogfood.schema.json`](../benchmark/dogfood.schema.json) across the task families and scenarios in [`docs/dogfood-protocol.md`](dogfood-protocol.md), including positive decisions and negative opportunities. Generate its report with `npm run dogfood:report -- --input <path-to-sanitized-dogfood.json>`. Review labels, numerators, denominators, and sample-status values are part of the gate evidence.
 
-Gate D requires a validated multi-run real dogfood aggregate covering coding, build/test, research, multi-stage, and Subagent work plus concrete opportunity evidence for every declared scenario. It also requires reviewed Human Needed opportunities, separate policy and usefulness labels for delivered C2/C3 decisions, false-stall and wrong-level review, duplicate-final-interrupt review, recovery-before-open observations, negative opportunities for C0/dedupe/suppression, and a real Edge/Windows notification observation. Browser permission and client callback evidence can be automated; actual Windows OS-visible browser notification appearance, Notification Center retention, and click-to-focus behavior require a schema-validated record bound to the matching dogfood observation and delivery unit. A small single-task sample or the legacy `--native-toast-observed` flag remains diagnostic evidence and does not pass Gate D.
+Gate D requires a validated multi-run real dogfood aggregate covering coding, build/test, research, multi-stage, and Subagent work plus concrete opportunity evidence for every declared scenario. It also requires reviewed Human Needed opportunities, separate policy and usefulness labels for delivered C2/C3 decisions, false-stall and wrong-level review, duplicate-final-interrupt review, recovery-before-open observations, negative opportunities for C0/dedupe/suppression, and a real Edge/Windows notification observation. Reviewed visible-final delivery units must carry non-unknown review source and basis, an explicit confidence field (which may be `unknown` because confidence is an annotation rather than a calibrated probability), and explicit `deliveryVisibility.status=visible`; constructed or materialized units whose user visibility is unknown remain outside the denominator. Browser permission and client callback evidence can be automated; actual Windows OS-visible browser notification appearance, Notification Center retention, and click-to-focus behavior require a schema-validated record bound to the matching dogfood observation and delivery unit. A small single-task sample or the legacy `--native-toast-observed` flag remains diagnostic evidence and does not pass Gate D.
 
 ## 2B. Stable Gate E: release integrity and operational continuity
 
@@ -115,10 +130,11 @@ The repository CI workflow starts the pinned alpha.5 Web profile in an isolated 
 
 ## 1. Source and documentation
 
-- [x] Confirm `package.json`, `package-lock.json`, `CHANGELOG.md`, README files, compatibility matrix, surface audit, and release receipt use the same plugin version and DSH tag.
+- [x] Confirm `package.json`, `package-lock.json`, `CHANGELOG.md`, README files, compatibility matrix, surface audit, and release receipt use the same plugin version and alpha.5 DSH release tag; keep the separate alpha.13 canary identity explicit.
 - [x] Confirm `设计思路(不提交)/` is ignored and no design guide is tracked or present in the package artifact.
 - [x] Confirm the public README uses the immutable GitHub tag and labels the historical tag separately.
 - [x] Review the diff for secrets, local paths, credentials, raw prompts, and unrelated changes.
+- [x] Confirm dogfood review source/basis/confidence and visible-versus-unknown final-delivery semantics are documented alongside the schemas and evaluator.
 
 ## 2. Plugin gates
 
@@ -155,7 +171,7 @@ For the live-model smoke gate, use the same DSH home in which the API credential
 
 ## 4. Public GitHub distribution and Web E2E
 
-The client-module revision is verified locally and the RC4 GitHub tag/Release is available. npm publication remains paused; keep the public npm checklist pending until a separate publication decision is made.
+The published RC3 client-module revision is verified remotely; the current RC4 candidate is verified locally only. The historical RC4 GitHub tag/Release remains available. npm publication of the current candidate remains paused; keep any public publication checklist pending until a separate decision is made.
 
 ```powershell
 npx --yes pnpm@11.7.0 dsh plugin --profile web remove dsh-deepcanary

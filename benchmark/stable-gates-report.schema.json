@@ -28,7 +28,8 @@
     },
     "evidenceDigests": { "type": "object" },
     "samples": { "type": "object" },
-    "decision": { "enum": ["STABLE_READY", "STABLE_READY_WITH_NON_CORE_EXCEPTIONS", "CONTINUE_RC", "NO_GO_REDESIGN"] },
+    "decision": { "enum": ["STABLE_READY", "STABLE_WITH_EXCEPTIONS", "STABLE_READY_WITH_NON_CORE_EXCEPTIONS", "CONTINUE_RC", "HOLD", "NO_GO_REDESIGN"] },
+    "decisionReasons": { "type": "array", "items": { "type": "string" } },
     "identity": {
       "type": "object",
       "required": ["gitCommit", "worktree", "packageVersion", "tarballSha256", "sourceDigest"],
@@ -65,6 +66,7 @@
             "scenarios": { "type": "object" },
             "scenarioEvidence": { "type": "array", "items": { "type": "object" } },
             "negativeOpportunityCoverage": { "type": "object" },
+            "qualification": { "type": "object", "additionalProperties": true },
             "inputKind": { "enum": ["none", "report", "bundle", "aggregate"] }
           },
           "additionalProperties": false
@@ -96,9 +98,10 @@
     },
     "gateE": {
       "type": "object",
-      "required": ["status", "implementation", "policyReplay", "supervisorSmoke", "supervisorSoak", "authoritativeSessionReconciliation", "crossSinkDeliveryLedger", "packageVersion", "note"],
+      "required": ["status", "stableEligible", "implementation", "policyReplay", "supervisorSmoke", "supervisorSoak", "authoritativeSessionReconciliation", "crossSinkDeliveryLedger", "packageVersion", "note"],
       "properties": {
         "status": { "enum": ["pending", "prototype-ready"] },
+        "stableEligible": { "type": "boolean" },
         "implementation": { "enum": ["incomplete", "present"] },
         "policyReplay": { "enum": ["pending", "pass"] },
         "supervisorSmoke": { "enum": ["not-evaluated", "pending", "pass"] },

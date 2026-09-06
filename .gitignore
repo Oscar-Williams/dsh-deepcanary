@@ -4,6 +4,7 @@ coverage/
 *.tgz
 .playwright-cli/
 output/playwright/
+output/build/
 output/attention-quality-report.json
 output/attention-benchmark.json
 output/dogfood/
@@ -17,3 +18,4 @@ output/replay/
 dsh-deepcanary插件设计指南20260830.md
 dsh-deepcanary-设计方案(不使用).md
 dsh-deepcanary插件制作建议(不使用).md
+output/notifications/

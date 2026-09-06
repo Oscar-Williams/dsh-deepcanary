@@ -210,7 +210,7 @@ describe('runtime dogfood recorder', () => {
         'notification-delivery',
         { ...base, titleKey: 'notification.title.TASK_FAILED', notificationStage: 'constructed', observedAt: '2026-09-02T12:03:00.000Z' },
       )
-      expect(rejected.body).toMatchObject({ updated: true, result: { kind: 'notification-delivery-unavailable' } })
+      expect(rejected.body).toMatchObject({ updated: false, result: { kind: 'notification-delivery-unavailable' } })
     } finally {
       await service.dispose()
     }

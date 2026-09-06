@@ -114,6 +114,8 @@ export interface AttentionVerdict {
 }
 
 export type InboxStatus = 'open' | 'seen' | 'acknowledged' | 'snoozed' | 'muted' | 'recovered' | 'expired'
+/** Runtime task fact kept separate from the user's Inbox handling state. */
+export type TaskState = 'running' | 'waiting-human' | 'completed' | 'failed' | 'aborted' | 'disposed' | 'unknown'
 
 export interface InboxItem extends AttentionVerdict {
   id: string
@@ -133,6 +135,10 @@ export interface InboxItem extends AttentionVerdict {
   orphanedAt?: string
   /** Temporary delivery suppression; the Inbox item remains available while it is active. */
   mutedUntil?: string
+  /** Whether the observed task is still available for native session navigation. */
+  targetAvailable?: boolean
+  /** Last structured task lifecycle fact associated with this item. */
+  taskState?: TaskState
   feedback?: {
     useful: boolean
     value?: FeedbackValue
@@ -277,6 +283,8 @@ export interface PublicInboxItem {
   recoveredAt?: string
   expiredAt?: string
   mutedUntil?: string
+  targetAvailable?: boolean
+  taskState?: TaskState
   feedback?: { useful: boolean; value?: FeedbackValue; at: string }
   bundleCount: number
   reasonCodes: ReasonCode[]

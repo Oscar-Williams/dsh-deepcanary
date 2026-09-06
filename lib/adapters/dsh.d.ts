@@ -1,5 +1,5 @@
 import type { Context } from '@deepseek-ai/cordis';
-import type { SessionEventLike, SessionLike } from '../providers.js';
+import type { SessionEventLike, SessionLike, ToolClass, TurnState } from '../providers.js';
 import type { ReconciliationStatus } from '../types.js';
 export interface Disposable {
     dispose(): void;
@@ -17,12 +17,17 @@ export interface SessionSnapshot {
     cwd?: string;
     startedAt: number;
     lastEventAt: number;
+    /** Last event boundary that proves meaningful task progress. */
+    lastMeaningfulAt?: number;
     /** The exact last existing event sequence observed in the DSH session log. */
     lastEventSeq?: number;
     /** Count of events in the authoritative snapshot; this is not a SessionSeq. */
     eventCount?: number;
     running?: boolean;
+    turnState?: TurnState;
     waitingForHuman?: boolean;
+    activeToolCount?: number;
+    toolClass?: ToolClass;
     humanNeededReason?: 'approval' | 'question';
     humanNeededSeq?: number;
     toolFailures?: number;

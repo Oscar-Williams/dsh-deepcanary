@@ -1,6 +1,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { DedupeLedger, InterruptBudget } from './core/dedupe.js'
 import { DeliveryLedger } from './core/delivery.js'
+import type { DeliveryClaimOutcome } from './core/delivery.js'
 import { judgeSignal } from './core/judge.js'
 import { applyDeliveryPolicy, mergeBundleTrace, withRecoveryTrace } from './core/policy.js'
 import { Config, normalizeConfig, sanitizeConfigPatch } from './config.js'
@@ -23,8 +24,12 @@ import {
   signalFromStallRecovery,
   signalFromSubagentPressure,
   signalFromAuthoritativeHumanWait,
+  isMeaningfulSessionEvent,
+  toolClassForName,
+  toolCallIdOf,
   signalsFromSessionEvent,
 } from './providers.js'
+import type { ToolClass, TurnState } from './providers.js'
 import type {
   AttentionAction,
   AttentionVerdict,
@@ -47,11 +52,12 @@ import type {
   OutcomeReceiptInput,
   RuntimeStatus,
   SuppressibleReasonCode,
+  TaskState,
 } from './types.js'
 import { ATTENTION_POLICY_VERSION, ATTENTION_PROTOCOL_VERSION as PROTOCOL_VERSION, SUPPRESSIBLE_REASON_CODES } from './types.js'
 
 const PLUGIN_NAME = 'dsh-deepcanary'
-const PLUGIN_VERSION = '0.1.1-rc.3'
+const PLUGIN_VERSION = '0.1.1-rc.4'
 const SETTINGS_NAMESPACE = 'dsh-deepcanary'
 const DEFAULT_MUTE_MINUTES = 60
 const ORPHAN_GRACE_MS = 30_000
@@ -61,10 +67,15 @@ interface LiveSession {
   cwd?: string
   startedAt: number
   lastEventAt: number
+  lastMeaningfulAt: number
   active: boolean
   running: boolean
+  turnState: TurnState
   toolFailures: number
   activeSubagents: number
+  activeToolCount: number
+  toolClass: ToolClass
+  activeToolIds: Map<string, string | undefined>
   stalled: boolean
   waitingForHuman: boolean
   contextCompactions: number
@@ -161,6 +172,23 @@ function isActiveInboxStatus(status: InboxItem['status']): boolean {
   return status === 'open' || status === 'seen' || status === 'snoozed' || status === 'muted'
 }
 
+function taskStateForReason(reasonCode: ReasonCode): TaskState | undefined {
+  switch (reasonCode) {
+    case 'HUMAN_APPROVAL_REQUIRED':
+    case 'HUMAN_QUESTION_PENDING':
+      return 'waiting-human'
+    case 'TASK_COMPLETED':
+    case 'COMPLETION_SUSPICIOUS':
+      return 'completed'
+    case 'TASK_FAILED':
+      return 'failed'
+    case 'TASK_ABORTED':
+      return 'aborted'
+    default:
+      return undefined
+  }
+}
+
 export class DeepCanaryService {
   config: DeepCanaryConfig
   readonly store: MetadataStore
@@ -228,7 +256,7 @@ export class DeepCanaryService {
     this.started = true
     this.adapterSubscription = this.adapter.subscribe(event => {
       if (event.type === 'session/created') this.onSessionCreated(event.session, event.snapshot)
-      else if (event.type === 'session/event') this.onSessionEvent(event.session, event.event)
+      else if (event.type === 'session/event') this.onSessionEvent(event.session, event.event, event.snapshot)
       else this.onSessionDisposed(event.session)
     })
     void this.adapter.start().then(() => this.normalizeLifecycle(Date.now()))
@@ -236,7 +264,9 @@ export class DeepCanaryService {
 
     this.ctx.inject?.(['agents'], (agentCtx: any) => {
       agentCtx.on?.('agent/error', (payload: unknown) => {
-        void this.ingest(signalFromAgentError(asRecord(payload)))
+        const record = asRecord(payload)
+        this.onAgentError(record)
+        void this.ingest(signalFromAgentError(record))
       })
     })
     this.ctx.inject?.(['subagents'], (subagentCtx: any) => {
@@ -350,6 +380,7 @@ export class DeepCanaryService {
     }
 
     verdict = this.applyPolicy(verdict, now)
+    const taskState = taskStateForReason(signal.kind)
 
     const item: InboxItem = {
       ...verdict,
@@ -361,6 +392,8 @@ export class DeepCanaryService {
       occurredAt: signal.occurredAt,
       action: verdict.action,
       status: 'open',
+      ...(signal.sessionId === undefined ? {} : { targetAvailable: true }),
+      ...(taskState === undefined ? {} : { taskState }),
       ...(bundleKey ? { bundleKey } : {}),
       bundleCount: 1,
       reasonCodes: [signal.kind],
@@ -669,6 +702,13 @@ export class DeepCanaryService {
   jump(id: string): { sessionId?: string; url?: string; available: boolean; note: string } {
     const item = this.find(id)
     if (!item?.sessionId) return { available: false, note: 'This item has no associated live session.' }
+    if (item.targetAvailable === false) {
+      return {
+        sessionId: item.sessionId,
+        available: false,
+        note: 'The associated DSH session is no longer available; the retained Inbox summary remains viewable.',
+      }
+    }
     return {
       sessionId: item.sessionId,
       url: `/?session=${encodeURIComponent(item.sessionId)}`,
@@ -683,7 +723,7 @@ export class DeepCanaryService {
     if (typeof requestId !== 'string' || requestId.length === 0 || requestId.length > 128 || /[\u0000-\u001f]/.test(requestId)) {
       return { status: 400, body: { error: 'requestId must be a printable string of 1-128 characters' }, fingerprint: '' }
     }
-    const knownActions = new Set(['seen', 'acknowledge', 'snooze', 'mute', 'unmute', 'suppress', 'unsuppress', 'feedback', 'jump', 'retry', 'notification-delivery'])
+    const knownActions = new Set(['seen', 'acknowledge', 'snooze', 'mute', 'unmute', 'suppress', 'unsuppress', 'feedback', 'jump', 'retry', 'notification-claim', 'notification-delivery'])
     if (!knownActions.has(action)) {
       return { status: 400, body: { error: 'unsupported action', schemaVersion: PROTOCOL_VERSION }, fingerprint: '' }
     }
@@ -705,6 +745,9 @@ export class DeepCanaryService {
     if (action === 'notification-delivery' && !this.isNotificationDeliveryPayload(payload)) {
       return { status: 400, body: { error: 'notification delivery payload is invalid', schemaVersion: PROTOCOL_VERSION }, fingerprint: '' }
     }
+    if (action === 'notification-claim' && !this.isNotificationClaimPayload(payload)) {
+      return { status: 400, body: { error: 'notification claim payload is invalid', schemaVersion: PROTOCOL_VERSION }, fingerprint: '' }
+    }
 
     const fingerprint = JSON.stringify({
       id,
@@ -716,6 +759,8 @@ export class DeepCanaryService {
       reasonCode: payload.reasonCode,
       notificationStage: payload.notificationStage,
       notificationAttemptId: payload.notificationAttemptId,
+      notificationClientInstance: payload.notificationClientInstance,
+      notificationExpiresAt: payload.notificationExpiresAt,
       notificationRef: payload.notificationRef,
       tagRef: payload.tagRef,
       titleKey: payload.titleKey,
@@ -742,10 +787,15 @@ export class DeepCanaryService {
       const updated = this.hostProbePort !== undefined
       result = { kind: updated ? 'host-probe-complete' : 'host-probe-unavailable' }
       body = { schemaVersion: PROTOCOL_VERSION, requestId, revision: this.revision, updated, result }
+    } else if (action === 'notification-claim') {
+      const outcome = this.claimNotification(id, payload)
+      const available = outcome !== 'unavailable'
+      result = { kind: 'notification-claim', outcome }
+      body = { schemaVersion: PROTOCOL_VERSION, requestId, revision: this.revision, updated: available, result }
     } else if (action === 'notification-delivery') {
       const updated = this.recordNotificationDelivery(id, payload)
       result = { kind: updated ? 'notification-delivery-recorded' : 'notification-delivery-unavailable' }
-      body = { schemaVersion: PROTOCOL_VERSION, requestId, revision: this.revision, updated: true, result }
+      body = { schemaVersion: PROTOCOL_VERSION, requestId, revision: this.revision, updated, result }
     } else if (action === 'unsuppress') {
       const reasonCode = typeof payload.reasonCode === 'string' ? payload.reasonCode : id
       const updated = this.unsuppress(reasonCode)
@@ -805,6 +855,21 @@ export class DeepCanaryService {
     return receipt
   }
 
+  /** Reserve one browser notification before a client constructs it. */
+  private claimNotification(id: string, payload: Record<string, unknown>): DeliveryClaimOutcome {
+    const item = this.find(id)
+    if (item === undefined || (item.action !== 'INTERRUPT' && item.action !== 'ESCALATE')) return 'unavailable'
+    const result = this.deliveryLedger.claim({
+      verdictId: item.id,
+      conditionGeneration: item.bundleKey ?? item.id,
+      sink: 'browser',
+      clientInstance: payload.notificationClientInstance as string,
+      expiresAt: payload.notificationExpiresAt as string,
+    })
+    this.syncSupervisor()
+    return result.outcome
+  }
+
   /** Accept only redacted browser-sink facts for a known attention item. */
   private recordNotificationDelivery(id: string, payload: Record<string, unknown>): boolean {
     const item = this.find(id)
@@ -856,6 +921,18 @@ export class DeepCanaryService {
     if (typeof bodyFingerprint !== 'string' || !opaqueRefPattern.test(bodyFingerprint)) return false
     if (typeof observedAt !== 'string' || !Number.isFinite(Date.parse(observedAt))) return false
     return true
+  }
+
+  private isNotificationClaimPayload(payload: Record<string, unknown>): boolean {
+    const clientInstance = payload.notificationClientInstance
+    const expiresAt = payload.notificationExpiresAt
+    if (typeof clientInstance !== 'string'
+      || clientInstance.length === 0
+      || clientInstance.length > 256
+      || /[\u0000-\u001f\u007f]/.test(clientInstance)) return false
+    if (typeof expiresAt !== 'string' || !Number.isFinite(Date.parse(expiresAt))) return false
+    const expiresIn = Date.parse(expiresAt) - Date.now()
+    return expiresIn > 0 && expiresIn <= 5 * 60 * 1000
   }
 
   async recordHostProbe(ok: boolean, detail = 'The local DSH host probe did not succeed.'): Promise<void> {
@@ -1042,15 +1119,25 @@ export class DeepCanaryService {
     const existing = this.sessions.get(id)
     const cwd = authoritativeSnapshot?.cwd ?? (typeof header.cwd === 'string' ? header.cwd : existing?.cwd)
     const now = Date.now()
+    const running = authoritativeSnapshot?.running ?? false
     this.sessions.set(id, {
       id,
       ...(cwd ? { cwd } : {}),
       startedAt: authoritativeSnapshot?.startedAt ?? existing?.startedAt ?? now,
       lastEventAt: authoritativeSnapshot?.lastEventAt ?? existing?.lastEventAt ?? now,
+      lastMeaningfulAt: authoritativeSnapshot?.lastMeaningfulAt
+        ?? existing?.lastMeaningfulAt
+        ?? authoritativeSnapshot?.lastEventAt
+        ?? existing?.lastEventAt
+        ?? now,
       active: authoritativeSnapshot?.active ?? true,
-      running: authoritativeSnapshot?.running ?? false,
+      running,
+      turnState: authoritativeSnapshot?.turnState ?? (running ? 'running' : existing?.turnState ?? 'unknown'),
       toolFailures: authoritativeSnapshot?.toolFailures ?? 0,
       activeSubagents: 0,
+      activeToolCount: authoritativeSnapshot?.activeToolCount ?? 0,
+      toolClass: authoritativeSnapshot?.toolClass ?? 'unknown',
+      activeToolIds: new Map<string, string | undefined>(),
       stalled: false,
       waitingForHuman: authoritativeSnapshot?.waitingForHuman ?? false,
       contextCompactions: authoritativeSnapshot?.contextCompactions ?? 0,
@@ -1071,8 +1158,18 @@ export class DeepCanaryService {
         delete item.orphanedAt
         linkedHistoricalItem = true
       }
+      if (item.sessionId === id && item.targetAvailable !== true) {
+        item.targetAvailable = true
+        linkedHistoricalItem = true
+      }
     }
     if (linkedHistoricalItem) this.queueSave()
+    if (authoritativeSnapshot?.eventCount !== undefined && authoritativeSnapshot.waitingForHuman === false
+      && authoritativeSnapshot.turnState !== 'unknown') {
+      void this.ready.then(() => {
+        if (!this.disposed) this.resolveHumanWait(id, now, authoritativeSnapshot.turnState === 'running' ? 'running' : 'unknown')
+      })
+    }
     if (authoritativeSnapshot?.waitingForHuman && authoritativeSnapshot.humanNeededReason !== undefined) {
       const bundleKey = hashMetadata(`${id}:human-needed`)
       const alreadyTracked = this.items.some(item => item.sessionId === id
@@ -1098,13 +1195,34 @@ export class DeepCanaryService {
     if (session) {
       session.active = false
       session.running = false
-      this.expireSessionItems(id)
+      session.turnState = 'terminal'
+      session.activeToolCount = 0
+      session.toolClass = 'unknown'
+      session.activeToolIds.clear()
+    }
+    let itemChanged = false
+    for (const item of this.items) {
+      if (item.sessionId !== id) continue
+      if (item.targetAvailable !== false) {
+        item.targetAvailable = false
+        itemChanged = true
+      }
+      const unfinished = item.taskState === undefined
+        ? isActiveInboxStatus(item.status)
+        : item.taskState === 'running' || item.taskState === 'waiting-human' || item.taskState === 'unknown'
+      if (unfinished) {
+        item.taskState = 'disposed'
+        itemChanged = true
+      }
+    }
+    if (itemChanged) this.queueSave()
+    if (session !== undefined || itemChanged) {
       this.bumpRevision()
       this.syncSupervisor()
     }
   }
 
-  private onSessionEvent(sessionValue: unknown, eventValue: unknown): void {
+  private onSessionEvent(sessionValue: unknown, eventValue: unknown, authoritativeSnapshot?: SessionSnapshot): void {
     const sessionRecord = asRecord(sessionValue)
     const event = asRecord(eventValue)
     const id = idOf(sessionRecord)
@@ -1116,39 +1234,63 @@ export class DeepCanaryService {
       session = this.sessions.get(id)
     }
     if (!session) return
-    const previousEventAt = session.lastEventAt
     const now = Date.now()
+    const eventData = asRecord(event.data)
+    const parentSession = asRecord(sessionRecord.header).parentSession
+    const callId = toolCallIdOf(eventData)
+    const observedToolName = typeof eventData.name === 'string'
+      ? eventData.name
+      : typeof eventData.toolName === 'string'
+        ? eventData.toolName
+        : callId === undefined ? session.lastToolName : session.activeToolIds.get(callId)
+    const meaningful = isMeaningfulSessionEvent(event.type, eventData)
     if (event.type === 'turn/start') {
       session.running = true
+      session.turnState = 'running'
       session.waitingForHuman = false
       session.startedAt = now
+      session.lastMeaningfulAt = now
       delete session.lastHealthyObservationAt
       session.stalled = false
       session.toolFailures = 0
       session.sameToolFailures = 0
       session.contextCompactions = 0
+      session.activeToolCount = 0
+      session.toolClass = 'unknown'
+      session.activeToolIds.clear()
     }
     const wasStalled = session.stalled
-    if (wasStalled) {
+    if (wasStalled && meaningful) {
       session.stalled = false
       delete session.lastHealthyObservationAt
     }
     session.lastEventAt = now
-    const eventData = asRecord(event.data)
-    const observedToolName = typeof eventData.name === 'string'
-      ? eventData.name
-      : typeof eventData.toolName === 'string'
-        ? eventData.toolName
-        : session.lastToolName
+    if (meaningful) session.lastMeaningfulAt = now
     const humanWaitResolved = event.type === 'approval/decided'
       || event.type === 'user-questions/response'
       || event.type === 'user-questions/answered'
       || (event.type === 'tool/result' && typeof observedToolName === 'string' && /^ask[_-]user[_-]question$/i.test(observedToolName))
       || eventData.humanNeeded === false
       || eventData.requiresApproval === false
+      || (session.waitingForHuman && authoritativeSnapshot?.eventCount !== undefined && authoritativeSnapshot.waitingForHuman === false)
     if (humanWaitResolved) session.waitingForHuman = false
-    if (event.type === 'tool/call' && observedToolName !== undefined) session.lastToolName = observedToolName
+    if (event.type === 'tool/call') {
+      if (callId === undefined || !session.activeToolIds.has(callId)) {
+        session.activeToolCount += 1
+        if (callId !== undefined) session.activeToolIds.set(callId, observedToolName)
+      }
+      session.toolClass = toolClassForName(observedToolName)
+      if (observedToolName !== undefined) session.lastToolName = observedToolName
+    }
     if (event.type === 'tool/result') {
+      if (callId !== undefined && session.activeToolIds.has(callId)) {
+        session.activeToolIds.delete(callId)
+        session.activeToolCount = Math.max(0, session.activeToolCount - 1)
+      } else if (callId === undefined || session.activeToolIds.size === 0) {
+        // Authoritative startup snapshots expose the count but not private
+        // tool-call ids; consume one result conservatively in that case.
+        session.activeToolCount = Math.max(0, session.activeToolCount - 1)
+      }
       if (eventData.error !== undefined) {
         session.toolFailures += 1
         if (observedToolName !== undefined && observedToolName === session.lastToolName) session.sameToolFailures += 1
@@ -1158,23 +1300,33 @@ export class DeepCanaryService {
         session.toolFailures = 0
         session.sameToolFailures = 0
       }
+      if (session.activeToolCount === 0) session.toolClass = 'unknown'
+    }
+    if (authoritativeSnapshot?.eventCount !== undefined) {
+      session.activeToolCount = authoritativeSnapshot.activeToolCount ?? session.activeToolCount
+      session.toolClass = authoritativeSnapshot.toolClass ?? session.toolClass
+      session.waitingForHuman = authoritativeSnapshot.waitingForHuman ?? session.waitingForHuman
     }
     if (event.type === 'compaction/start') session.contextCompactions += 1
     const facts = {
       toolFailures: session.toolFailures,
       activeSubagents: session.activeSubagents,
       lastEventAt: session.lastEventAt,
+      lastMeaningfulAt: session.lastMeaningfulAt,
       startedAt: session.startedAt,
+      activeToolCount: session.activeToolCount,
+      toolClass: session.toolClass,
+      waitingForHuman: session.waitingForHuman,
+      turnState: session.turnState,
       contextCompactions: session.contextCompactions,
       ...(session.lastToolName ? { lastToolName: session.lastToolName } : {}),
       sameToolFailures: session.sameToolFailures,
     }
-    const signals = wasStalled
+    const signals = wasStalled && meaningful
       ? [signalFromStallRecovery({ id, ...(session.cwd ? { header: { cwd: session.cwd } } : {}) }, now)]
       : []
-    if (now - previousEventAt < this.config.longRunThresholdMinutes * 60 * 1000) signals.length = 0
     signals.push(...signalsFromSessionEvent(
-      { id, ...(session.cwd ? { header: { cwd: session.cwd } } : {}) },
+      { id, header: { ...(session.cwd ? { cwd: session.cwd } : {}), ...(typeof parentSession === 'string' ? { parentSession } : {}) } },
       { type: event.type, ...(typeof event.seq === 'number' ? { seq: event.seq } : {}), ...(typeof event.time === 'number' ? { time: event.time } : {}), ...(event.ignorable === true ? { ignorable: true } : {}), data: asRecord(event.data) },
       facts,
     ))
@@ -1182,14 +1334,51 @@ export class DeepCanaryService {
       && signal.evidence.some(evidence => evidence.authority === 'runtime'))) {
       session.waitingForHuman = true
     }
+    if (humanWaitResolved || event.type === 'turn/end') {
+      // Ingest also awaits ready. Queue the closing boundary before this
+      // event's signals so an earlier pending HN is closed even when host
+      // events arrive back-to-back during startup.
+      const reason = asRecord(eventData.reason).kind ?? eventData.reason
+      const state: TaskState = event.type !== 'turn/end' ? 'running'
+        : reason === 'completed' ? 'completed' : reason === 'aborted' ? 'aborted' : 'unknown'
+      void this.ready.then(() => { if (!this.disposed) this.resolveHumanWait(id, now, state) })
+    }
     for (const signal of signals) void this.ingest(signal)
     if (event.type === 'turn/end') {
       session.running = false
+      session.turnState = 'terminal'
       session.stalled = false
       session.waitingForHuman = false
+      session.activeToolCount = 0
+      session.toolClass = 'unknown'
+      session.activeToolIds.clear()
       delete session.lastHealthyObservationAt
     }
     this.syncSupervisor()
+  }
+
+  private resolveHumanWait(sessionId: string, now: number, taskState: TaskState): void {
+    let changed = false
+    for (const item of this.items) {
+      if (item.sessionId !== sessionId || item.taskState !== 'waiting-human'
+        || (item.status !== 'open' && item.status !== 'seen' && item.status !== 'snoozed')
+        || Date.parse(item.occurredAt) > now) continue
+      if (!(item.reasonCodes ?? [item.reasonCode]).some(reason => reason === 'HUMAN_QUESTION_PENDING' || reason === 'HUMAN_APPROVAL_REQUIRED')) continue
+      item.status = 'recovered'
+      item.recoveredAt = new Date(now).toISOString()
+      item.taskState = taskState
+      delete item.snoozedUntil
+      const trace = withRecoveryTrace(item.decisionTrace, 'recovery.authoritative-human-wait-ended')
+      if (trace !== undefined) item.decisionTrace = trace
+      const previousOutcome = [...this.outcomeReceipts.values()].find(receipt => receipt.attentionRef === hashMetadata(item.id))
+      if (previousOutcome) this.updateExistingOutcome(item, { laterOutcome: 'recovered', recoveredBeforeOpen: !previousOutcome.opened })
+      changed = true
+    }
+    if (changed) {
+      this.bumpRevision()
+      this.queueSave()
+      this.syncSupervisor()
+    }
   }
 
   private onSubagentDelta(delta: 1 | -1): void {
@@ -1205,6 +1394,36 @@ export class DeepCanaryService {
         this.pressureSeen.delete(threshold)
       }
     }
+    this.syncSupervisor()
+  }
+
+  /**
+   * `agent/error` is the AgentLoop driver's terminal boundary. Most current
+   * DSH turns also publish `turn/end`, but the error boundary is the only
+   * authoritative signal available when a failure prevents that append (for
+   * example, a stop race during stream settlement). Keep the task reason as
+   * TASK_FAILED — only `turn/end` with an `aborted` reason proves a user abort
+   * — while closing the liveness projection so a terminal failure cannot later
+   * become a misleading HOST_SUSPECTED_STALL.
+   */
+  private onAgentError(payload: Record<string, any>): void {
+    const id = idOf(payload.agent)
+    if (id === undefined) return
+    const session = this.sessions.get(id)
+    if (session === undefined || !session.active) return
+    const now = Date.now()
+    session.running = false
+    session.turnState = 'terminal'
+    session.stalled = false
+    session.waitingForHuman = false
+    session.activeToolCount = 0
+    session.toolClass = 'unknown'
+    session.activeToolIds.clear()
+    session.lastEventAt = now
+    this.ready.then(() => {
+      if (!this.disposed) this.resolveHumanWait(id, now, 'failed')
+    })
+    this.bumpRevision()
     this.syncSupervisor()
   }
 
@@ -1225,7 +1444,12 @@ export class DeepCanaryService {
         toolFailures: session.toolFailures,
         activeSubagents: session.activeSubagents,
         lastEventAt: session.lastEventAt,
+        lastMeaningfulAt: session.lastMeaningfulAt,
         startedAt: session.startedAt,
+        activeToolCount: session.activeToolCount,
+        toolClass: session.toolClass,
+        waitingForHuman: session.waitingForHuman,
+        turnState: session.turnState,
       }, thresholdMs)
       if (signal) {
         session.stalled = true
@@ -1292,6 +1516,9 @@ export class DeepCanaryService {
     }
     item.confidence = Math.max(item.confidence, verdict.confidence)
     item.occurredAt = signal.occurredAt
+    const incomingTaskState = taskStateForReason(signal.kind)
+    if (incomingTaskState !== undefined) item.taskState = incomingTaskState
+    if (signal.sessionId !== undefined && item.targetAvailable === undefined) item.targetAvailable = true
     const bundleTrace = mergeBundleTrace(item.decisionTrace, verdict.decisionTrace, item.bundleCount, item.reasonCodes, item.level, item.action)
     if (bundleTrace === undefined) delete item.decisionTrace
     else item.decisionTrace = bundleTrace
@@ -1327,22 +1554,6 @@ export class DeepCanaryService {
     }
     this.bumpRevision()
     return item
-  }
-
-  private expireSessionItems(sessionId: string): void {
-    let changed = false
-    for (const item of this.items) {
-      if (item.sessionId !== sessionId || (item.status !== 'open' && item.status !== 'seen' && item.status !== 'snoozed')) continue
-      item.status = 'expired'
-      item.expiredAt = nowIso()
-      delete item.snoozedUntil
-      changed = true
-    }
-    if (changed) {
-      this.bumpRevision()
-      this.queueSave()
-      this.syncSupervisor()
-    }
   }
 
   private pressureThresholds(): number[] {
@@ -1458,6 +1669,8 @@ export class DeepCanaryService {
       ...(item.recoveredAt ? { recoveredAt: item.recoveredAt } : {}),
       ...(item.expiredAt ? { expiredAt: item.expiredAt } : {}),
       ...(item.mutedUntil ? { mutedUntil: item.mutedUntil } : {}),
+      ...(item.targetAvailable === undefined ? {} : { targetAvailable: item.targetAvailable }),
+      ...(item.taskState === undefined ? {} : { taskState: item.taskState }),
       ...(item.feedback ? { feedback: { useful: item.feedback.useful, ...(item.feedback.value === undefined ? {} : { value: item.feedback.value }), at: item.feedback.at } } : {}),
       bundleCount: item.bundleCount,
       reasonCodes: [...item.reasonCodes],
@@ -1512,8 +1725,27 @@ export class DeepCanaryService {
       .map(session => session.id))
     let changed = false
     for (const item of this.items) {
-      if (!isActiveInboxStatus(item.status) || item.sessionId === undefined) continue
+      if (item.sessionId === undefined) continue
       if (liveSessionIds.has(item.sessionId)) {
+        if (item.orphanedAt !== undefined) {
+          delete item.orphanedAt
+          changed = true
+        }
+        if (item.targetAvailable === false) {
+          item.targetAvailable = true
+          changed = true
+        }
+        continue
+      }
+      if (item.targetAvailable !== false) {
+        item.targetAvailable = false
+        changed = true
+      }
+      if (!isActiveInboxStatus(item.status)) continue
+      // A terminal task fact is a retained completion/failure summary, not a
+      // live-session lease. Disposal or a missing native handle must not make
+      // that user-visible result disappear during reconciliation.
+      if (item.taskState === 'completed' || item.taskState === 'failed' || item.taskState === 'aborted' || item.taskState === 'disposed') {
         if (item.orphanedAt !== undefined) {
           delete item.orphanedAt
           changed = true

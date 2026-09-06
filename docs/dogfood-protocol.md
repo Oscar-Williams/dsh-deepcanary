@@ -42,7 +42,7 @@ The capture contract uses one task family and one scenario for each run. Fine-gr
 | Observation event class | `human-needed`, `host-health`, `stuck-progress`, `subagent-pressure`, `context-pressure`, `completion`, `healthy-run` | Opportunity or state type inside a run |
 | Independent audit disposition | `delivered`, `suppressed-by-policy`, `missed`, `not-in-scope` | Audit finding mapped to runtime decision fields |
 
-The schemaVersion 1 bundle uses `provenance=real` for a natural-real run, `provenance=controlled` for a controlled-real run, and `provenance=replay` for a deterministic fixture or replay. The independent audit source `manual-audit` is recorded in the audit sidecar and is not substituted into the schemaVersion 1 bundle provenance enum. Reports preserve the distinction between natural-real, controlled-real, fixture, and manual-audit evidence.
+The schemaVersion 1 bundle uses `provenance=real` for a real capture, `provenance=controlled` for a controlled capture, and `provenance=replay` for a deterministic fixture or replay. The optional `taskOrigin` field separately records whether the underlying work was `natural`, `controlled`, `replay`, or `unknown`; provenance and task intent must not be relabeled to upgrade evidence. The independent audit source `manual-audit` is recorded in the audit sidecar and is not substituted into the schemaVersion 1 bundle provenance enum. Reports preserve the distinction between natural-real, controlled-real, fixture, and manual-audit evidence.
 
 Examples:
 
@@ -109,13 +109,13 @@ memoryOverhead
 
 Use three independent coverage measures:
 
-1. `User-facing Review Coverage = reviewedDeliveryUnits / reviewEligibleDeliveryUnits`, where the denominator contains unique final Inbox, Digest, Interrupt, and Escalate delivery units that require user understanding or judgment.
+1. `User-facing Review Coverage = reviewedVisibleFinalDeliveryUnits / visibleFinalDeliveryUnits`, where the denominator contains unique final Inbox, Digest, Interrupt, and Escalate delivery units that require user understanding or judgment and whose `deliveryVisibility.status` is explicitly `visible`. Count materialized or browser-constructed units with unverified visibility in a separate `unknownVisibilityFinalDeliveryUnits` measure; do not treat them as visible or as a missed review.
 2. `Negative Opportunity Audit Coverage`, which samples C0, suppressed, deduped, no-delivery, and recovery-closed opportunities to detect false negatives and incorrect suppression.
 3. `Scenario Coverage`, which reports every declared run-level task family and scenario separately.
 
-System bookkeeping such as heartbeat, deduplication, and recovery closure does not automatically enter user usefulness review. `reviewed observations / all observations` is retained as a diagnostic count and is not the primary usefulness denominator.
+System bookkeeping such as heartbeat, deduplication, and recovery closure does not automatically enter user usefulness review. `reviewed observations / all observations` and materialized-unit counts are retained as diagnostic measures and are not the primary usefulness denominator. `reviewSource` (`user-feedback`, `engineering-review`, `independent-audit`, or `unknown`), `reviewBasis`, and `reviewConfidence` must remain visible in the report so an engineering assessment cannot be presented as a user's explicit judgment.
 
-Calibration begins after at least two independent real runs across two workdays, five Human Needed opportunities, three healthy-long-run samples, one recovery chain, and five reviewed user-facing delivery units. Stable evidence additionally targets three natural-real runs across three workdays, three task families, ten audited Human Needed opportunities, fifteen reviewed user-facing delivery units with at least 80% review coverage, five reviewed C2/C3 units, five healthy-long-run samples with two hours of supervised time, three recovery chains including one network/Host recovery, one recovery-continued case, zero duplicate final interrupts, and `rawContentPersisted=false`. Reports show numerator, denominator, exact counts, provenance, confidence interval, and `insufficient-sample` when a floor is not met.
+Calibration begins after at least two independent real runs across two workdays, five Human Needed opportunities, three healthy-long-run samples, one recovery chain, and five reviewed visible final delivery units. Stable evidence additionally targets three natural-real runs across three workdays, three task families, ten audited Human Needed opportunities, fifteen reviewed visible final delivery units with at least 80% visible review coverage, five reviewed C2/C3 units, five healthy-long-run samples with two hours of supervised time, three recovery chains including one network/Host recovery, one recovery-continued case, zero duplicate final interrupts, and `rawContentPersisted=false`. Reports show numerator, denominator, exact counts, provenance, task intent, review source, visibility status, confidence interval, and `insufficient-sample` when a floor is not met.
 
 The local state directory stores receipts in `outcomes.json`. Read a filtered set through `GET /dsh-deepcanary/outcomes?source=real&trialId=manual-alpha5-01`. Generate a report after building the plugin:
 
@@ -136,6 +136,8 @@ OutcomeReceipts describe decisions that reached an Inbox item. A dogfood observa
 | Phase | `startup`, `running`, `human-wait`, `recovery`, `completion` |
 | Disposition | `c0-silent`, `deduped`, `bundle-merged`, `suppressed`, `inbox`, `digest`, `interrupt`, `escalate`, `recovery-closed`, `provider-error`, `sink-error`, `dropped-event` |
 | Review label | `correct-useful`, `correct-low-value`, `not-relevant`, `already-resolved`, `wrong-level`, `false-stall`, `missed-human-needed`, `duplicate-final-interrupt`, `too-late`, `provider-error`, `sink-error`, `dropped-event`, `uncertain` |
+
+For a delivery observation, `deliveryVisibility` is `{ "status": "visible", "source": "user-confirmed" | "os-observed" | "inbox-materialized" | "browser-constructed" }` only when the recorded source supports that claim; otherwise use `{ "status": "unknown", "source": "unknown" }`. A browser construction callback is not, by itself, proof that the user saw the final delivery. `reviewSource`, `reviewBasis`, and `reviewConfidence` are required for a qualified review and remain independent of `reviewLabel`, `policyReview`, and `userFeedback`.
 
 ### Independent DSH anchor audit
 
@@ -191,7 +193,7 @@ Validate and summarize a sanitized bundle after building the plugin:
 npm run dogfood:report -- --input <path-to-sanitized-dogfood.json> --out output/dogfood/dogfood-report.json
 ```
 
-The report emits numerators, denominators, rates, and an `insufficient-sample` status for small cohorts. The primary measures are Human Needed recall, usefulness rate, useful interrupt precision, wrong-level rate, false-stall rate, recovery-before-open rate, attention compression, dropped-event rate, and review coverage. `policyReview` describes decision correctness, while `userFeedback` and `usefulnessReason` describe user value; the legacy `reviewLabel` remains accepted for existing records. A single receipt or a single task family remains useful for diagnosis and is insufficient for a stable Gate D decision.
+The report emits numerators, denominators, rates, and an `insufficient-sample` status for small cohorts. The primary measures are Human Needed recall, usefulness rate, useful interrupt precision, wrong-level rate, false-stall rate, recovery-before-open rate, attention compression, dropped-event rate, and review coverage over visible final delivery units. `policyReview` describes decision correctness, while `userFeedback` and `usefulnessReason` describe user value; the legacy `reviewLabel` remains accepted for existing records but does not establish user usefulness on its own. A single receipt or a single task family remains useful for diagnosis and is insufficient for a stable Gate D decision.
 
 For a complete real dogfood view, keep each task family/scenario in its own bundle and merge only validated bundles:
 
@@ -206,9 +208,11 @@ npm run dogfood:merge -- `
 npm run dogfood:report -- --input output/dogfood/real-aggregate.json --out output/dogfood/real-aggregate-report.json
 ```
 
-The aggregate preserves `byTaskFamily`, `byScenario`, `byProvenance`, runtime and policy versions, per-run summaries, and explicit missing-category lists. It rejects duplicate run/trial identities and mixed provenance remains visible. Gate D accepts the aggregate only when all declared task families and scenarios, reviewed metrics, negative opportunities, and real provenance are present.
+The aggregate preserves `byTaskFamily`, `byScenario`, `byProvenance`, runtime and policy versions, per-run summaries, and explicit missing-category lists. It rejects duplicate run/trial identities and mixed provenance remains visible. Gate D accepts the aggregate only when all declared task families and scenarios, reviewed visible-final metrics, negative opportunities, independent audit anchors, and natural-real task intent are present.
 
 ### Runtime observation ledger
+
+The runtime observation ledger is authoritative for what DeepCanary received, not for what a person necessarily saw. Browser delivery first uses the bounded server-side logical claim; the later `attempted`, `constructed`, `click-handler-attached`, `clicked`, and `error` stages describe the client path. A missing callback or OS observation is `unknown`, not success. The independent review and visibility fields must be added without turning a materialized unit into a visible unit automatically.
 
 For a real DSH run, enable the recorder explicitly for that run. The recorder writes a separate hashed `dogfood-<run-id-hash>.json` file under the DeepCanary state directory. An ordinary DSH session does not create this file.
 
@@ -216,11 +220,12 @@ For a real DSH run, enable the recorder explicitly for that run. The recorder wr
 $env:DSH_DEEPCANARY_DOGFOOD = '1'
 $env:DSH_DEEPCANARY_DOGFOOD_RUN_ID = 'real-coding-alpha5-01'
 $env:DSH_DEEPCANARY_DOGFOOD_TRIAL_ID = 'real-alpha5-01'
+$env:DSH_DEEPCANARY_DOGFOOD_TASK_ORIGIN = 'natural'
 $env:DSH_DEEPCANARY_DOGFOOD_TASK_FAMILY = 'coding'
 $env:DSH_DEEPCANARY_DOGFOOD_SCENARIO = 'normal-completion'
 $env:DSH_DEEPCANARY_DOGFOOD_RUNTIME_TAG = 'dsh-v0.1.2-alpha.5'
 dsh --profile headless "Run the selected read-only coding task"
-Remove-Item Env:DSH_DEEPCANARY_DOGFOOD,Env:DSH_DEEPCANARY_DOGFOOD_RUN_ID,Env:DSH_DEEPCANARY_DOGFOOD_TRIAL_ID,Env:DSH_DEEPCANARY_DOGFOOD_TASK_FAMILY,Env:DSH_DEEPCANARY_DOGFOOD_SCENARIO,Env:DSH_DEEPCANARY_DOGFOOD_RUNTIME_TAG -ErrorAction SilentlyContinue
+Remove-Item Env:DSH_DEEPCANARY_DOGFOOD,Env:DSH_DEEPCANARY_DOGFOOD_RUN_ID,Env:DSH_DEEPCANARY_DOGFOOD_TRIAL_ID,Env:DSH_DEEPCANARY_DOGFOOD_TASK_ORIGIN,Env:DSH_DEEPCANARY_DOGFOOD_TASK_FAMILY,Env:DSH_DEEPCANARY_DOGFOOD_SCENARIO,Env:DSH_DEEPCANARY_DOGFOOD_RUNTIME_TAG -ErrorAction SilentlyContinue
 ```
 
 Every accepted runtime signal is recorded, including C0 silence, suppression, deduplication, Bundle merges, recovery closure, delivery opportunities, and dropped-event outcomes. The recorder stores only bounded structured fields and hashed references. Pass the matching file explicitly to the capture helper so the runtime ledger remains authoritative for negative opportunities:
@@ -234,6 +239,7 @@ npm run dogfood:capture -- `
   --task-family coding `
   --scenario normal-completion `
   --provenance real `
+  --task-origin natural `
   --started-at <ISO-start> `
   --ended-at <ISO-end> `
   --out output/dogfood/real-coding-alpha5-01.json
@@ -253,6 +259,7 @@ npm run dogfood:capture -- `
   --task-family coding `
   --scenario normal-completion `
   --provenance controlled `
+  --task-origin controlled `
   --started-at <ISO-start> `
   --ended-at <ISO-end> `
   --out output/dogfood/real-coding-01.json

@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { ATTENTION_POLICY_VERSION } from './types.js'
 import { SUPPRESSIBLE_REASON_CODES } from './types.js'
-import type { AttentionAction, AttentionLevel, EvidenceAuthority, EvidenceType, FeedbackValue, InboxItem, InboxStatus, MessageParams, PolicyDecisionTrace, ReasonCode, SuppressibleReasonCode } from './types.js'
+import type { AttentionAction, AttentionLevel, EvidenceAuthority, EvidenceType, FeedbackValue, InboxItem, InboxStatus, MessageParams, PolicyDecisionTrace, ReasonCode, SuppressibleReasonCode, TaskState } from './types.js'
 
 interface PersistedEvidence {
   type: EvidenceType
@@ -42,6 +42,8 @@ interface PersistedItem {
   expiredAt?: string
   orphanedAt?: string
   mutedUntil?: string
+  targetAvailable?: boolean
+  taskState?: TaskState
   feedback?: { useful: boolean; value?: FeedbackValue; note?: string; at: string }
   bundleKey?: string
   bundleCount?: number
@@ -95,6 +97,8 @@ function toPersisted(item: InboxItem): PersistedItem {
     ...(item.expiredAt ? { expiredAt: item.expiredAt } : {}),
     ...(item.orphanedAt ? { orphanedAt: item.orphanedAt } : {}),
     ...(item.mutedUntil ? { mutedUntil: item.mutedUntil } : {}),
+    ...(item.targetAvailable === undefined ? {} : { targetAvailable: item.targetAvailable }),
+    ...(item.taskState === undefined ? {} : { taskState: item.taskState }),
     ...(item.feedback ? { feedback: { ...item.feedback, ...(item.feedback.note ? { note: item.feedback.note.slice(0, 200) } : {}) } } : {}),
     ...(item.bundleKey ? { bundleKey: item.bundleKey } : {}),
     bundleCount: item.bundleCount,
@@ -139,6 +143,8 @@ function fromPersisted(item: PersistedItem): InboxItem {
     ...(item.expiredAt ? { expiredAt: item.expiredAt } : {}),
     ...(item.orphanedAt ? { orphanedAt: item.orphanedAt } : {}),
     ...(item.mutedUntil ? { mutedUntil: item.mutedUntil } : {}),
+    ...(item.targetAvailable === undefined ? {} : { targetAvailable: item.targetAvailable }),
+    ...(item.taskState === undefined ? {} : { taskState: item.taskState }),
     ...(feedback === undefined ? {} : { feedback }),
     ...(item.bundleKey ? { bundleKey: item.bundleKey } : {}),
     bundleCount: typeof item.bundleCount === 'number' && Number.isSafeInteger(item.bundleCount) && item.bundleCount > 0 ? item.bundleCount : 1,
@@ -231,6 +237,8 @@ function isPersistedItem(value: unknown): value is PersistedItem {
     && Array.isArray(item.evidence)
     && typeof item.status === 'string'
     && isInboxStatus(item.status)
+    && (item.targetAvailable === undefined || typeof item.targetAvailable === 'boolean')
+    && (item.taskState === undefined || isTaskState(item.taskState))
 }
 
 function isSafeOpaqueId(value: unknown): value is string {
@@ -347,4 +355,14 @@ function isInboxStatus(value: string): value is InboxStatus {
     || value === 'muted'
     || value === 'recovered'
     || value === 'expired'
+}
+
+function isTaskState(value: unknown): value is TaskState {
+  return value === 'running'
+    || value === 'waiting-human'
+    || value === 'completed'
+    || value === 'failed'
+    || value === 'aborted'
+    || value === 'disposed'
+    || value === 'unknown'
 }

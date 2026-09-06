@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { signalFromHostProbe, signalFromStallRecovery, signalsFromSessionEvent } from '../src/providers.js'
+import { signalFromHostProbe, signalFromStall, signalFromStallRecovery, signalsFromSessionEvent, toolCallIdOf } from '../src/providers.js'
 
 const session = { id: 'session-1', header: { cwd: 'C:\\work' } }
 const facts = { toolFailures: 3, activeSubagents: 0, lastEventAt: 1_000, startedAt: 1_000 }
@@ -57,6 +57,17 @@ describe('runtime providers', () => {
     }, facts)[0]).toMatchObject({ kind: 'HUMAN_QUESTION_PENDING', severityHint: 3 })
   })
 
+  it('reads the Session v2 public tool identity without inspecting result content', () => {
+    expect(toolCallIdOf({
+      message: {
+        role: 'user',
+        source: { kind: 'tool', callId: 'session-v2-call' },
+        content: [{ type: 'tool-result', toolCallId: 'session-v2-call', content: [{ text: 'private result' }] }],
+      },
+    })).toBe('session-v2-call')
+    expect(toolCallIdOf({ message: { toolCallId: 'legacy-call' } })).toBe('legacy-call')
+  })
+
   it('raises repeated compaction to context pressure and keeps recovery unbundled', () => {
     const event = { type: 'context/compaction', time: 4_000, data: { kind: 'compaction' } }
     expect(signalsFromSessionEvent(session, event, { ...facts, contextCompactions: 1 })[0]).toMatchObject({ kind: 'COMPACTION_OCCURRED' })
@@ -82,5 +93,40 @@ describe('runtime providers', () => {
       time: 5_001,
       data: { error: { code: 'EFAIL' } },
     }, { ...facts, toolFailures: 9, sameToolFailures: 3, lastToolName: 'read' })[0]).toMatchObject({ kind: 'TOOL_FAILURE_LOOP' })
+  })
+
+  it('does not call an in-flight long tool stalled at the ordinary threshold', () => {
+    expect(signalFromStall(session, {
+      ...facts,
+      lastMeaningfulAt: 1_000,
+      activeToolCount: 1,
+      toolClass: 'long-running',
+      turnState: 'running',
+    }, 300_000, 301_000)).toBeUndefined()
+    expect(signalFromStall(session, {
+      ...facts,
+      lastMeaningfulAt: 1_000,
+      activeToolCount: 1,
+      toolClass: 'long-running',
+      turnState: 'running',
+    }, 300_000, 601_000)).toMatchObject({ kind: 'HOST_SUSPECTED_STALL', data: { activeToolCount: 1, toolClass: 'long-running' } })
+  })
+
+  it('does not treat noise or human waiting as a stall recovery/probe', () => {
+    expect(signalFromStall(session, {
+      ...facts,
+      lastMeaningfulAt: 1_000,
+      lastEventAt: 300_000,
+      waitingForHuman: true,
+      turnState: 'running',
+    }, 300_000, 601_000)).toBeUndefined()
+  })
+
+  it('does not infer a stall when the runtime turn state is explicitly unknown', () => {
+    expect(signalFromStall(session, {
+      ...facts,
+      lastMeaningfulAt: 1_000,
+      turnState: 'unknown',
+    }, 300_000, 601_000)).toBeUndefined()
   })
 })

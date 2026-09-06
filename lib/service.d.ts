@@ -6,7 +6,7 @@ import { OutcomeStore } from './outcome.js';
 import { PersistentSupervisor } from './supervisor.js';
 import type { CanarySignal, DeepCanaryConfig, DryRunRequest, DryRunResult, FeedbackValue, InboxItem, PublicInboxItem, PublicSettings, PublicSnapshot, OutcomeReceipt, OutcomeDeleteFilter, OutcomeReceiptInput, RuntimeStatus, SuppressibleReasonCode } from './types.js';
 declare const PLUGIN_NAME = "dsh-deepcanary";
-declare const PLUGIN_VERSION = "0.1.1-rc.3";
+declare const PLUGIN_VERSION = "0.1.1-rc.4";
 interface ActionReceipt {
     status: number;
     body: Record<string, unknown>;
@@ -95,9 +95,12 @@ export declare class DeepCanaryService {
     };
     /** Apply one browser action exactly once for its request id. */
     performAction(requestId: string, id: string, action: string, payload?: Record<string, unknown>): Promise<ActionReceipt>;
+    /** Reserve one browser notification before a client constructs it. */
+    private claimNotification;
     /** Accept only redacted browser-sink facts for a known attention item. */
     private recordNotificationDelivery;
     private isNotificationDeliveryPayload;
+    private isNotificationClaimPayload;
     recordHostProbe(ok: boolean, detail?: string): Promise<void>;
     private startSupervisor;
     private ensureSupervisorStarted;
@@ -112,14 +115,24 @@ export declare class DeepCanaryService {
     private onSessionCreated;
     private onSessionDisposed;
     private onSessionEvent;
+    private resolveHumanWait;
     private onSubagentDelta;
+    /**
+     * `agent/error` is the AgentLoop driver's terminal boundary. Most current
+     * DSH turns also publish `turn/end`, but the error boundary is the only
+     * authoritative signal available when a failure prevents that append (for
+     * example, a stop race during stream settlement). Keep the task reason as
+     * TASK_FAILED — only `turn/end` with an `aborted` reason proves a user abort
+     * — while closing the liveness projection so a terminal failure cannot later
+     * become a misleading HOST_SUSPECTED_STALL.
+     */
+    private onAgentError;
     private checkStalls;
     private findBundle;
     /** Apply delivery policy and reserve one C2 budget unit only for a new interrupt. */
     private applyPolicy;
     private mergeBundle;
     private recover;
-    private expireSessionItems;
     private pressureThresholds;
     private applySettings;
     private resetLivenessTimer;

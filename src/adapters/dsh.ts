@@ -1,5 +1,6 @@
 import type { Context } from '@deepseek-ai/cordis'
-import type { SessionEventLike, SessionLike } from '../providers.js'
+import { isMeaningfulSessionEvent, toolCallIdOf, toolClassForName } from '../providers.js'
+import type { SessionEventLike, SessionLike, ToolClass, TurnState } from '../providers.js'
 import type { ReconciliationStatus } from '../types.js'
 
 export interface Disposable {
@@ -20,12 +21,17 @@ export interface SessionSnapshot {
   cwd?: string
   startedAt: number
   lastEventAt: number
+  /** Last event boundary that proves meaningful task progress. */
+  lastMeaningfulAt?: number
   /** The exact last existing event sequence observed in the DSH session log. */
   lastEventSeq?: number
   /** Count of events in the authoritative snapshot; this is not a SessionSeq. */
   eventCount?: number
   running?: boolean
+  turnState?: TurnState
   waitingForHuman?: boolean
+  activeToolCount?: number
+  toolClass?: ToolClass
   humanNeededReason?: 'approval' | 'question'
   humanNeededSeq?: number
   toolFailures?: number
@@ -204,16 +210,20 @@ export class ContextDshAdapter implements DshAdapter {
         .map(snapshot => snapshot.sessionId))
       for (const session of listedSessions) {
         const snapshot = snapshotFromSession(session, true)
-        if (snapshot === undefined) continue
+        if (snapshot === undefined || snapshot.eventCount === undefined) {
+          throw new TypeError('A listed session has no readable, contiguous public snapshotEvents() history.')
+        }
         authoritative.set(snapshot.sessionId, { session, snapshot })
         baseline.set(snapshot.sessionId, snapshot.eventCount)
-        this.snapshots.set(snapshot.sessionId, snapshot)
       }
+      // Commit the baseline only when every listed member was readable. A
+      // partial read must not create a false disposal or authoritative empty set.
+      for (const { snapshot } of authoritative.values()) this.snapshots.set(snapshot.sessionId, snapshot)
 
       // SessionStore.list() is the authoritative live-session set. A session
       // that was previously live and is now absent has converged to the
-      // disposal edge; publish that edge so the service can expire its
-      // session-scoped pending items without relying on a missed firehose
+      // disposal edge; publish that edge so the service can retain its
+      // summaries but mark live navigation unavailable, without a missed firehose
       // event. This only runs after a successful authoritative read.
       for (const sessionId of previouslyActive) {
         if (authoritative.has(sessionId)) continue
@@ -334,7 +344,9 @@ function sessionEvents(value: unknown): readonly SessionEventRecord[] | undefine
   if (!isRecord(value) || typeof value.snapshotEvents !== 'function') return undefined
   try {
     const events = (value.snapshotEvents as () => unknown)()
-    return Array.isArray(events) ? events.filter(isRecord) as SessionEventRecord[] : undefined
+    return Array.isArray(events) && events.every((event, index) => isRecord(event)
+      && event.seq === index && typeof event.type === 'string')
+      ? events as SessionEventRecord[] : undefined
   } catch {
     return undefined
   }
@@ -362,8 +374,10 @@ function snapshotFromSession(value: unknown, active: boolean): SessionSnapshot |
   const createdAt = numberValue(header.createdAt) ?? now
   let startedAt = createdAt
   let lastEventAt = createdAt
+  let lastMeaningfulAt: number | undefined
   let lastEventSeq: number | undefined
   let running = false
+  let turnState: TurnState = 'unknown'
   let waitingForHuman = false
   let humanNeededReason: SessionSnapshot['humanNeededReason']
   let humanNeededSeq: number | undefined
@@ -371,6 +385,9 @@ function snapshotFromSession(value: unknown, active: boolean): SessionSnapshot |
   let sameToolFailures = 0
   let contextCompactions = 0
   let lastToolName: string | undefined
+  let activeToolCount = 0
+  let toolClass: ToolClass = 'unknown'
+  const activeTools = new Map<string, string | undefined>()
   for (const event of events ?? []) {
     const type = typeof event.type === 'string' ? event.type : undefined
     const time = numberValue(event.time)
@@ -379,8 +396,10 @@ function snapshotFromSession(value: unknown, active: boolean): SessionSnapshot |
     if (seq !== undefined) lastEventSeq = seq
     if (event.ignorable === true || type === undefined) continue
     const data = isRecord(event.data) ? event.data : {}
+    if (time !== undefined && isMeaningfulSessionEvent(type, data)) lastMeaningfulAt = time
     if (type === 'turn/start') {
       running = true
+      turnState = 'running'
       waitingForHuman = false
       humanNeededReason = undefined
       humanNeededSeq = undefined
@@ -389,8 +408,12 @@ function snapshotFromSession(value: unknown, active: boolean): SessionSnapshot |
       sameToolFailures = 0
       contextCompactions = 0
       lastToolName = undefined
+      activeToolCount = 0
+      toolClass = 'unknown'
+      activeTools.clear()
     }
-    const observedToolName = toolNameOf(data) ?? lastToolName
+    const callId = toolCallIdOf(data)
+    const observedToolName = toolNameOf(data) ?? (callId === undefined ? lastToolName : activeTools.get(callId))
     const humanRequested = type === 'approval/asked'
       || data.humanNeeded === true
       || data.requiresApproval === true
@@ -412,8 +435,14 @@ function snapshotFromSession(value: unknown, active: boolean): SessionSnapshot |
       humanNeededReason = undefined
       humanNeededSeq = undefined
     }
-    if (type === 'tool/call' && observedToolName !== undefined) lastToolName = observedToolName
+    if (type === 'tool/call') {
+      if (callId === undefined || !activeTools.has(callId)) activeToolCount += 1
+      if (callId !== undefined) activeTools.set(callId, observedToolName)
+      toolClass = toolClassForName(observedToolName)
+      if (observedToolName !== undefined) lastToolName = observedToolName
+    }
     if (type === 'tool/result') {
+      if (callId === undefined || activeTools.delete(callId)) activeToolCount = Math.max(0, activeToolCount - 1)
       if (data.error !== undefined) {
         toolFailures += 1
         sameToolFailures = observedToolName !== undefined && observedToolName === lastToolName ? sameToolFailures + 1 : 1
@@ -422,10 +451,15 @@ function snapshotFromSession(value: unknown, active: boolean): SessionSnapshot |
         toolFailures = 0
         sameToolFailures = 0
       }
+      if (activeToolCount === 0) toolClass = 'unknown'
     }
     if (type === 'compaction/start') contextCompactions += 1
     if (type === 'turn/end') {
       running = false
+      turnState = 'terminal'
+      activeToolCount = 0
+      toolClass = 'unknown'
+      activeTools.clear()
       waitingForHuman = false
       humanNeededReason = undefined
       humanNeededSeq = undefined
@@ -439,10 +473,14 @@ function snapshotFromSession(value: unknown, active: boolean): SessionSnapshot |
     ...(cwd === undefined ? {} : { cwd }),
     startedAt,
     lastEventAt,
+    ...(lastMeaningfulAt === undefined ? {} : { lastMeaningfulAt }),
     ...(lastEventSeq === undefined ? {} : { lastEventSeq }),
     ...(eventCount === undefined ? {} : { eventCount }),
     running,
+    turnState,
     waitingForHuman,
+    activeToolCount,
+    toolClass,
     ...(humanNeededReason === undefined ? {} : { humanNeededReason }),
     ...(humanNeededSeq === undefined ? {} : { humanNeededSeq }),
     toolFailures,
@@ -473,6 +511,10 @@ function applyEventToSnapshot(snapshots: Map<string, SessionSnapshot>, event: De
     const occurredAt = numberValue(event.event.time)
     const seq = safeInteger(event.event.seq)
     if (occurredAt !== undefined) snapshot.lastEventAt = occurredAt
+    if (occurredAt !== undefined && isMeaningfulSessionEvent(
+      typeof event.event.type === 'string' ? event.event.type : '',
+      isRecord(event.event.data) ? event.event.data : {},
+    )) snapshot.lastMeaningfulAt = occurredAt
     if (seq !== undefined) {
       snapshot.lastEventSeq = seq
       if (snapshot.eventCount !== undefined) snapshot.eventCount = Math.max(snapshot.eventCount, seq + 1)
@@ -500,7 +542,8 @@ function sameAuthoritativeSessionSet(
   const listed = new Map<string, SessionSnapshot>()
   for (const session of sessions) {
     const snapshot = snapshotFromSession(session, true)
-    if (snapshot !== undefined) listed.set(snapshot.sessionId, snapshot)
+    if (snapshot === undefined || snapshot.eventCount === undefined) return false
+    listed.set(snapshot.sessionId, snapshot)
   }
   const expected = new Set(expectedIds)
   if (listed.size !== expected.size) return false

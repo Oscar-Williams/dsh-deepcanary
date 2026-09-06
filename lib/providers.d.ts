@@ -3,15 +3,26 @@ export interface SessionFacts {
     toolFailures: number;
     activeSubagents: number;
     lastEventAt: number;
+    /** Last boundary that proves the task made meaningful progress. */
+    lastMeaningfulAt?: number;
     startedAt: number;
+    /** Number of tools that have been called without a matching result. */
+    activeToolCount?: number;
+    /** The class of the currently active/most recent tool, without its arguments. */
+    toolClass?: ToolClass;
+    waitingForHuman?: boolean;
+    turnState?: TurnState;
     contextCompactions?: number;
     lastToolName?: string;
     sameToolFailures?: number;
 }
+export type ToolClass = 'long-running' | 'ordinary' | 'unknown';
+export type TurnState = 'running' | 'terminal' | 'unknown';
 export interface SessionLike {
     id: string;
     header?: {
         cwd?: string;
+        parentSession?: string;
     };
 }
 export interface SessionEventLike {
@@ -22,6 +33,12 @@ export interface SessionEventLike {
     ignorable?: boolean;
     data?: Record<string, unknown>;
 }
+/** Classify only the public tool name; arguments and result content are never inspected. */
+export declare function toolClassForName(name: string | undefined): ToolClass;
+/** Read the public tool identity, never the model-facing result content. */
+export declare function toolCallIdOf(data: Record<string, unknown>): string | undefined;
+/** Whether an event is a bounded, structured progress boundary for liveness. */
+export declare function isMeaningfulSessionEvent(eventType: string, data?: Record<string, unknown>): boolean;
 export declare function signalsFromSessionEvent(session: SessionLike, event: SessionEventLike, facts: SessionFacts): CanarySignal[];
 /**
  * Recreate a Human Needed observation from an authoritative startup snapshot.

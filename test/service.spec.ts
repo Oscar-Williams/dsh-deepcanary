@@ -28,6 +28,80 @@ afterEach(async () => {
 })
 
 describe('DeepCanaryService', () => {
+  it('closes the liveness projection on a terminal agent error without relabeling it as an abort', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-agent-error-terminal-'))
+    let agentError: ((payload: unknown) => void) | undefined
+    const listeners = new Map<string, (...args: any[]) => void>()
+    const service = new DeepCanaryService({
+      logger: {},
+      on: (name: string, listener: (...args: any[]) => void) => { listeners.set(name, listener) },
+      inject: (services: string[], callback: (value: unknown) => unknown) => {
+        if (services[0] !== 'agents') return
+        callback({ on: (name: string, listener: (payload: unknown) => void) => {
+          if (name === 'agent/error') agentError = listener
+        } })
+      },
+    } as never, { stateDir: directory, longRunThresholdMinutes: 1, maxInboxItems: 50 })
+    services.push(service)
+    try {
+      await service.ready
+      service.start()
+      const session = { id: 'agent-error-session', header: { cwd: 'C:\\work' } }
+      listeners.get('session/created')?.(session)
+      listeners.get('session/event')?.(session, { type: 'turn/start', seq: 0, data: { turn: 1 } })
+
+      agentError?.({ agent: { id: session.id }, turn: 1, step: 2, error: new Error('stream settlement failed') })
+      await Promise.resolve()
+      await Promise.resolve()
+
+      const live = (service as unknown as { sessions: Map<string, { running: boolean; turnState: string }> }).sessions.get(session.id)
+      expect(live).toMatchObject({ running: false, turnState: 'terminal' })
+      expect(service.inbox(20).find(item => item.reasonCode === 'TASK_FAILED')).toMatchObject({
+        taskState: 'failed',
+      })
+      expect(service.inbox(20).some(item => item.reasonCode === 'TASK_ABORTED')).toBe(false)
+
+      ;(service as unknown as { checkStalls: () => void }).checkStalls()
+      await Promise.resolve()
+      expect(service.inbox(20).some(item => item.reasonCode === 'HOST_SUSPECTED_STALL')).toBe(false)
+    } finally {
+      await service.dispose()
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
+  it('closes a Session v2 question only on its result and accepts the next question generation', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-v2-question-'))
+    const listeners = new Map<string, (...args: any[]) => void>()
+    const service = new DeepCanaryService({ logger: {}, on: (name: string, listener: (...args: any[]) => void) => { listeners.set(name, listener) } } as never, { stateDir: directory })
+    services.push(service)
+    try {
+      await service.ready
+      service.start()
+      const session = { id: 'v2-question' }
+      const emit = async (type: string, seq: number, data: Record<string, unknown>) => {
+        listeners.get('session/event')?.(session, { type, seq, data })
+        await Promise.resolve()
+        await Promise.resolve()
+      }
+      listeners.get('session/created')?.(session)
+      await emit('turn/start', 0, { turn: 1 })
+      await emit('tool/call', 1, { name: 'ask_user_question', callId: 'question-1' })
+      await emit('tool/call', 2, { name: 'read_file', callId: 'read-1' })
+      await emit('tool/result', 3, { message: { source: { kind: 'tool', callId: 'read-1' } } })
+      expect(service.inbox(20).find(item => item.reasonCode === 'HUMAN_QUESTION_PENDING')?.status).toBe('open')
+      await emit('tool/result', 4, { message: { source: { kind: 'tool', callId: 'question-1' } } })
+      expect(service.inbox(20).find(item => item.reasonCode === 'HUMAN_QUESTION_PENDING')).toMatchObject({ status: 'recovered', taskState: 'running' })
+      await emit('tool/call', 5, { name: 'ask_user_question', callId: 'question-2' })
+      expect(service.inbox(20).filter(item => item.reasonCode === 'HUMAN_QUESTION_PENDING' && item.status === 'open')).toHaveLength(1)
+      await emit('turn/end', 6, { reason: { kind: 'aborted' } })
+      expect(service.inbox(20).filter(item => item.reasonCode === 'HUMAN_QUESTION_PENDING' && item.status === 'open')).toHaveLength(0)
+    } finally {
+      await service.dispose()
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
   it('persists only metadata and a local opaque session handle, never session content', async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-'))
     const service = new DeepCanaryService({ logger: {} } as never, { stateDir: directory, maxInboxItems: 50 })
@@ -80,11 +154,58 @@ describe('DeepCanaryService', () => {
     }
     const result = await service.performAction('delivery-service-1', item!.id, 'notification-delivery', payload)
     expect(result.body).toMatchObject({ updated: true, result: { kind: 'notification-delivery-recorded' } })
+    const rejected = await service.performAction('delivery-service-invalid-ref', item!.id, 'notification-delivery', {
+      ...payload,
+      notificationRef: hashMetadata('not-this-item'),
+    })
+    expect(rejected.body).toMatchObject({ updated: false, result: { kind: 'notification-delivery-unavailable' } })
     await service.supervisor.flush()
     const persisted = JSON.parse(await readFile(service.supervisor.store.snapshotFile, 'utf8')) as { snapshot: { deliveryLedger?: unknown[] } }
     expect(persisted.snapshot.deliveryLedger).toHaveLength(1)
     expect(persisted.snapshot.deliveryLedger?.[0]).toMatchObject({ sink: 'browser', state: 'attempted', attempts: 1 })
     expect(JSON.stringify(persisted.snapshot.deliveryLedger)).not.toContain(item!.id)
+    await service.dispose()
+    await rm(directory, { recursive: true, force: true })
+  })
+
+  it('claims browser delivery before construction and prevents a competing tab', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-delivery-claim-service-'))
+    const service = new DeepCanaryService({ logger: {} } as never, { stateDir: directory, maxInboxItems: 50, supervisorMode: 'experimental' })
+    services.push(service)
+    await service.ready
+    service.start()
+    await (service as unknown as { supervisorStart: Promise<void> }).supervisorStart
+    const item = await service.ingest(testSignal())
+    expect(item).toBeDefined()
+    const expiresAt = new Date(Date.now() + 30_000).toISOString()
+    const claimPayload = { notificationClientInstance: 'tab-a', notificationExpiresAt: expiresAt }
+    const first = await service.performAction('delivery-claim-a', item!.id, 'notification-claim', claimPayload)
+    expect(first.body).toMatchObject({ updated: true, result: { kind: 'notification-claim', outcome: 'granted' } })
+    const competing = await service.performAction('delivery-claim-b', item!.id, 'notification-claim', {
+      notificationClientInstance: 'tab-b',
+      notificationExpiresAt: new Date(Date.now() + 30_000).toISOString(),
+    })
+    expect(competing.body).toMatchObject({ updated: true, result: { outcome: 'already-claimed' } })
+
+    const record = await service.performAction('delivery-record-after-claim', item!.id, 'notification-delivery', {
+      notificationStage: 'constructed',
+      notificationAttemptId: hashMetadata('delivery-claim-attempt'),
+      notificationRef: hashMetadata(`${item!.id}:notification`),
+      tagRef: hashMetadata(`${item!.id}:tag`),
+      titleKey: `notification.title.${item!.reasonCode}`,
+      bodyFingerprint: hashMetadata('safe-body'),
+      observedAt: new Date().toISOString(),
+    })
+    expect(record.body).toMatchObject({ updated: true, result: { kind: 'notification-delivery-recorded' } })
+    const complete = await service.performAction('delivery-claim-c', item!.id, 'notification-claim', {
+      notificationClientInstance: 'tab-c',
+      notificationExpiresAt: new Date(Date.now() + 30_000).toISOString(),
+    })
+    expect(complete.body).toMatchObject({ updated: true, result: { outcome: 'already-complete' } })
+    await service.supervisor.flush()
+    const persisted = JSON.parse(await readFile(service.supervisor.store.snapshotFile, 'utf8')) as { snapshot: { deliveryLedger?: Array<Record<string, unknown>> } }
+    expect(persisted.snapshot.deliveryLedger?.[0]).toMatchObject({ state: 'browser-constructed', attempts: 1 })
+    expect(JSON.stringify(persisted.snapshot.deliveryLedger)).not.toContain('tab-a')
     await service.dispose()
     await rm(directory, { recursive: true, force: true })
   })
@@ -522,10 +643,127 @@ describe('DeepCanaryService', () => {
     listeners.get('session/created')?.({ id: 'session-private-id', header: { cwd: 'C:\\work' } })
     expect(second.jump(item?.id ?? '')).toMatchObject({ available: true, sessionId: 'session-private-id' })
     listeners.get('session/disposed')?.({ id: 'session-private-id' })
-    expect(second.inbox(10)[0]).toMatchObject({ status: 'expired' })
+    expect(second.inbox(10)[0]).toMatchObject({ status: 'open', targetAvailable: false, taskState: 'disposed' })
+    expect(second.jump(item?.id ?? '')).toMatchObject({ available: false, sessionId: 'session-private-id' })
     await second.dispose()
     expect(await readFile(second.store.file, 'utf8')).toContain('session-private-id')
     await rm(directory, { recursive: true, force: true })
+  })
+
+  it('uses meaningful progress and tool-in-flight state for liveness', async () => {
+    vi.useFakeTimers()
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-long-tool-'))
+    const listeners = new Map<string, (...args: any[]) => void>()
+    try {
+      const base = new Date('2026-09-04T00:00:00.000Z')
+      vi.setSystemTime(base)
+      const service = new DeepCanaryService({
+        logger: {},
+        on: (name: string, listener: (...args: any[]) => void) => { listeners.set(name, listener) },
+      } as never, { stateDir: directory, longRunThresholdMinutes: 5, maxInboxItems: 50 })
+      services.push(service)
+      await service.ready
+      service.start()
+      const session = { id: 'long-tool-session', header: { cwd: 'C:\\work' } }
+      listeners.get('session/created')?.(session)
+      listeners.get('session/event')?.(session, { type: 'turn/start', seq: 1, data: {} })
+      listeners.get('session/event')?.(session, { type: 'tool/call', seq: 2, data: { name: 'bash', callId: 'call-1' } })
+
+      vi.advanceTimersByTime(5 * 60 * 1000)
+      ;(service as unknown as { checkStalls: () => void }).checkStalls()
+      await Promise.resolve()
+      await Promise.resolve()
+      expect(service.inbox(20).some(item => item.reasonCode === 'HOST_SUSPECTED_STALL')).toBe(false)
+
+      vi.advanceTimersByTime(5 * 60 * 1000 + 1)
+      ;(service as unknown as { checkStalls: () => void }).checkStalls()
+      await Promise.resolve()
+      await Promise.resolve()
+      expect(service.inbox(20).some(item => item.reasonCode === 'HOST_SUSPECTED_STALL')).toBe(true)
+      await service.dispose()
+    } finally {
+      vi.useRealTimers()
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
+  it('retains a completion summary after the native session is disposed', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-completion-retention-'))
+    const listeners = new Map<string, (...args: any[]) => void>()
+    try {
+      const service = new DeepCanaryService({
+        logger: {},
+        on: (name: string, listener: (...args: any[]) => void) => { listeners.set(name, listener) },
+      } as never, { stateDir: directory, maxInboxItems: 50 })
+      services.push(service)
+      await service.ready
+      service.start()
+      const session = { id: 'completed-child-session', header: { cwd: 'C:\\work' } }
+      listeners.get('session/created')?.(session)
+      listeners.get('session/event')?.(session, { type: 'turn/start', seq: 1, data: {} })
+      listeners.get('session/event')?.(session, { type: 'turn/end', seq: 2, data: { reason: { kind: 'completed' } } })
+      await Promise.resolve()
+      await Promise.resolve()
+
+      expect(service.inbox(20)[0]).toMatchObject({ reasonCode: 'TASK_COMPLETED', taskState: 'completed', status: 'open' })
+      listeners.get('session/disposed')?.(session)
+      expect(service.inbox(20)[0]).toMatchObject({ reasonCode: 'TASK_COMPLETED', taskState: 'completed', targetAvailable: false, status: 'open' })
+      await service.dispose()
+    } finally {
+      for (const service of services.splice(0)) await service.dispose()
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
+  it('routes child completion summaries to the parent and does not dispose them with the child', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-subtask-summary-'))
+    const listeners = new Map<string, (...args: any[]) => void>()
+    try {
+      const service = new DeepCanaryService({
+        logger: {},
+        on: (name: string, listener: (...args: any[]) => void) => { listeners.set(name, listener) },
+      } as never, { stateDir: directory, maxInboxItems: 50 })
+      services.push(service)
+      await service.ready
+      service.start()
+
+      const parent = { id: 'parent-session', header: { cwd: 'C:\\work' } }
+      const child = { id: 'child-session', header: { cwd: 'C:\\work', parentSession: parent.id } }
+      const secondChild = { id: 'second-child-session', header: { cwd: 'C:\\work', parentSession: parent.id } }
+      listeners.get('session/created')?.(parent)
+      listeners.get('session/created')?.(child)
+      listeners.get('session/event')?.(parent, { type: 'turn/start', seq: 0, data: {} })
+      listeners.get('session/event')?.(child, { type: 'turn/start', seq: 0, data: {} })
+      listeners.get('session/event')?.(child, { type: 'turn/end', seq: 1, data: { reason: { kind: 'completed' } } })
+      await new Promise(resolve => setImmediate(resolve))
+      await new Promise(resolve => setImmediate(resolve))
+
+      const firstSummary = service.inbox(20).find(item => item.reasonCode === 'TASK_COMPLETED')
+      expect(firstSummary).toMatchObject({
+        sessionId: parent.id,
+        messageKey: 'item.reason.SUBTASK_COMPLETED',
+        taskState: 'completed',
+        targetAvailable: true,
+      })
+
+      listeners.get('session/disposed')?.(child)
+      expect(service.inbox(20).find(item => item.reasonCode === 'TASK_COMPLETED')).toMatchObject({
+        sessionId: parent.id,
+        targetAvailable: true,
+      })
+
+      listeners.get('session/created')?.(secondChild)
+      listeners.get('session/event')?.(secondChild, { type: 'turn/start', seq: 0, data: {} })
+      listeners.get('session/event')?.(secondChild, { type: 'turn/end', seq: 1, data: { reason: { kind: 'completed' } } })
+      await new Promise(resolve => setImmediate(resolve))
+      await new Promise(resolve => setImmediate(resolve))
+      const summaries = service.inbox(20).filter(item => item.reasonCode === 'TASK_COMPLETED')
+      expect(summaries).toHaveLength(1)
+      expect(summaries[0]).toMatchObject({ sessionId: parent.id, bundleCount: 2, messageKey: 'item.reason.SUBTASK_COMPLETED' })
+    } finally {
+      for (const service of services.splice(0)) await service.dispose()
+      await rm(directory, { recursive: true, force: true })
+    }
   })
 
   it('holds a restored session item in orphan grace before authoritative expiry', async () => {
@@ -603,6 +841,7 @@ describe('DeepCanaryService', () => {
       expect(budgeted?.action).toBe('DIGEST')
       expect(second.status().delivery.interruptBudget.used).toBe(1)
     } finally {
+      for (const service of services.splice(0)) await service.dispose()
       await rm(directory, { recursive: true, force: true })
     }
   })
@@ -669,6 +908,7 @@ describe('DeepCanaryService', () => {
       await second.adapter.start()
       const orphaned = (second as unknown as { items: Array<{ id: string; orphanedAt?: string }> }).items[0]
       expect(orphaned).toMatchObject({ id: item?.id, orphanedAt: base.toISOString() })
+      expect((second as unknown as { items: Array<{ targetAvailable?: boolean }> }).items[0]?.targetAvailable).toBe(false)
 
       liveSessions = [session]
       await second.adapter.reconcile()
@@ -676,7 +916,9 @@ describe('DeepCanaryService', () => {
       const returned = (second as unknown as { items: Array<{ id: string; status: string; orphanedAt?: string }> }).items[0]
       expect(returned).toMatchObject({ id: item?.id, status: 'open' })
       expect(returned?.orphanedAt).toBeUndefined()
+      expect((second as unknown as { items: Array<{ targetAvailable?: boolean }> }).items[0]?.targetAvailable).toBe(true)
     } finally {
+      for (const service of services.splice(0)) await service.dispose()
       vi.useRealTimers()
       await rm(directory, { recursive: true, force: true })
     }

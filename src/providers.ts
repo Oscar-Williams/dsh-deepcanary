@@ -5,15 +5,26 @@ export interface SessionFacts {
   toolFailures: number
   activeSubagents: number
   lastEventAt: number
+  /** Last boundary that proves the task made meaningful progress. */
+  lastMeaningfulAt?: number
   startedAt: number
+  /** Number of tools that have been called without a matching result. */
+  activeToolCount?: number
+  /** The class of the currently active/most recent tool, without its arguments. */
+  toolClass?: ToolClass
+  waitingForHuman?: boolean
+  turnState?: TurnState
   contextCompactions?: number
   lastToolName?: string
   sameToolFailures?: number
 }
 
+export type ToolClass = 'long-running' | 'ordinary' | 'unknown'
+export type TurnState = 'running' | 'terminal' | 'unknown'
+
 export interface SessionLike {
   id: string
-  header?: { cwd?: string }
+  header?: { cwd?: string; parentSession?: string }
 }
 
 export interface SessionEventLike {
@@ -27,6 +38,48 @@ export interface SessionEventLike {
 
 const approvalPattern = /approval|approve|ask[-_ ]?user|permission|confirm|clarif|question/i
 const explicitQuestionTool = /^ask[_-]user[_-]question$/i
+const longRunningToolPattern = /^(?:bash|shell|terminal|pwsh|powershell|python|node|npm|pnpm|yarn|cargo|make|gradle|mvn|git|web[_-]?(?:fetch|search)|browser|http)/i
+
+/** Classify only the public tool name; arguments and result content are never inspected. */
+export function toolClassForName(name: string | undefined): ToolClass {
+  if (name === undefined || name.trim().length === 0) return 'unknown'
+  return longRunningToolPattern.test(name.trim()) ? 'long-running' : 'ordinary'
+}
+
+/** Read the public tool identity, never the model-facing result content. */
+export function toolCallIdOf(data: Record<string, unknown>): string | undefined {
+  if (typeof data.callId === 'string') return data.callId
+  if (typeof data.toolCallId === 'string') return data.toolCallId
+  const message = data.message
+  if (message !== null && typeof message === 'object') {
+    if ('source' in message && message.source !== null && typeof message.source === 'object'
+      && 'kind' in message.source && message.source.kind === 'tool'
+      && 'callId' in message.source && typeof message.source.callId === 'string') return message.source.callId
+    // Legacy public shape used before Session v2.
+    if ('toolCallId' in message && typeof message.toolCallId === 'string') return message.toolCallId
+  }
+  return typeof data.id === 'string' ? data.id : undefined
+}
+
+/** Whether an event is a bounded, structured progress boundary for liveness. */
+export function isMeaningfulSessionEvent(eventType: string, data: Record<string, unknown> = {}): boolean {
+  if (data.progress === true || data.meaningfulProgress === true) return true
+  if (data.progress === false || data.meaningfulProgress === false) return false
+  return eventType === 'turn/start'
+    || eventType === 'turn/end'
+    || eventType === 'tool/call'
+    || eventType === 'tool/result'
+    || eventType === 'approval/asked'
+    || eventType === 'approval/decided'
+    || eventType === 'user-questions/request'
+    || eventType === 'user-questions/response'
+    || eventType === 'user-questions/answered'
+    || eventType === 'assistant/attempt'
+    || eventType === 'assistant/message'
+    || eventType === 'agent/error'
+    || eventType === 'subagent/start'
+    || eventType === 'subagent/end'
+}
 
 function shortHash(value: string): string {
   return createHash('sha256').update(value).digest('hex').slice(0, 12)
@@ -60,7 +113,7 @@ function signal(
     ...(session?.header?.cwd ? { workspaceId: shortHash(session.header.cwd) } : {}),
     ...(severityHint !== undefined ? { severityHint } : {}),
     evidence: [item],
-    dedupeKey: `${kind}:${sessionId ?? 'host'}:${event?.type ?? 'probe'}:${String(data.toolName ?? '')}`,
+    dedupeKey: `${kind}:${sessionId ?? 'host'}:${event?.type ?? 'probe'}:${String(data.toolName ?? '')}${(kind === 'HUMAN_QUESTION_PENDING' || kind === 'HUMAN_APPROVAL_REQUIRED') && event?.seq !== undefined ? `:${event.seq}` : ''}`,
     ...(bundleKey ? { bundleKey } : {}),
     data: {
       ...data,
@@ -105,7 +158,16 @@ export function signalsFromSessionEvent(session: SessionLike, event: SessionEven
       if (suspicious) {
         result.push(signal('session', 'COMPLETION_SUSPICIOUS', session, event, facts, evidence('session-event', 'runtime', ref, 'DSH reported completion while a structured acceptance or human-needed condition remained unresolved.'), visibilityData, 2, `${session.id}:completion`))
       } else {
-        result.push(signal('session', 'TASK_COMPLETED', session, event, facts, evidence('session-event', 'runtime', ref, 'DSH reported a normal turn completion.'), visibilityData, 1))
+        const completion = signal('session', 'TASK_COMPLETED', session, event, facts, evidence('session-event', 'runtime', ref, 'DSH reported a normal turn completion.'), visibilityData, 1)
+        // Keep the child-derived identity for dedupe, but collect ordinary
+        // short-lived child results at their parent's navigation target.
+        const parentId = session.header?.parentSession
+        result.push(parentId === undefined ? completion : {
+          ...completion,
+          sessionId: parentId,
+          bundleKey: `${parentId}:subagent-completion`,
+          data: { ...completion.data, childCompletion: true },
+        })
       }
     } else if (reason === 'aborted' || reason === 'interrupted') {
       result.push(signal('session', 'TASK_ABORTED', session, event, facts, evidence('session-event', 'runtime', ref, `DSH reported a ${reason} turn.`), visibilityData, 2, `${session.id}:human-needed`))
@@ -199,8 +261,25 @@ export function signalFromHostProbe(ok: boolean, detail: string, now = Date.now(
 }
 
 export function signalFromStall(session: SessionLike, facts: SessionFacts, thresholdMs: number, now = Date.now()): CanarySignal | undefined {
-  if (now - facts.lastEventAt < thresholdMs) return undefined
-  return signal('host', 'HOST_SUSPECTED_STALL', session, { type: 'host/stall', time: now }, facts, evidence('runtime-probe', 'runtime', 'session/heartbeat', 'No new DSH session event arrived within the configured liveness window.'), { idleMs: now - facts.lastEventAt }, 2, `${session.id}:stall`)
+  if (facts.turnState === 'terminal' || facts.turnState === 'unknown') return undefined
+  if (facts.waitingForHuman === true) return undefined
+  const lastMeaningfulAt = facts.lastMeaningfulAt ?? facts.lastEventAt
+  const meaningfulIdleMs = Math.max(0, now - lastMeaningfulAt)
+  // A known long-running tool gets a scoped grace period. It is not exempt
+  // forever: if it remains silent beyond the extended window, emit a C2
+  // inspection hint with the same privacy-safe evidence shape.
+  const effectiveThreshold = facts.activeToolCount !== undefined && facts.activeToolCount > 0
+    ? facts.toolClass === 'long-running' ? thresholdMs * 2 : thresholdMs
+    : thresholdMs
+  if (meaningfulIdleMs < effectiveThreshold) return undefined
+  const summary = facts.activeToolCount !== undefined && facts.activeToolCount > 0
+    ? 'A running DSH turn has not reported meaningful progress within the tool-aware liveness window.'
+    : 'No meaningful DSH session progress arrived within the configured liveness window.'
+  return signal('host', 'HOST_SUSPECTED_STALL', session, { type: 'host/stall', time: now }, facts, evidence('runtime-probe', 'runtime', 'session/heartbeat', summary), {
+    idleMs: meaningfulIdleMs,
+    ...(facts.activeToolCount === undefined ? {} : { activeToolCount: facts.activeToolCount }),
+    ...(facts.toolClass === undefined ? {} : { toolClass: facts.toolClass }),
+  }, 2, `${session.id}:stall`)
 }
 
 export function signalFromStallRecovery(session: SessionLike, now = Date.now()): CanarySignal {

@@ -21,6 +21,7 @@ const trialId = args.get('trial-id')
 const taskFamily = args.get('task-family')
 const scenario = args.get('scenario')
 const provenance = args.get('provenance')
+const taskOrigin = args.get('task-origin') ?? (provenance === 'controlled' ? 'controlled' : 'unknown')
 const startedAt = args.get('started-at')
 const endedAt = args.get('ended-at')
 const outputPath = path.resolve(root, args.get('out') ?? 'output/dogfood/real-run.json')
@@ -28,6 +29,7 @@ if (!stateDir || !runId || !trialId || !taskFamily || !scenario || !provenance |
   throw new Error('--state-dir, --run-id, --trial-id, --task-family, --scenario, --provenance, --started-at, --ended-at, and --out are required')
 }
 if (provenance !== 'real' && provenance !== 'controlled') throw new Error('--provenance must be real or controlled')
+if (!['natural', 'controlled', 'unknown'].includes(taskOrigin)) throw new Error('--task-origin must be natural, controlled, or unknown')
 const taskFamilies = new Set(['coding', 'build-test', 'research', 'multi-stage', 'subagent'])
 const scenarios = new Set(['approval-boundary', 'network-recovery', 'healthy-long-run', 'normal-completion', 'explicit-failure', 'recovery-continued'])
 if (!taskFamilies.has(taskFamily)) throw new Error(`unsupported task family: ${taskFamily}`)
@@ -133,9 +135,17 @@ const inboxObservations = selectedItems.map(item => {
     observedDecision: { level: item.level, action: item.action, reasonCode: item.reasonCode },
     deliveryChannel: channelFor(item),
     ...(disposition === 'inbox' || disposition === 'digest' || disposition === 'interrupt' || disposition === 'escalate' ? { deliveryUnitRef: hash(`${runId}:delivery:${item.id}`) } : {}),
+    ...(disposition === 'inbox' || disposition === 'digest' || disposition === 'interrupt' || disposition === 'escalate' ? {
+      deliveryVisibility: item.feedback !== undefined || item.seenAt !== undefined || item.acknowledgedAt !== undefined
+        ? { status: 'visible', source: 'user-confirmed' }
+        : { status: 'unknown', source: 'inbox-materialized' },
+    } : {}),
     ...(typeof item.bundleKey === 'string' ? { bundleRef: hash(`${runId}:bundle:${item.bundleKey}`) } : {}),
     ...(item.feedback === undefined ? {} : {
       userFeedback: item.feedback.useful === true ? 'useful' : 'not-useful',
+      reviewSource: 'user-feedback',
+      reviewBasis: 'explicit-user-feedback',
+      reviewConfidence: 'unknown',
       usefulnessReason: usefulnessReasonFor(item),
     }),
     ...(item.status === 'recovered' ? { recoveredBeforeOpen: item.seenAt === undefined && item.acknowledgedAt === undefined && item.feedback === undefined } : {}),
@@ -162,6 +172,7 @@ const bundle = {
     scenario,
     pluginVersion: runtimeBundle?.run.pluginVersion ?? args.get('plugin-version') ?? packageJson.version,
     runtimeTag: runtimeBundle?.run.runtimeTag ?? args.get('runtime-tag') ?? 'dsh-v0.1.2-alpha.5',
+    taskOrigin: runtimeBundle?.run.taskOrigin ?? taskOrigin,
     policyVersion: runtimeBundle?.run.policyVersion ?? args.get('policy-version') ?? 'attention-policy.v1',
     startedAt: new Date(startedAt).toISOString(),
     endedAt: new Date(endedAt).toISOString(),

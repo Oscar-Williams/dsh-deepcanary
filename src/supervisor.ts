@@ -98,6 +98,7 @@ const DEFAULT_MAX_SESSIONS = 256
 const DEFAULT_MAX_PENDING = 2_000
 const OPERATION_LOCK_STALE_MS = 30_000
 const OPERATION_LOCK_WAIT_MS = 5_000
+const MAX_DELIVERY_CLAIM_ATTEMPTS = 3
 
 function isNodeError(error: unknown, code: string): error is NodeJS.ErrnoException {
   return error instanceof Error && 'code' in error && (error as NodeJS.ErrnoException).code === code
@@ -166,14 +167,16 @@ function cloneSnapshot(snapshot: SupervisorSnapshot): SupervisorSnapshot {
 function isDeliveryEntry(value: unknown): value is PersistedDeliveryEntry {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return false
   const entry = value as Partial<PersistedDeliveryEntry>
+  const planned = entry.state === 'planned'
   return typeof entry.logicalKeyHash === 'string' && /^[a-f0-9]{16}$/.test(entry.logicalKeyHash)
     && entry.sink === 'browser'
-    && typeof entry.attemptHash === 'string' && /^[a-f0-9]{16}$/.test(entry.attemptHash)
+    && (entry.attemptHash === undefined || (typeof entry.attemptHash === 'string' && /^[a-f0-9]{16}$/.test(entry.attemptHash)))
     && Array.isArray(entry.attemptHashes)
-    && entry.attemptHashes.length > 0
+    && (planned ? entry.attemptHashes.length === 0 : entry.attemptHashes.length > 0)
     && entry.attemptHashes.length <= 16
     && entry.attemptHashes.every(candidate => typeof candidate === 'string' && /^[a-f0-9]{16}$/.test(candidate))
-    && (entry.state === 'planned'
+    && (planned ? entry.attemptHash === undefined : entry.attemptHash !== undefined)
+    && (planned
       || entry.state === 'attempted'
       || entry.state === 'browser-constructed'
       || entry.state === 'browser-shown'
@@ -181,9 +184,18 @@ function isDeliveryEntry(value: unknown): value is PersistedDeliveryEntry {
       || entry.state === 'clicked'
       || entry.state === 'failed'
       || entry.state === 'superseded')
-    && typeof entry.attempts === 'number' && Number.isSafeInteger(entry.attempts) && entry.attempts >= 1 && entry.attempts <= 512
+    && typeof entry.attempts === 'number' && Number.isSafeInteger(entry.attempts) && entry.attempts >= 0
+    && (planned ? entry.attempts === 0 : entry.attempts >= 1) && entry.attempts <= 512
     && typeof entry.firstObservedAt === 'string' && isIsoDate(entry.firstObservedAt)
     && typeof entry.updatedAt === 'string' && isIsoDate(entry.updatedAt)
+    && (entry.claimOwnerHash === undefined || (typeof entry.claimOwnerHash === 'string' && /^[a-f0-9]{16}$/.test(entry.claimOwnerHash)))
+    && (entry.claimExpiresAt === undefined || (typeof entry.claimExpiresAt === 'string' && isIsoDate(entry.claimExpiresAt)))
+    && ((entry.claimOwnerHash === undefined) === (entry.claimExpiresAt === undefined))
+    && (entry.claimAttempts === undefined
+      || (typeof entry.claimAttempts === 'number'
+        && Number.isSafeInteger(entry.claimAttempts)
+        && entry.claimAttempts >= 0
+        && entry.claimAttempts <= MAX_DELIVERY_CLAIM_ATTEMPTS))
 }
 
 function emptySnapshot(runtimeVersion: string, now: number): SupervisorSnapshot {

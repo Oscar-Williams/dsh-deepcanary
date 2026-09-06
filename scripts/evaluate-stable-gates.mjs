@@ -19,6 +19,7 @@ for (let index = 2; index < process.argv.length; index += 1) {
 }
 const outputPath = path.resolve(root, args.get('out') ?? 'output/gates/stable-gates-report.json')
 const replayPath = path.resolve(root, args.get('replay') ?? 'output/replay/policy-replay-report.json')
+const packageTgzPath = args.get('package-tgz') === undefined ? undefined : path.resolve(root, args.get('package-tgz'))
 const dogfoodPath = args.get('dogfood') === undefined ? undefined : path.resolve(root, args.get('dogfood'))
 const notificationEvidencePath = args.get('notification-evidence') === undefined ? undefined : path.resolve(root, args.get('notification-evidence'))
 const auditPath = args.get('audit') === undefined ? undefined : path.resolve(root, args.get('audit'))
@@ -38,6 +39,7 @@ for (const [key, value] of Object.entries(supplementalPaths)) {
 const supervisorSmokePath = path.resolve(root, 'output/gates/supervisor-smoke-report.json')
 const supervisorSoakPath = path.resolve(root, 'output/gates/supervisor-soak-report.json')
 const packageJson = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'))
+const { decideStableDecision } = await import('../lib/stableDecision.js')
 const runtimeDependency = packageJson.devDependencies?.['@deepseek-ai/dsh-agent']
 const runtimeBaseline = typeof runtimeDependency === 'string' ? `dsh-v${runtimeDependency}` : 'unknown'
 const runtimeCommit = process.env.DSH_COMMIT ?? 'db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5'
@@ -89,25 +91,29 @@ const supplemental = {
   wslExisting: await readJsonOptional(supplementalPaths.wslExisting),
   qualification: await readJsonOptional(supplementalPaths.qualification),
 }
-const packDirectory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-stable-gate-'))
 let tarballSha256 = ''
-try {
-  const npmCli = process.platform === 'win32'
-    ? process.env.npm_execpath ?? path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js')
-    : undefined
-  const npmCommand = npmCli === undefined ? 'npm' : process.execPath
-  const npmArgs = ['pack', '--ignore-scripts', '--json', '--pack-destination', packDirectory]
-  const commandArgs = npmCli === undefined ? npmArgs : [npmCli, ...npmArgs]
-  const packed = JSON.parse((await execFileAsync(npmCommand, commandArgs, { cwd: root, maxBuffer: 2_000_000 })).stdout)
-  const fileName = packed[0]?.filename
-  if (typeof fileName === 'string') {
-    const tarball = await readFile(path.join(packDirectory, fileName))
-    tarballSha256 = createHash('sha256').update(tarball).digest('hex')
+if (packageTgzPath !== undefined) {
+  tarballSha256 = await digestFile(packageTgzPath) ?? ''
+} else {
+  const packDirectory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-stable-gate-'))
+  try {
+    const npmCli = process.platform === 'win32'
+      ? process.env.npm_execpath ?? path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js')
+      : undefined
+    const npmCommand = npmCli === undefined ? 'npm' : process.execPath
+    const npmArgs = ['pack', '--ignore-scripts', '--json', '--pack-destination', packDirectory]
+    const commandArgs = npmCli === undefined ? npmArgs : [npmCli, ...npmArgs]
+    const packed = JSON.parse((await execFileAsync(npmCommand, commandArgs, { cwd: root, maxBuffer: 2_000_000 })).stdout)
+    const fileName = packed[0]?.filename
+    if (typeof fileName === 'string') {
+      const tarball = await readFile(path.join(packDirectory, fileName))
+      tarballSha256 = createHash('sha256').update(tarball).digest('hex')
+    }
+  } catch {
+    tarballSha256 = ''
+  } finally {
+    await rm(packDirectory, { recursive: true, force: true })
   }
-} catch {
-  tarballSha256 = ''
-} finally {
-  await rm(packDirectory, { recursive: true, force: true })
 }
 
 let replay
@@ -242,9 +248,174 @@ const negativeOpportunityCoverage = dogfood?.coverage === undefined
       deduped: dogfood.coverage.deduped,
       suppressed: dogfood.coverage.suppressed,
     }
+const userFacingDispositions = new Set(['inbox', 'digest', 'interrupt', 'escalate'])
+const stableReviewMinimum = 15
+const stableHumanNeededMinimum = 10
+const stableNaturalRunMinimum = 3
+const stableNaturalWorkdayMinimum = 3
+
+function deliveryReviewQualification(bundles) {
+  const units = new Map()
+  for (const bundle of bundles) {
+    for (const observation of bundle.observations) {
+      if (!userFacingDispositions.has(observation.decisionDisposition)
+        || typeof observation.deliveryUnitRef !== 'string'
+        || observation.deliveryChannel === 'none') continue
+      const key = `${bundle.run.runId}:${observation.deliveryUnitRef}`
+      const unit = units.get(key) ?? {
+        runId: bundle.run.runId,
+        deliveryUnitRef: observation.deliveryUnitRef,
+        visible: false,
+        unknown: false,
+        reviewed: false,
+        c2OrC3: false,
+        source: undefined,
+      }
+      if (observation.deliveryVisibility?.status === 'visible') unit.visible = true
+      else unit.unknown = true
+      const review = observation.reviewLabel !== undefined || observation.policyReview !== undefined || observation.userFeedback !== undefined
+      if (review
+        && typeof observation.reviewSource === 'string'
+        && observation.reviewSource !== 'unknown'
+        && typeof observation.reviewBasis === 'string'
+        && observation.reviewBasis !== 'unknown'
+        && typeof observation.reviewConfidence === 'string') {
+        unit.reviewed = true
+        unit.source ??= observation.reviewSource
+      }
+      if (observation.observedDecision?.level === 'C2' || observation.observedDecision?.level === 'C3') unit.c2OrC3 = true
+      units.set(key, unit)
+    }
+  }
+  const all = [...units.values()]
+  const eligible = all.filter(unit => unit.visible)
+  const unknown = all.filter(unit => !unit.visible)
+  const reviewed = eligible.filter(unit => unit.reviewed)
+  const reviewedC2OrC3 = reviewed.filter(unit => unit.c2OrC3)
+  const rate = eligible.length === 0 ? null : reviewed.length / eligible.length
+  return {
+    status: eligible.length >= stableReviewMinimum && reviewed.length >= stableReviewMinimum && reviewedC2OrC3.length >= 5 && rate !== null && rate >= 0.8 ? 'pass' : 'insufficient-sample',
+    candidateFinalDeliveryUnits: all.length,
+    eligibleFinalDeliveryUnits: eligible.length,
+    reviewedFinalDeliveryUnits: reviewed.length,
+    reviewedC2OrC3Units: reviewedC2OrC3.length,
+    unknownVisibilityDeliveryUnits: unknown.length,
+    reviewCoverage: { numerator: reviewed.length, denominator: eligible.length, rate },
+    sources: {
+      userFeedback: reviewed.filter(unit => unit.source === 'user-feedback').length,
+      engineeringReview: reviewed.filter(unit => unit.source === 'engineering-review').length,
+      independentAudit: reviewed.filter(unit => unit.source === 'independent-audit').length,
+    },
+  }
+}
+
+function naturalTaskCoverage(bundles) {
+  const natural = bundles.filter(bundle => bundle.run.provenance === 'real' && bundle.run.taskOrigin === 'natural')
+  const allExplicitNatural = bundles.length > 0 && natural.length === bundles.length
+  const workdays = new Set(natural.map(bundle => new Date(bundle.run.startedAt).toISOString().slice(0, 10)))
+  const taskFamilies = new Set(natural.map(bundle => bundle.run.taskFamily))
+  return {
+    status: allExplicitNatural && natural.length >= stableNaturalRunMinimum && workdays.size >= stableNaturalWorkdayMinimum && taskFamilies.size >= 3 ? 'pass' : 'insufficient-sample',
+    naturalRunCount: natural.length,
+    totalRunCount: bundles.length,
+    workdayCount: workdays.size,
+    taskFamilyCount: taskFamilies.size,
+    taskFamilies: [...taskFamilies].sort(),
+    reason: allExplicitNatural ? undefined : 'every Gate D bundle must explicitly declare taskOrigin=natural',
+  }
+}
+
+function auditCount(input, keys) {
+  const source = input?.counts ?? input?.summary ?? input?.dispositionCounts ?? {}
+  for (const key of keys) {
+    if (Number.isInteger(source[key]) && source[key] >= 0) return source[key]
+  }
+  return null
+}
+
+function auditRunIds(input) {
+  const ids = new Set()
+  if (typeof input?.runId === 'string') ids.add(input.runId)
+  for (const key of ['runId']) {
+    for (const row of input?.auditFiles ?? []) if (typeof row?.[key] === 'string') ids.add(row[key])
+    for (const row of input?.sessions ?? []) if (typeof row?.[key] === 'string') ids.add(row[key])
+    for (const row of input?.findings ?? []) if (typeof row?.[key] === 'string') ids.add(row[key])
+  }
+  return ids
+}
+
+function evaluateIndependentAudit(input, bundles) {
+  if (input === undefined) return { status: 'not-evaluated', reasons: ['independent-dsh-audit-required'] }
+  const delivered = auditCount(input, ['delivered'])
+  const suppressed = auditCount(input, ['suppressedByPolicy', 'suppressed-by-policy'])
+  const missed = auditCount(input, ['missed'])
+  const notInScope = auditCount(input, ['notInScope', 'not-in-scope'])
+  const validCounts = [delivered, suppressed, missed, notInScope].every(value => value !== null)
+  const authority = input.authority === 'DSH-authoritative-session-history'
+    || input.source === 'independent-dsh-anchor-audit'
+    || input.authoritativeSource === 'DSH session history'
+  const independent = input.scan?.independentOfRuntimeLedger === true
+    || input.independence?.runtimeLedgerRole === 'matching-only'
+    || (input.provenanceSubclass === 'natural-real' && typeof input.reviewerRole === 'string' && input.reviewerRole.includes('independent'))
+  const rawSafe = input.rawContentPersisted === false || input.privacy?.rawContentPersisted === false
+  const ids = auditRunIds(input)
+  const bundleIds = new Set(bundles.map(bundle => bundle.run.runId))
+  const bound = [...ids].some(id => bundleIds.has(id))
+  const opportunityCount = (delivered ?? 0) + (suppressed ?? 0) + (missed ?? 0)
+  const reasons = []
+  if (!validCounts) reasons.push('audit-counts-incomplete')
+  if (!authority) reasons.push('audit-authority-not-dsh-session-history')
+  if (!independent) reasons.push('audit-is-not-independent-of-runtime-ledger')
+  if (!rawSafe) reasons.push('audit-privacy-boundary-incomplete')
+  if (!bound) reasons.push('audit-does-not-bind-to-input-run')
+  if (opportunityCount < stableHumanNeededMinimum) reasons.push(`audit-needs-${stableHumanNeededMinimum}-human-needed-opportunities`)
+  if ((missed ?? 0) > 0) reasons.push('critical-human-needed-miss')
+  return {
+    status: validCounts && authority && independent && rawSafe && bound && opportunityCount >= stableHumanNeededMinimum && missed === 0 ? 'pass' : 'insufficient-sample',
+    delivered,
+    suppressedByPolicy: suppressed,
+    missed,
+    notInScope,
+    opportunityCount,
+    boundRunIds: [...ids].filter(id => bundleIds.has(id)),
+    reasons,
+  }
+}
+
+const reviewQualification = rawBundles.length === 0
+  ? { status: 'not-evaluated', reason: 'raw-bundles-required-for-review-qualification' }
+  : deliveryReviewQualification(rawBundles)
+const naturalCoverage = rawBundles.length === 0
+  ? { status: 'not-evaluated', reason: 'raw-bundles-required-for-natural-task-qualification' }
+  : naturalTaskCoverage(rawBundles)
+const independentHumanNeededAudit = evaluateIndependentAudit(auditPath === undefined ? undefined : await readJsonOptional(auditPath), rawBundles)
+const reviewCoverageMatchesBundle = dogfoodKind === 'aggregate'
+  && dogfood?.coverage?.userFacingDeliveryUnits === reviewQualification.eligibleFinalDeliveryUnits
+  && dogfood?.coverage?.reviewedUserFacingUnits === reviewQualification.reviewedFinalDeliveryUnits
+  && dogfood?.coverage?.unknownVisibilityDeliveryUnits === reviewQualification.unknownVisibilityDeliveryUnits
+const realDogfoodQualification = {
+  status: naturalCoverage.status === 'pass'
+    && independentHumanNeededAudit.status === 'pass'
+    && reviewQualification.status === 'pass'
+    && reviewCoverageMatchesBundle
+    && metricsReady
+    && missingTaskFamilies.length === 0
+    && missingScenarios.length === 0
+    && negativeOpportunityCoverage.status === 'pass'
+    ? 'pass' : 'insufficient-sample',
+  naturalTaskCoverage: naturalCoverage,
+  independentHumanNeededAudit,
+  reviewQualification: { ...reviewQualification, summaryMatchesBundle: reviewCoverageMatchesBundle },
+  reasons: [
+    ...(naturalCoverage.status === 'pass' ? [] : ['natural-task-coverage-incomplete']),
+    ...(independentHumanNeededAudit.status === 'pass' ? [] : ['independent-human-needed-audit-incomplete']),
+    ...(reviewQualification.status === 'pass' ? [] : ['qualified-final-delivery-review-incomplete']),
+    ...(reviewCoverageMatchesBundle ? [] : ['reported-review-coverage-does-not-match-qualified-units']),
+  ],
+}
 const realDogfood = dogfoodProvenance === 'real'
   ? {
-      status: dogfoodKind === 'aggregate' && rawBundles.every(bundle => bundle.run.provenance === 'real' && bundle.run.pluginVersion === packageJson.version && bundle.run.runtimeTag === runtimeBaseline) && dogfood.observationCount >= 5 && metricsReady && missingTaskFamilies.length === 0 && missingScenarios.length === 0 && negativeOpportunityCoverage.status === 'pass' ? 'pass' : 'insufficient-sample',
+      status: dogfoodKind === 'aggregate' && rawBundles.every(bundle => bundle.run.provenance === 'real' && bundle.run.pluginVersion === packageJson.version && bundle.run.runtimeTag === runtimeBaseline) && dogfood.observationCount >= 5 && realDogfoodQualification.status === 'pass' ? 'pass' : 'insufficient-sample',
       observationCount: dogfood.observationCount,
       bundleCount: dogfood.bundleCount ?? 1,
       trialCount: dogfood.trialCount ?? 1,
@@ -253,6 +424,7 @@ const realDogfood = dogfoodProvenance === 'real'
       scenarios: { required: requiredScenarios, observed: observedScenarios, missing: missingScenarios },
       scenarioEvidence,
       negativeOpportunityCoverage,
+      qualification: realDogfoodQualification,
       inputKind: dogfoodKind,
     }
   : { status: dogfood === undefined ? 'not-evaluated' : 'invalid-provenance' }
@@ -396,10 +568,13 @@ const alpha13Checks = [
   'profileBundlesPresent',
   'installedPluginVersion',
   'packageHashAvailable',
+  'installedPackageMatchesTarball',
+  'packageContentDigestAvailable',
   'webProcessResponded',
   'publicSessionListSurface',
   'publicSnapshotEventsSurface',
-  'uiPluginPanelObserved',
+  'runtimeContractPassed',
+  'uiEvidenceObserved',
   'privacyBoundary',
 ]
 const alpha13Status = alpha13 === undefined
@@ -443,12 +618,64 @@ const wslStatusSummary = wslExisting === undefined
 const qualificationStatus = qualification?.status
   ?? qualification?.qualifications?.[0]?.currentStatus
   ?? (qualification === undefined ? 'not-evaluated' : 'unknown')
+
+async function runAuthoritativeSessionReconciliationCheck() {
+  try {
+    const { Context } = await import('@deepseek-ai/cordis')
+    const { SessionStore } = await import('@deepseek-ai/dsh-session')
+    const { ContextDshAdapter } = await import('../lib/adapters/dsh.js')
+    const ctx = new Context()
+    const storeFiber = await ctx.plugin(SessionStore)
+    const session = ctx.sessions.create('stable-gate-reconciliation-session')
+    session.append('turn/start', { turn: 1 })
+    const received = []
+    const adapter = new ContextDshAdapter(ctx, { hostVersion: runtimeBaseline })
+    adapter.subscribe(event => received.push(event))
+    try {
+      await adapter.start()
+      const status = adapter.getReconciliationStatus()
+      const snapshot = await adapter.getSessionSnapshot(session.id)
+      const checks = {
+        publicSessionList: ctx.sessions.list().length === 1,
+        publicSnapshotEvents: snapshot?.eventCount === 1 && snapshot.lastEventSeq === 0,
+        subscriberFirst: received[0]?.type === 'session/created' && received[0]?.snapshot !== undefined,
+        ready: status.phase === 'ready',
+        authoritative: status.authoritative === true,
+        verified: status.verified === true,
+        noBufferedEvents: status.bufferedEvents === 0,
+        runningProjection: snapshot?.running === true,
+      }
+      return { status: Object.values(checks).every(value => value === true) ? 'pass' : 'partial-adapter-surface', checks }
+    } finally {
+      await storeFiber.dispose()
+    }
+  } catch (error) {
+    return { status: 'pending-adapter-surface', checks: { runtimeProbe: false }, error: error instanceof Error ? error.message : 'adapter reconciliation probe failed' }
+  }
+}
+
+const adapterReconciliation = await runAuthoritativeSessionReconciliationCheck()
 const gateDReady = realDogfood.status === 'pass' && replayPass && notificationEvidence.status === 'pass' && notificationEvidence.binding?.status === 'pass'
-const authoritativeSessionReconciliation = fileChecks.some(check => check.file === 'lib/adapters/dsh.js' && check.present)
-  ? 'partial-adapter-surface'
-  : 'pending-adapter-surface'
+const authoritativeSessionReconciliation = adapterReconciliation.status
 const gateEReady = implementationPresent && replayPass && supervisorSmokePass && authoritativeSessionReconciliation === 'pass'
-const stableDecision = gateDReady && gateEReady ? 'STABLE_READY' : 'CONTINUE_RC'
+const optionalExceptions = [
+  ...(u7ProcessStatus === 'pass' ? [] : ['supervisor-process-integration-pending']),
+  ...(u7RealSoakStatus === 'pass' ? [] : ['real-elapsed-soak-pending']),
+  ...(alpha13Status === 'pass' ? [] : ['alpha13-compatibility-pending']),
+  ...(wslStatusSummary.status === 'pass' ? [] : ['wsl-evidence-pending']),
+]
+const stableDecisionResult = decideStableDecision({
+  gateDReady,
+  gateEReady,
+  implementationPresent,
+  replayPass,
+  replayObserved: replay !== undefined,
+  supervisorSmokePass,
+  supervisorSmokeObserved: supervisorSmoke !== undefined,
+  realDogfoodStatus: realDogfood.status,
+  optionalExceptions,
+})
+const stableDecision = stableDecisionResult.decision
 const dogfoodBundleDigests = rawBundles.map(bundle => createHash('sha256').update(JSON.stringify(bundle)).digest('hex'))
 const evidenceDigests = {
   dogfoodInput: dogfoodPath === undefined ? null : await digestFile(dogfoodPath),
@@ -496,6 +723,7 @@ const report = {
     recoveryBeforeOpen: metricSample('recoveryBeforeOpenRate'),
   },
   decision: stableDecision,
+  decisionReasons: stableDecisionResult.reasons,
   identity: {
     gitCommit: gitCommit || 'unknown',
     sourceCommit: gitCommit || 'unknown',
@@ -519,6 +747,7 @@ const report = {
   },
   gateE: {
     status: implementationPresent && replayPass && supervisorSmokePass ? 'prototype-ready' : 'pending',
+    stableEligible: gateEReady,
     implementation: implementationPresent ? 'present' : 'incomplete',
     policyReplay: replayPass ? 'pass' : 'pending',
     supervisorSmoke: supervisorSmokePass ? 'pass' : supervisorSmoke === undefined ? 'not-evaluated' : 'pending',
@@ -541,10 +770,11 @@ const report = {
     u7RealElapsedSoak: u7RealSoakStatus,
     wslExisting: wslStatusSummary,
     qualification: qualificationStatus,
+    adapterReconciliation,
   },
   files: fileChecks,
   generatedAt: new Date().toISOString(),
-  conclusion: gateDReady && gateEReady
+  conclusion: stableDecision === 'STABLE_READY' || stableDecision === 'STABLE_WITH_EXCEPTIONS'
     ? 'Fresh Gate D and Gate E evidence meets the configured Stable criteria; review any explicitly documented non-core exceptions before publication.'
     : 'The fresh report records the remaining real, Windows, or Supervisor evidence required for Stable promotion without converting missing observations into a pass.',
 }

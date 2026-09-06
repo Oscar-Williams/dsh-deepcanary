@@ -2,6 +2,26 @@
 
 All notable changes to `dsh-deepcanary` are recorded here.
 
+## 0.1.1-rc.4 — engineering candidate (2026-09-06)
+
+This local candidate is not published: it has no GitHub tag, Release asset, or npm version. The published `0.1.1-rc.3` remains the recommended alpha.5 trial. RC4 keeps the alpha.5 package/type floor while adding an independently compiled and contract-tested alpha.13 lane.
+
+- verify the official DSH alpha.13 Session v2 public contract without acquiring `SessionHandle` or creating an agent loop;
+- correlate Session v2 tool results by the public tool call identity, recover Human Needed items only when the authoritative condition closes, and route child completion summaries to the parent session;
+- make the frozen-package hash an explicit stable-gate input, add the four-state decision boundary (`STABLE_READY`, `STABLE_WITH_EXCEPTIONS`, `CONTINUE_RC`, `HOLD`), and expose Gate E's stable eligibility separately from prototype readiness;
+- add a cached source/runtime-aware build lane and require byte-for-byte package identity plus sanitized authenticated UI evidence in the alpha.13 canary.
+
+Do not update historical receipts, tags, releases, or registry metadata for this candidate without a separate publication decision.
+
+## Unreleased — evidence qualification and compatibility lanes (2026-09-06)
+
+- distinguish task intent (`natural`, `controlled`, `replay`, or `unknown`) from capture provenance, so controlled or replay evidence cannot be promoted by relabeling;
+- retain review source, basis, and confidence separately from usefulness, and calculate user-facing review coverage only from unique final delivery units with explicit visible-delivery evidence; unknown visibility remains a separate count;
+- record explicit `unknown` visibility for runtime-final units whose browser/OS/user visibility was not observed, while user-confirmed feedback records visible delivery;
+- arbitrate browser delivery on the server with a short-lived claim and a maximum of three claim opportunities per logical delivery, retaining the Inbox when callbacks are unavailable;
+- extend the stable-gate evaluator with the documented natural-task, reviewed-visible-unit, C2/C3, independent DSH audit qualification, frozen-package identity, and four-state decision checks without changing historical receipts;
+- add an independent compatibility canary for official DSH `dsh-v0.1.3-alpha.1` at commit `d347e703908d0406b7a7ef80e3a0e594d86b2215`; the normal build and RC3 identity remain on alpha.5, and the alpha.13 canary uses a local source checkout/profile.
+
 ## 0.1.1-rc.3 — Supervisor renewal ordering (2026-09-05)
 
 - Serialize heartbeat renewal and snapshot commits within each Supervisor owner to preserve ownership during concurrent persistence.
