@@ -1,20 +1,24 @@
-import { gunzipSync } from 'node:zlib'
 import { access, mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { execFile } from 'node:child_process'
 import path from 'node:path'
 import { promisify } from 'node:util'
+import { resolveReleaseArtifact } from './release-artifact.mjs'
 
 const pluginRoot = process.cwd()
 const packageJson = JSON.parse(await readFile(path.join(pluginRoot, 'package.json'), 'utf8'))
 const expectedPluginVersion = packageJson.version
-const runtimeRoot = path.resolve(process.env.DSH_ALPHA13_RUNTIME ?? path.join(pluginRoot, '..', '..', 'Deepseek-Harness_Related', 'dsh-runtime-alpha1-0.1.3-alpha.1'))
-const profileRoot = path.resolve(process.env.DSH_ALPHA13_PROFILE ?? path.join(pluginRoot, '..', '..', 'Deepseek-Harness_test', 'dsh-deepcanary-compat-alpha13-20260905'))
-const outputPath = path.resolve(process.env.DSH_ALPHA13_OUTPUT ?? path.join(pluginRoot, 'output/gates/alpha13-compatibility.json'))
-const packagePath = path.resolve(process.env.DSH_ALPHA13_PACKAGE ?? path.join(pluginRoot, `output/local-pack/dsh-deepcanary-${expectedPluginVersion}.tgz`))
+for (const name of ['DSH_ALPHA13_RUNTIME', 'DSH_ALPHA13_PROFILE', 'DSH_ALPHA13_WEB_PORT']) {
+  if (!process.env[name]) throw new Error(`Set ${name} explicitly; historical local profiles and ports are not default test inputs.`)
+}
+const runtimeRoot = path.resolve(process.env.DSH_ALPHA13_RUNTIME)
+const profileRoot = path.resolve(process.env.DSH_ALPHA13_PROFILE)
+const outputPath = path.resolve(process.env.DSH_ALPHA13_OUTPUT ?? path.join(pluginRoot, `output/gates/alpha13-compatibility-${expectedPluginVersion}-${Date.now()}.json`))
+const artifact = await resolveReleaseArtifact(pluginRoot, packageJson, process.env.DSH_ALPHA13_PACKAGE)
 const webLogPath = process.env.DSH_ALPHA13_WEB_LOG === undefined ? undefined : path.resolve(process.env.DSH_ALPHA13_WEB_LOG)
 const uiEvidencePath = process.env.DSH_ALPHA13_UI_EVIDENCE === undefined ? undefined : path.resolve(process.env.DSH_ALPHA13_UI_EVIDENCE)
-const webPort = Number(process.env.DSH_ALPHA13_WEB_PORT ?? '43157')
+const webPort = Number(process.env.DSH_ALPHA13_WEB_PORT)
+if (!Number.isInteger(webPort) || webPort < 1 || webPort > 65535) throw new Error('DSH_ALPHA13_WEB_PORT must be a valid explicit port.')
 const profileRef = `${path.basename(profileRoot)}/web`
 const reportId = process.env.DSH_ALPHA13_REPORT_ID ?? `alpha13-compatibility-${expectedPluginVersion}`
 const execFileAsync = promisify(execFile)
@@ -33,37 +37,6 @@ async function exists(filePath) {
 
 async function hashFile(filePath) {
   try { return createHash('sha256').update(await readFile(filePath)).digest('hex') } catch { return null }
-}
-
-function readTarString(buffer, start, end) {
-  return buffer.subarray(start, end).toString('utf8').replace(/\0.*$/u, '').trim()
-}
-
-function readTarSize(buffer) {
-  const value = readTarString(buffer, 124, 136).replace(/[^0-7]/gu, '')
-  return value.length === 0 ? 0 : Number.parseInt(value, 8)
-}
-
-/** Read the package payload without depending on a mutable global tar module. */
-function tarEntries(file) {
-  const archive = gunzipSync(file)
-  const entries = new Map()
-  let offset = 0
-  while (offset + 512 <= archive.length) {
-    const header = archive.subarray(offset, offset + 512)
-    if (header.every(byte => byte === 0)) break
-    const size = readTarSize(header)
-    const type = String.fromCharCode(header[156] ?? 0)
-    const prefix = readTarString(header, 345, 500)
-    const name = readTarString(header, 0, 100)
-    const relative = `${prefix ? `${prefix}/` : ''}${name}`.replace(/^package\//u, '')
-    const dataStart = offset + 512
-    if ((type === '\0' || type === '0' || type === '') && relative.length > 0) {
-      entries.set(relative, archive.subarray(dataStart, dataStart + size))
-    }
-    offset = dataStart + Math.ceil(size / 512) * 512
-  }
-  return entries
 }
 
 async function directoryEntries(directory) {
@@ -104,8 +77,8 @@ const runtimeCommit = await command('git', ['rev-parse', 'HEAD'], runtimeRoot)
 const runtimeDirty = Boolean(await command('git', ['status', '--porcelain', '--untracked-files=all'], runtimeRoot))
 const sourceCommit = await command('git', ['rev-parse', 'HEAD'], pluginRoot)
 const sourceDirty = Boolean(await command('git', ['status', '--porcelain', '--untracked-files=all'], pluginRoot))
-const packageSha256 = await hashFile(packagePath)
-const archiveEntries = await exists(packagePath) ? tarEntries(await readFile(packagePath)) : new Map()
+const packageSha256 = artifact.sha256
+const archiveEntries = artifact.entries
 const installedEntries = await exists(installedRoot) ? await directoryEntries(installedRoot) : new Map()
 const installedMatchesPackage = sameEntries(archiveEntries, installedEntries)
 const archiveContentSha256 = digestEntries(archiveEntries)
@@ -114,11 +87,11 @@ const webLog = webLogPath === undefined ? '' : await readFile(webLogPath, 'utf8'
 const tokenUrl = /http:\/\/127\.0\.0\.1:\d+\/\?token=[^\s]+/u.exec(webLog)?.[0]
 let webStatus = null
 try {
-  const response = await fetch(`http://127.0.0.1:${webPort}/`)
+    const response = await fetch(`http://127.0.0.1:${webPort}/`, { signal: AbortSignal.timeout(5000) })
   webStatus = response.status
 } catch {
-  if (tokenUrl !== undefined) {
-    try { webStatus = (await fetch(tokenUrl)).status } catch { webStatus = null }
+  if (tokenUrl !== undefined && Number(new URL(tokenUrl).port) === webPort) {
+    try { webStatus = (await fetch(tokenUrl, { signal: AbortSignal.timeout(5000) })).status } catch { webStatus = null }
   }
 }
 const uiEvidence = await readJson(uiEvidencePath)
@@ -127,6 +100,9 @@ const uiEvidenceValid = uiEvidence?.schemaVersion === 1
   && uiEvidence?.surface === 'Edge DSH Web UI'
   && uiEvidence?.pluginVersion === expectedPluginVersion
   && uiEvidence?.dshTag === 'dsh-v0.1.3-alpha.1'
+  && uiEvidence?.packageSha256 === packageSha256
+  && uiEvidence?.profileRef === profileRef
+  && uiEvidence?.webPort === webPort
   && uiEvidence?.checks?.authenticated === true
   && uiEvidence?.checks?.pluginPanelVisible === true
   && uiEvidence?.checks?.currentInboxRendered === true
@@ -160,7 +136,7 @@ const checks = {
   packageHashAvailable: typeof packageSha256 === 'string' && packageSha256.length === 64,
   installedPackageMatchesTarball: installedMatchesPackage,
   packageContentDigestAvailable: archiveEntries.size > 0 && archiveContentSha256 === installedContentSha256,
-  webProcessResponded: typeof webStatus === 'number' && webStatus >= 200 && webStatus < 600,
+  webProcessResponded: typeof webStatus === 'number' && webStatus >= 200 && webStatus < 400,
   publicSessionListSurface: sessionSource.includes('SessionSeq') || sessionSource.includes('sessions.list'),
   publicSnapshotEventsSurface: sessionSource.includes('snapshotEvents'),
   runtimeContractPassed: runtimeContract.passed === true,

@@ -5,8 +5,12 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
+import { resolveReleaseArtifact, verifyBuiltEntries } from './release-artifact.mjs'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
+const artifactManifest = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'))
+const artifact = await resolveReleaseArtifact(root, artifactManifest, process.env.DSH_U7_PACKAGE_TGZ)
+await verifyBuiltEntries(root, artifact)
 const outputPath = process.env.DSH_U7_PROCESS_OUTPUT
   ? path.resolve(process.env.DSH_U7_PROCESS_OUTPUT)
   : path.join(root, 'output/gates/u7-process-integration.json')
@@ -24,12 +28,6 @@ function sleep(ms) {
 
 function hash(value) {
   return createHash('sha256').update(value).digest('hex')
-}
-
-async function packageSha256() {
-  const packagePath = process.env.DSH_U7_PACKAGE_TGZ
-  if (packagePath) return hash(await readFile(path.resolve(packagePath)))
-  return null
 }
 
 async function gitValue(args) {
@@ -199,7 +197,7 @@ try {
     identity: {
       sourceCommit: (await gitValue(['rev-parse', 'HEAD'])) || 'unknown',
       worktreeDirty: Boolean(await gitValue(['status', '--porcelain', '--untracked-files=all'])),
-      packageSha256: await packageSha256(),
+      packageSha256: artifact.sha256,
       packageVersion: packageJson.version,
       dshTag: runtimeTag,
       dshCommit: runtimeCommit,

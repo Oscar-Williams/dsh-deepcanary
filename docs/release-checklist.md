@@ -14,6 +14,7 @@ This is the maintainer workflow. Installation instructions belong in the [README
 
 ```sh
 npm ci
+npm run verify:environment
 npm run typecheck
 npm run typecheck:tests
 npm test
@@ -65,11 +66,11 @@ Do not restart active user work, re-enable a paused WSL/long-soak lane, or inven
 ## 5. Freeze and publish
 
 1. Commit the verified source and generated output. Require passing CI on that commit.
-2. Pack once into a version-specific directory. Record SHA-256, npm shasum/integrity, byte size, and source commit; keep receipts outside the package.
+2. Pack once into `output/releases/<version>/`. Use a new version if a published or frozen identity already exists; the prepack guard rejects reuse. Record SHA-256, npm shasum/integrity, byte size, and source commit; keep receipts outside the package.
 3. Confirm the archive contains the built entry, client module, bundle patch, both README languages, docs, images, schemas, and license. Exclude source/tests, local profiles, private notes, and observation logs.
 4. With publication authorized, push the immutable version tag and create a GitHub prerelease with the exact tarball.
 5. Verify the remote tag, Release asset identity, and digest. Publish that same tarball to the official npm registry with `--tag next --ignore-scripts`.
-6. Independently verify npm version, dist-tag, shasum/integrity, and tarball bytes. Leave `latest` unchanged unless a stable-channel change was explicitly authorized.
+6. Independently verify npm version, dist-tag, shasum/integrity, and tarball bytes. If the CLI ends ambiguously, read the registry before retrying: publication may already have committed. Leave `latest` unchanged unless a default-install channel change was explicitly authorized; that alias does not itself certify Stable readiness.
 7. Record publication results in a follow-up commit and run `npm run verify:release-receipt`. Do not change the tag or repack the published version.
 
 Release notes should explain user-visible changes, installation, compatibility scope, and important limitations. Gate detail and working-environment state belong in maintainer records, not the release headline.

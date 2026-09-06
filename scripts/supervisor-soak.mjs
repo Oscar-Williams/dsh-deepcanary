@@ -5,19 +5,22 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
+import { resolveReleaseArtifact, verifyBuiltEntries } from './release-artifact.mjs'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const outputPath = path.resolve(root, 'output/gates/supervisor-soak-report.json')
 const execFileAsync = promisify(execFile)
 const { PersistentSupervisor, supervisorSnapshotFor } = await import('../lib/supervisor.js')
 const packageJson = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'))
+const artifact = await resolveReleaseArtifact(root, packageJson, process.env.DSH_U7_PACKAGE_TGZ)
+await verifyBuiltEntries(root, artifact)
 const runtimeCommit = process.env.DSH_COMMIT ?? 'db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5'
 const runtimeBaseline = typeof packageJson.devDependencies?.['@deepseek-ai/dsh-agent'] === 'string'
   ? `dsh-v${packageJson.devDependencies['@deepseek-ai/dsh-agent']}`
   : 'unknown'
 const policyVersion = 'attention-policy.v1'
-const runId = 'supervisor-virtual-soak-20260904-01'
-const trialId = 'u7-virtual-bounded-soak-20260904-01'
+const runId = process.env.DSH_U7_RUN_ID ?? `supervisor-virtual-soak-${packageJson.version}-${Date.now()}`
+const trialId = `${runId}-trial`
 const baseTime = Date.parse('2026-09-04T00:00:00.000Z')
 const virtualMinutes = 8 * 60
 const intervalMs = 60_000
@@ -34,27 +37,6 @@ async function command(name, args) {
 
 function hash(value) {
   return createHash('sha256').update(value).digest('hex').slice(0, 16)
-}
-
-async function packageSha256() {
-  const destination = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-supervisor-pack-'))
-  try {
-    const npmCli = process.platform === 'win32'
-      ? process.env.npm_execpath ?? path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js')
-      : undefined
-    const npmCommand = npmCli === undefined ? 'npm' : process.execPath
-    const npmArgs = ['pack', '--ignore-scripts', '--json', '--pack-destination', destination]
-    const commandArgs = npmCli === undefined ? npmArgs : [npmCli, ...npmArgs]
-    const packed = JSON.parse((await execFileAsync(npmCommand, commandArgs, { cwd: root, maxBuffer: 2_000_000 })).stdout)
-    const fileName = packed[0]?.filename
-    if (typeof fileName !== 'string') return null
-    const body = await readFile(path.join(destination, fileName))
-    return createHash('sha256').update(body).digest('hex')
-  } catch {
-    return null
-  } finally {
-    await rm(destination, { recursive: true, force: true })
-  }
 }
 
 const options = (stateDir, instanceId, pid, now) => ({
@@ -274,7 +256,7 @@ try {
       sourceCommit: gitCommit || 'unknown',
       worktreeDirty: Boolean(gitStatus),
       packageVersion: packageJson.version,
-      packageSha256: await packageSha256(),
+      packageSha256: artifact.sha256,
       dshTag: runtimeBaseline,
       dshCommit: runtimeCommit,
       gateEvaluatorVersion: 'stable-gates.v2',

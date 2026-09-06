@@ -12,6 +12,7 @@ Start with the [English quick start](../README.md) or [简体中文](../README.z
 
 - [Contributing](../CONTRIBUTING.md) — development workflow and review expectations.
 - [Development](development.md) — source builds, isolated profiles, and runtime verification.
+- [Versions and workspace layout](workspace-layout.md) — dependency versions, frozen artifacts, directory roles, and release channels.
 - [Architecture](architecture.md) — providers, deterministic attention policy, delivery, and persistence.
 - [DSH surface audit](dsh-surface-audit.md) — public host interfaces, version pins, and fallbacks.
 - [Evaluation protocol](dogfood-protocol.md) — redacted trial data, review criteria, and uncertainty.

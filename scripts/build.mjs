@@ -7,8 +7,10 @@ import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { version as esbuildVersion } from 'esbuild'
 import { loadRuntimeCheckout, runtimeTypePaths } from './runtime-checkout.mjs'
+import { verifyEnvironment } from './verify-environment.mjs'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
+await verifyEnvironment(root)
 const run = promisify(execFile)
 const runtimeMode = process.argv.includes('--alpha13')
 const checkOnly = process.argv.includes('--typecheck')
@@ -41,7 +43,7 @@ async function digestTree(directory) {
 }
 
 const input = createHash('sha256').update(await digestTree(path.join(root, 'src')))
-for (const file of ['tsconfig.json', 'package-lock.json', 'scripts/build.mjs', 'scripts/build-client.mjs', 'scripts/runtime-checkout.mjs']) input.update(await readFile(path.join(root, file)))
+for (const file of ['tsconfig.json', 'package-lock.json', 'scripts/build.mjs', 'scripts/build-client.mjs', 'scripts/runtime-checkout.mjs', 'scripts/verify-environment.mjs']) input.update(await readFile(path.join(root, file)))
 input.update(JSON.stringify({ version: packageJson.version, dependencies: packageJson.dependencies, devDependencies: packageJson.devDependencies, buildTools, runtime: runtime?.commit ?? 'npm-type-floor' }))
 const inputHash = input.digest('hex')
 const stampPath = path.join(root, 'output/build/stamp.json')

@@ -16,6 +16,7 @@ The implementation must preserve these boundaries:
 ## Commands
 
     npm ci
+    npm run verify:environment
     npm run typecheck
     npm run typecheck:tests
     npm test
@@ -33,5 +34,7 @@ The repository tracks the built `lib/` output because DSH installs a public Git 
 The WSL2 verification lane uses the isolated Conda environment named `dsh-deepcanary`. Keep its DSH profile home separate from the environment directory when running end-to-end checks.
 
 ## Documentation
+
+Use `docs/workspace-layout.md` for version and artifact identities. Verification consumes a frozen tgz from `output/releases/<version>/` or an explicit path; never repack a published version, silently use a historical profile, or promote an npm-package smoke to source-checkout evidence. Post-release tooling changes on main do not change immutable release bytes.
 
 When behavior changes, keep README.md (English), README.zh-CN.md (Chinese), CHANGELOG.md, docs/architecture.md, docs/compatibility.md, docs/security.md, and docs/release-checklist.md consistent. Separate implemented behavior from planned work. Use the official runtime tag and exact command sequence when describing installation.

@@ -2,6 +2,14 @@
 
 User-visible changes and notable compatibility updates. DeepCanary is currently distributed through the `next` prerelease channel.
 
+## Unreleased
+
+- Check all direct installed dependencies against the lockfile and document the different plugin, runtime, compiler, and package-manager versions.
+- Use one version-specific frozen-artifact location, reject ambiguous or mismatched package bytes, and prevent ordinary repacking of published versions.
+- Make compatibility checks explicit about their runtime/profile and artifact identity; stop verification from silently creating a replacement tarball.
+
+These are post-RC5 maintainer-tooling and documentation changes, not a replacement of the published RC5 package.
+
 ## 0.1.1-rc.5 — 2026-09-06
 
 ### Improved

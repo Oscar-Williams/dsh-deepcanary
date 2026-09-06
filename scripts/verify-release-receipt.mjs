@@ -70,6 +70,7 @@ if (packageJson.version === '0.1.1-rc.3') {
 
 const expectedTarball = `dsh-deepcanary-${packageJson.version}.tgz`
 const artifactCandidates = [
+  path.join(root, 'output', 'releases', packageJson.version, expectedTarball),
   path.join(root, 'output', 'local-pack', expectedTarball),
   path.join(root, expectedTarball),
 ]

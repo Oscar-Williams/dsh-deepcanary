@@ -9,6 +9,7 @@ The normal lane uses the published alpha.5 packages in `package.json` and produc
 ```powershell
 Set-Location <pluginDir>
 npm ci
+npm run verify:environment
 npm run typecheck
 npm run typecheck:tests
 npm test
@@ -23,7 +24,7 @@ npm run build:alpha13
 $env:DSH_ALPHA13_RUNTIME = $null
 ```
 
-`build.mjs` validates the installed TypeScript and esbuild versions against the lockfile, then hashes their actual versions, the source tree, compiler configuration, lockfile, build scripts, dependency graph, and selected runtime identity. A matching `output/build/stamp.json` plus matching `lib/` digest makes a repeated build a no-op; `--force` is available when deliberately regenerating output. `pack:check` uses `--ignore-scripts` so a dry-run does not start a second build.
+`build.mjs` validates all direct installed dependencies against the lockfile, then hashes the actual compiler/bundler versions, source tree, compiler configuration, lockfile, build scripts, dependency graph, and selected runtime identity. A matching `output/build/stamp.json` plus matching `lib/` digest makes a repeated build a no-op; `--force` is available when deliberately regenerating output. `pack:check` uses `--ignore-scripts` so a dry-run does not start a second build. See the [version and artifact map](workspace-layout.md) before choosing a runtime or an older package.
 
 ## Alpha.13 public contract
 
@@ -61,6 +62,9 @@ The UI evidence file is a sanitized observation record, not a transcript. Its mi
   "surface": "Edge DSH Web UI",
   "pluginVersion": "<version-of-the-installed-package>",
   "dshTag": "dsh-v0.1.3-alpha.1",
+  "packageSha256": "<sha256-of-the-installed-frozen-tgz>",
+  "profileRef": "<isolated-home-directory-name>/web",
+  "webPort": 43157,
   "checks": {
     "authenticated": true,
     "pluginPanelVisible": true,
@@ -86,14 +90,16 @@ For the current lifecycle window, record only bounded facts: panel loaded, curre
 
 ## Alpha.5 regression and gates
 
-The alpha.5 adapter smoke remains the compatibility regression for the published lane:
+The alpha.5 adapter smoke uses the locked npm `Context` and `SessionStore` packages, not a source checkout. It verifies that local `lib/` matches the referenced frozen tgz and records the actual execution lane. Runtime/profile environment variables cannot relabel this test:
 
 ```powershell
-$env:DSH_ALPHA5_RUNTIME = '<path-to-dsh-v0.1.2-alpha.5-checkout>'
+# Omit this variable to use output/releases/<version>/dsh-deepcanary-<version>.tgz.
+$env:DSH_ADAPTER_PACKAGE_TGZ = '<exact frozen tgz>'
 npm run adapter:smoke
+$env:DSH_ADAPTER_PACKAGE_TGZ = $null
 ```
 
-Run the relevant focused tests after provider, adapter, lifecycle, delivery, or Supervisor changes. Before freezing a public candidate, run one integrated set:
+Run the relevant focused tests after provider, adapter, lifecycle, delivery, or Supervisor changes. Run the build/test/distribution set below, then freeze its tgz before running `gate:stable`; the evaluator never repacks a missing artifact:
 
 ```powershell
 npm run typecheck
@@ -102,6 +108,7 @@ npm test
 npm run build
 npm run verify:distribution
 npm run pack:check
+# Freeze the new candidate as described in release-checklist.md, then:
 npm run gate:stable
 ```
 

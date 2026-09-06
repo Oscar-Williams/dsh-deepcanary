@@ -31,6 +31,7 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
+      - run: npm run verify:environment
       - run: npm run typecheck
       - run: npm run typecheck:tests
       - run: npm test

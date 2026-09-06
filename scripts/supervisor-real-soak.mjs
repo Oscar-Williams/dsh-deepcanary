@@ -1,12 +1,16 @@
 import { createHash } from 'node:crypto'
+import { execFile } from 'node:child_process'
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { promisify } from 'node:util'
+import { resolveReleaseArtifact, verifyBuiltEntries } from './release-artifact.mjs'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const targetHours = Number(process.env.DSH_U7_SOAK_HOURS ?? 8)
 const intervalMs = Number(process.env.DSH_U7_SOAK_INTERVAL_MS ?? 30_000)
-const stateDir = path.resolve(process.env.DSH_U7_SOAK_STATE_DIR ?? path.join(root, '..', '..', 'Deepseek-Harness_test', 'artifacts', 'u7-real-soak-state'))
+if (!process.env.DSH_U7_SOAK_STATE_DIR) throw new Error('Set DSH_U7_SOAK_STATE_DIR to an explicit isolated state directory; historical state is never reused by default.')
+const stateDir = path.resolve(process.env.DSH_U7_SOAK_STATE_DIR)
 const outputPath = path.resolve(process.env.DSH_U7_SOAK_OUTPUT ?? path.join(root, 'output/gates/u7-real-soak.json'))
 const runtimeTag = process.env.DSH_TAG ?? 'dsh-v0.1.2-alpha.5'
 const runtimeCommit = process.env.DSH_COMMIT ?? 'db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5'
@@ -18,6 +22,11 @@ if (!Number.isFinite(intervalMs) || intervalMs < 1_000) throw new Error('DSH_U7_
 
 const { PersistentSupervisor, supervisorSnapshotFor } = await import('../lib/supervisor.js')
 const packageJson = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'))
+const artifact = await resolveReleaseArtifact(root, packageJson, process.env.DSH_U7_PACKAGE_TGZ)
+await verifyBuiltEntries(root, artifact)
+const run = promisify(execFile)
+const sourceCommit = (await run('git', ['rev-parse', 'HEAD'], { cwd: root, windowsHide: true })).stdout.trim()
+const worktreeDirty = Boolean((await run('git', ['status', '--porcelain'], { cwd: root, windowsHide: true })).stdout.trim())
 const startedAt = Date.now()
 let supervisor
 let timer
@@ -38,12 +47,6 @@ let interrupted = false
 
 function sha256(value) {
   return createHash('sha256').update(value).digest('hex')
-}
-
-async function packageSha256() {
-  const packagePath = process.env.DSH_U7_PACKAGE_TGZ
-  if (!packagePath) return null
-  return sha256(await readFile(path.resolve(packagePath)))
 }
 
 async function observe() {
@@ -131,10 +134,10 @@ async function buildReport(conclusion) {
       reconcileLatencyMs: null,
     },
     identity: {
-      sourceCommit: process.env.DSH_SOURCE_COMMIT ?? 'unknown',
-      worktreeDirty: true,
+      sourceCommit,
+      worktreeDirty,
       packageVersion: packageJson.version,
-      packageSha256: await packageSha256(),
+      packageSha256: artifact.sha256,
       dshTag: runtimeTag,
       dshCommit: runtimeCommit,
       evaluatorVersion: 'u7-real-soak.v1',

@@ -1,48 +1,28 @@
-import { createHash } from 'node:crypto'
 import { execFile } from 'node:child_process'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
-import os from 'node:os'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { Context } from '@deepseek-ai/cordis'
 import { SessionStore } from '@deepseek-ai/dsh-session'
+import { resolveReleaseArtifact, verifyBuiltEntries } from './release-artifact.mjs'
+import { verifyEnvironment } from './verify-environment.mjs'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
-const outputPath = path.resolve(root, process.env.DSH_ADAPTER_OUTPUT ?? 'output/gates/rc2-alpha5-adapter-smoke-20260904-v2.json')
 const execFileAsync = promisify(execFile)
 const packageJson = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'))
-const runtimeTag = process.env.DSH_ADAPTER_DSH_TAG ?? 'dsh-v0.1.2-alpha.5'
-const runtimeCommit = process.env.DSH_COMMIT ?? 'db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5'
+const runId = process.env.DSH_ADAPTER_RUN_ID ?? `alpha5-npm-adapter-${packageJson.version}-${new Date().toISOString().replaceAll(/[:.]/g, '-')}`
+const outputPath = path.resolve(root, process.env.DSH_ADAPTER_OUTPUT ?? `output/gates/${runId}.json`)
+const runtimeTag = 'dsh-v0.1.2-alpha.5'
+await verifyEnvironment(root)
+const artifact = await resolveReleaseArtifact(root, packageJson, process.env.DSH_ADAPTER_PACKAGE_TGZ)
+await verifyBuiltEntries(root, artifact)
 
 async function command(name, args) {
   try {
     return (await execFileAsync(name, args, { cwd: root, maxBuffer: 2_000_000 })).stdout.trim()
   } catch {
     return ''
-  }
-}
-
-async function packageSha256() {
-  if (process.env.DSH_ADAPTER_PACKAGE_TGZ) {
-    try { return createHash('sha256').update(await readFile(path.resolve(root, process.env.DSH_ADAPTER_PACKAGE_TGZ))).digest('hex') } catch { return null }
-  }
-  const destination = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-adapter-pack-'))
-  try {
-    const npmCli = process.platform === 'win32'
-      ? process.env.npm_execpath ?? path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js')
-      : undefined
-    const npmCommand = npmCli === undefined ? 'npm' : process.execPath
-    const npmArgs = ['pack', '--ignore-scripts', '--json', '--pack-destination', destination]
-    const commandArgs = npmCli === undefined ? npmArgs : [npmCli, ...npmArgs]
-    const packed = JSON.parse((await execFileAsync(npmCommand, commandArgs, { cwd: root, maxBuffer: 2_000_000 })).stdout)
-    const fileName = packed[0]?.filename
-    if (typeof fileName !== 'string') return null
-    return createHash('sha256').update(await readFile(path.join(destination, fileName))).digest('hex')
-  } catch {
-    return null
-  } finally {
-    await rm(destination, { recursive: true, force: true })
   }
 }
 
@@ -79,16 +59,18 @@ try {
     schemaVersion: 1,
     platform: process.platform,
     nodeVersion: process.version,
-    provenance: process.env.DSH_ADAPTER_PROVENANCE ?? 'controlled',
+    provenance: 'controlled',
     pluginName: 'dsh-deepcanary',
     pluginVersion: packageJson.version,
     sourceCommit: await command('git', ['rev-parse', 'HEAD']) || 'unknown',
-    packageSha256: await packageSha256(),
+    packageSha256: artifact.sha256,
+    artifactSourceCommit: artifact.sourceCommit,
     dshTag: runtimeTag,
-    dshCommit: runtimeCommit,
+    dshCommit: null,
+    execution: { adapter: 'working-tree-lib-matching-frozen-artifact', runtime: 'locked-npm-packages', runtimeVersion: '0.1.2-alpha.5', sourceCheckoutTested: false },
     policyVersion: 'attention-policy.v1',
-    runId: process.env.DSH_ADAPTER_RUN_ID ?? 'laneB-rc2-alpha5-adapter-smoke-20260904-v2',
-    trialId: process.env.DSH_ADAPTER_TRIAL_ID ?? process.env.DSH_ADAPTER_RUN_ID ?? 'laneB-rc2-alpha5-adapter-smoke-20260904-v2',
+    runId,
+    trialId: process.env.DSH_ADAPTER_TRIAL_ID ?? runId,
     rawContentPersisted: false,
     checks,
   }

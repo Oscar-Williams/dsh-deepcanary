@@ -1,10 +1,10 @@
-import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { execFile } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import os from 'node:os'
 import { promisify } from 'node:util'
+import { resolveReleaseArtifact, verifyBuiltEntries } from './release-artifact.mjs'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const execFileAsync = promisify(execFile)
@@ -91,30 +91,9 @@ const supplemental = {
   wslExisting: await readJsonOptional(supplementalPaths.wslExisting),
   qualification: await readJsonOptional(supplementalPaths.qualification),
 }
-let tarballSha256 = ''
-if (packageTgzPath !== undefined) {
-  tarballSha256 = await digestFile(packageTgzPath) ?? ''
-} else {
-  const packDirectory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-stable-gate-'))
-  try {
-    const npmCli = process.platform === 'win32'
-      ? process.env.npm_execpath ?? path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js')
-      : undefined
-    const npmCommand = npmCli === undefined ? 'npm' : process.execPath
-    const npmArgs = ['pack', '--ignore-scripts', '--json', '--pack-destination', packDirectory]
-    const commandArgs = npmCli === undefined ? npmArgs : [npmCli, ...npmArgs]
-    const packed = JSON.parse((await execFileAsync(npmCommand, commandArgs, { cwd: root, maxBuffer: 2_000_000 })).stdout)
-    const fileName = packed[0]?.filename
-    if (typeof fileName === 'string') {
-      const tarball = await readFile(path.join(packDirectory, fileName))
-      tarballSha256 = createHash('sha256').update(tarball).digest('hex')
-    }
-  } catch {
-    tarballSha256 = ''
-  } finally {
-    await rm(packDirectory, { recursive: true, force: true })
-  }
-}
+const artifact = await resolveReleaseArtifact(root, packageJson, packageTgzPath)
+await verifyBuiltEntries(root, artifact)
+const tarballSha256 = artifact.sha256
 
 let replay
 try {
@@ -733,6 +712,7 @@ const report = {
     dshTag: runtimeBaseline,
     dshCommit: runtimeCommit,
     packageSha256: tarballSha256 || null,
+    artifactSourceCommit: artifact.sourceCommit,
     tarballSha256: tarballSha256 || null,
     sourceDigest,
   },
