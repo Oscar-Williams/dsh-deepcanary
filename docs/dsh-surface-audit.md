@@ -1,6 +1,6 @@
 # DSH interfaces used by DeepCanary
 
-This document records the public DSH interfaces used by DeepCanary. The build baseline is official `dsh-v0.1.2-alpha.5`, commit `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`. RC4 added an independent public Session v2 contract check against `dsh-v0.1.3-alpha.1`, commit `d347e703908d0406b7a7ef80e3a0e594d86b2215` (the alpha.13 lane). RC5 retains the same adapter and policy. Version-specific validation scope is listed in [compatibility](compatibility.md); historical alpha.2/alpha.4 receipts keep their original pins.
+This document records the public DSH interfaces used by DeepCanary. The build baseline is official `dsh-v0.1.2-alpha.5`, commit `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`. RC4 added an independent public Session v2 contract check against `dsh-v0.1.3-alpha.1`, commit `d347e703908d0406b7a7ef80e3a0e594d86b2215` (the alpha.13 lane). RC5 and RC6 retain the same adapter and policy. Version-specific validation scope is listed in [compatibility](compatibility.md); historical alpha.2/alpha.4 receipts keep their original pins.
 
 ## Services and lifecycle events
 

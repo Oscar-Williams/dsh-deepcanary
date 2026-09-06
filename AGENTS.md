@@ -10,7 +10,7 @@ The implementation must preserve these boundaries:
 - A provider may summarize facts, but it must not copy prompts, model output, tool arguments, credentials, or transcript content into local state.
 - C3 requires authoritative Host or Runtime evidence.
 - User actions are limited to local metadata and navigation hints. Never add an automatic terminate, restart, approval, rejection, shell, or destructive tool.
-- Keep explicit runtime lanes: the historical RC.2 receipt uses official alpha.2 at its pinned commit; the current RC5 release line and published RC4 use official alpha.5 at tag `dsh-v0.1.2-alpha.5`, commit `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`; the independent compatibility canary uses official alpha.13 (`dsh-v0.1.3-alpha.1`) at commit `d347e703908d0406b7a7ef80e3a0e594d86b2215` from a local checkout. Never relabel one lane's evidence as another.
+- Keep explicit runtime lanes: the historical RC.2 receipt uses official alpha.2 at its pinned commit; the current RC6 release line and published RC4/RC5 use official alpha.5 at tag `dsh-v0.1.2-alpha.5`, commit `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`; the independent compatibility canary uses official alpha.13 (`dsh-v0.1.3-alpha.1`) at commit `d347e703908d0406b7a7ef80e3a0e594d86b2215` from a local checkout. Never relabel one lane's evidence as another.
 - Dogfood task intent is separate from capture provenance. User-facing review coverage counts only unique final delivery units with explicit visible-delivery evidence; review source/basis/confidence and unknown visibility remain explicit and never imply usefulness automatically.
 
 ## Commands

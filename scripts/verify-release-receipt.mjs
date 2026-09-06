@@ -6,7 +6,7 @@ import { verifyPublicationReceipt } from './verify-publication-receipt.mjs'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const packageJson = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'))
-if (['0.1.1-rc.4', '0.1.1-rc.5'].includes(packageJson.version)) {
+if (['0.1.1-rc.4', '0.1.1-rc.5', '0.1.1-rc.6'].includes(packageJson.version)) {
   const rc = packageJson.version.split('-')[1].replace('.', '')
   const receipt = JSON.parse(await readFile(path.join(root, 'benchmark', `${rc}-release-receipt.json`), 'utf8'))
   const artifactFlag = process.argv.indexOf('--tarball')

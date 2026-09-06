@@ -1,6 +1,6 @@
 # Compatibility
 
-DeepCanary is a prerelease plugin for DSH Web. The current default is `0.1.1-rc.5`, available through both npm `latest` and `next`. Use a pinned plugin version when you need reproducible behavior. `latest` selects the default installation; it does not certify Stable readiness.
+DeepCanary is a prerelease plugin for DSH Web. The current default is `0.1.1-rc.6`, available through both npm `latest` and `next`. Use a pinned plugin version when you need reproducible behavior. `latest` selects the default installation; it does not certify Stable readiness.
 
 ## Runtime coverage
 
@@ -15,7 +15,7 @@ The official source pins are:
 - `dsh-v0.1.2-alpha.5`: `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`.
 - `dsh-v0.1.3-alpha.1`: `d347e703908d0406b7a7ef80e3a0e594d86b2215`. This is called the **alpha.13 lane** in the development scripts.
 
-RC5 improves documentation, interface wording, build validation, test portability, and experimental Supervisor startup/shutdown ordering. Its adapter and notification policy are unchanged from RC4. The alpha.13 WebUI and Windows desktop observations remain RC4 evidence, not new RC5 device tests. See the [release records](https://github.com/Oscar-Williams/dsh-deepcanary/tree/main/benchmark) and [CI](https://github.com/Oscar-Williams/dsh-deepcanary/actions/workflows/ci.yml) for version-specific results.
+RC5 improved interface wording, build validation, test portability, and experimental Supervisor startup/shutdown ordering. RC6 adds documentation and maintainer-tooling improvements without changing runtime behavior, apart from the reported plugin version. The adapter and notification policy remain unchanged from RC4. The alpha.13 WebUI and Windows desktop observations remain RC4 evidence, not new RC5 or RC6 device tests. See the [release records](https://github.com/Oscar-Williams/dsh-deepcanary/tree/main/benchmark) and [CI](https://github.com/Oscar-Williams/dsh-deepcanary/actions/workflows/ci.yml) for version-specific results.
 
 ## Platform coverage
 

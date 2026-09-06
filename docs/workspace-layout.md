@@ -6,8 +6,8 @@ Use explicit identities when building, installing, or comparing results. A direc
 
 | Component | Current reference | Meaning |
 | --- | --- | --- |
-| Published plugin | `dsh-deepcanary@0.1.1-rc.5` | Immutable Git tag, GitHub asset, and npm version; a prerelease. |
-| Current npm channels | `latest` and `next` → `0.1.1-rc.5` | Default and preview aliases currently select the same prerelease. |
+| Published plugin | `dsh-deepcanary@0.1.1-rc.6` | Immutable Git tag, GitHub asset, and npm version; a prerelease. |
+| Current npm channels | `latest` and `next` → `0.1.1-rc.6` | Default and preview aliases currently select the same prerelease. |
 | Normal DSH build/CI lane | `0.1.2-alpha.5` / `dsh-v0.1.2-alpha.5` | Eleven DSH development dependencies are pinned to this npm version. |
 | Separate `alpha13` script lane | `0.1.3-alpha.1` / `dsh-v0.1.3-alpha.1` | A pinned source-checkout compatibility test; **not** `0.1.2-alpha.13`. |
 | Earlier plugin called “RC4” | `0.1.0-rc.4` | Historical alpha.4 release; different from `0.1.1-rc.4`. Write the full version. |
@@ -47,10 +47,10 @@ On a fresh checkout, download missing published artifacts from their exact GitHu
 
 ## Three kinds of tag
 
-- Git `v0.1.1-rc.5` identifies an immutable source commit.
+- Git `v0.1.1-rc.6` identifies an immutable source commit.
 - npm `next` and `latest` are movable distribution aliases. `latest` controls default installation, not this project's Stable qualification.
 - GitHub Release's prerelease/latest presentation is separate from npm aliases.
 
-As of 2026-09-06, npm `latest` and `next` both select `0.1.1-rc.5`. Quick-start commands use `dsh-deepcanary@latest`; pin `dsh-deepcanary@0.1.1-rc.5` for reproducibility. The GitHub release remains a prerelease.
+As of 2026-09-06, npm `latest` and `next` both select `0.1.1-rc.6`. Quick-start commands use `dsh-deepcanary@latest`; pin `dsh-deepcanary@0.1.1-rc.6` for reproducibility. The GitHub release remains a prerelease.
 
 Changing npm `latest` affects unqualified installs as well as default package presentation. It does not rewrite a Git tag, publish new bytes, or change a receipt's historical `distTagAtPublication`. Treat channel changes as explicit publication decisions and verify the live registry afterwards. See [npm's distribution-tag rules](https://docs.npmjs.com/cli/v11/commands/npm-dist-tag/).

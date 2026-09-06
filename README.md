@@ -33,7 +33,7 @@ DeepCanary is a local attention inbox for [DeepSeek Harness (DSH)](https://githu
 
 Requires an existing DSH Web installation and Node.js `22.19+` within the 22.x line, or `24+`. DSH `0.1.2-alpha.5` is the build and CI baseline; `0.1.3-alpha.1` has separate compatibility coverage. Read the [version and platform limits](docs/compatibility.md) before using a different host.
 
-The current default release is **`0.1.1-rc.5` (prerelease)**. npm `latest` and the preview channel `next` currently point to this version.
+The current default release is **`0.1.1-rc.6` (prerelease)**. npm `latest` and the preview channel `next` currently point to this version.
 
 With `dsh` available in your terminal, install into the profile you use:
 
@@ -51,7 +51,7 @@ npx --yes pnpm@11.7.0 dsh plugin --profile web add dsh-deepcanary@latest
 npx --yes pnpm@11.7.0 dsh web
 ```
 
-For a reproducible installation, replace `dsh-deepcanary@latest` with `dsh-deepcanary@0.1.1-rc.5`. Use `dsh-deepcanary@next` when you want the preview channel. You can also download the fixed `.tgz` from [GitHub Releases](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.1-rc.5) and pass its path to the same `plugin add` command. If a registry mirror has not synchronized the version, use the official npm registry or the release artifact.
+For a reproducible installation, replace `dsh-deepcanary@latest` with `dsh-deepcanary@0.1.1-rc.6`. Use `dsh-deepcanary@next` when you want the preview channel. You can also download the fixed `.tgz` from [GitHub Releases](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.1-rc.6) and pass its path to the same `plugin add` command. If a registry mirror has not synchronized the version, use the official npm registry or the release artifact.
 
 ### Update or remove
 

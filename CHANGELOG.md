@@ -1,15 +1,16 @@
 # Changelog
 
-User-visible changes and notable compatibility updates. The current default release is `0.1.1-rc.5` (prerelease); npm `latest` and `next` both point to it. The default-channel update on 2026-09-06 does not change the published package or promote it to Stable.
+User-visible changes and notable compatibility updates. The current default release is `0.1.1-rc.6` (prerelease); npm `latest` and `next` both point to it. A default channel does not certify Stable readiness.
 
-## Unreleased
+## 0.1.1-rc.6 — 2026-09-06
 
 - Add README navigation, update/removal instructions, a concise FAQ, and acknowledgments; clarify the DSH-compatible Node.js range in user and contributor guidance.
+- Include the updated English and Simplified Chinese guides in the npm package, with consistent default-channel and pinned-version installation instructions.
 - Check all direct installed dependencies against the lockfile and document the different plugin, runtime, compiler, and package-manager versions.
 - Use one version-specific frozen-artifact location, reject ambiguous or mismatched package bytes, and prevent ordinary repacking of published versions.
 - Make compatibility checks explicit about their runtime/profile and artifact identity; stop verification from silently creating a replacement tarball.
 
-These are post-RC5 maintainer-tooling and documentation changes, not a replacement of the published RC5 package.
+Runtime behavior is unchanged from RC5; only its reported plugin version changes. This release packages the documentation and maintainer-tooling improvements made since RC5. Historical packages and evidence retain their original identities.
 
 ## 0.1.1-rc.5 — 2026-09-06
 

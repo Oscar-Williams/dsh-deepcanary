@@ -33,7 +33,7 @@ DeepCanary 是 [DeepSeek Harness（DSH）](https://github.com/deepseek-ai/deepse
 
 需要已配置的 DSH Web，以及 Node.js `22.19+`（22.x 系列）或 `24+`。构建与 CI 基线为 DSH `0.1.2-alpha.5`，`0.1.3-alpha.1` 有独立兼容性验证。使用其他宿主前，请查看[版本与平台限制](docs/compatibility.md)。
 
-当前默认版本为 **`0.1.1-rc.5`（预发布版）**。npm 默认渠道 `latest` 与预览渠道 `next` 目前均指向该版本。
+当前默认版本为 **`0.1.1-rc.6`（预发布版）**。npm 默认渠道 `latest` 与预览渠道 `next` 目前均指向该版本。
 
 如果终端中可以直接运行 `dsh`，将插件安装到实际使用的 profile：
 
@@ -51,7 +51,7 @@ npx --yes pnpm@11.7.0 dsh plugin --profile web add dsh-deepcanary@latest
 npx --yes pnpm@11.7.0 dsh web
 ```
 
-需要可复现安装时，将 `dsh-deepcanary@latest` 替换为 `dsh-deepcanary@0.1.1-rc.5`；需要预览渠道时使用 `dsh-deepcanary@next`。也可以从 [GitHub Releases](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.1-rc.5) 下载固定版本的 `.tgz`，将同一条 `plugin add` 命令中的包名替换为文件路径。若镜像源尚未同步，请使用 npm 官方源或 Release 附件。
+需要可复现安装时，将 `dsh-deepcanary@latest` 替换为 `dsh-deepcanary@0.1.1-rc.6`；需要预览渠道时使用 `dsh-deepcanary@next`。也可以从 [GitHub Releases](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.1-rc.6) 下载固定版本的 `.tgz`，将同一条 `plugin add` 命令中的包名替换为文件路径。若镜像源尚未同步，请使用 npm 官方源或 Release 附件。
 
 ### 更新或卸载
 
