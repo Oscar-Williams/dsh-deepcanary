@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "publication",
+  "status": "PUBLISHED",
+  "verifiedAt": "2026-10-01T20:34:27.956Z",
+  "plugin": "dsh-deepcanary",
+  "pluginVersion": "0.1.4-rc.1",
+  "sourceCommit": "1e56777aa55585bed945e690223c4de140745bed",
+  "host": {
+    "version": "0.2.0-rc.2",
+    "commit": "639ed015397290b3745d163aafe02ffee4aa3f84"
+  },
+  "artifact": {
+    "fileName": "dsh-deepcanary-0.1.4-rc.1.tgz",
+    "bytes": 300113,
+    "sha256": "07d1b0777276b079979af520a86f959c554775f30121115e96ed169505523176",
+    "sha1": "275eb157716e0e551779df1f844aa4f7d6577e8a",
+    "integrity": "sha512-/wqGXtSrKLo+aIN69UNvvxxbkLudNnt//g3n6CLAh11umWAMDpkXMT7993lCcGvNKLAWNQyknqmJ4YxyHC22lw=="
+  },
+  "ci": {
+    "url": "https://github.com/Oscar-Williams/dsh-deepcanary/actions/runs/36920890981",
+    "headSha": "1e56777aa55585bed945e690223c4de140745bed",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "pinned DSH 0.2.0-rc.2 contracts",
+        "conclusion": "success"
+      },
+      {
+        "name": "DSH 0.2.0-rc.2 WebUI smoke",
+        "conclusion": "success"
+      },
+      {
+        "name": "ubuntu-latest / Node 24.19.0",
+        "conclusion": "success"
+      },
+      {
+        "name": "windows-latest / Node 24.19.0",
+        "conclusion": "success"
+      },
+      {
+        "name": "ubuntu-latest / Node 22.19.0",
+        "conclusion": "success"
+      },
+      {
+        "name": "windows-latest / Node 22.19.0",
+        "conclusion": "success"
+      }
+    ]
+  },
+  "github": {
+    "tag": "v0.1.4-rc.1",
+    "tagCommit": "1e56777aa55585bed945e690223c4de140745bed",
+    "prerelease": true,
+    "releaseUrl": "https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.4-rc.1",
+    "assetUrl": "https://github.com/Oscar-Williams/dsh-deepcanary/releases/download/v0.1.4-rc.1/dsh-deepcanary-0.1.4-rc.1.tgz",
+    "assetDigest": "sha256:07d1b0777276b079979af520a86f959c554775f30121115e96ed169505523176",
+    "downloadedBytesMatch": true
+  },
+  "npm": {
+    "registry": "https://registry.npmjs.org/",
+    "version": "0.1.4-rc.1",
+    "distTagAtPublication": "next",
+    "tarball": "https://registry.npmjs.org/dsh-deepcanary/-/dsh-deepcanary-0.1.4-rc.1.tgz",
+    "shasum": "275eb157716e0e551779df1f844aa4f7d6577e8a",
+    "integrity": "sha512-/wqGXtSrKLo+aIN69UNvvxxbkLudNnt//g3n6CLAh11umWAMDpkXMT7993lCcGvNKLAWNQyknqmJ4YxyHC22lw==",
+    "publishedAt": "2026-10-01T20:31:49.421Z",
+    "finalTags": {
+      "latest": "0.1.4-rc.1",
+      "next": "0.1.4-rc.1"
+    },
+    "downloadedBytesMatch": true
+  },
+  "deviceScope": {
+    "web": "frozen installation, cold start, authenticated API and matching served client",
+    "desktop": "frozen installation, cold start, settings save/reopen and exact retained-session return",
+    "nativeToast": "not-tested",
+    "hiddenWindowNotificationWake": "not-tested"
+  },
+  "entryDecisions": {
+    "policyThresholds": "unchanged",
+    "naturalCalibration": "insufficient independent cross-workday evidence",
+    "judgeCalls": 0,
+    "officialDesktopBridge": "no released public third-party capability",
+    "supervisor": "experimental, off by default"
+  }
+}
