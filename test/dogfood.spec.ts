@@ -4,6 +4,7 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { DOGFOOD_SCHEMA_VERSION, DogfoodLedger, isDogfoodBundle, summarizeDogfood } from '../src/dogfood.js'
 import type { DogfoodBundle, DogfoodObservation, DogfoodRun } from '../src/dogfood.js'
+import type { OutcomeReceipt } from '../src/types.js'
 
 const run: DogfoodRun = {
   schemaVersion: DOGFOOD_SCHEMA_VERSION,
@@ -38,6 +39,21 @@ function observation(partial: Partial<DogfoodObservation> & Pick<DogfoodObservat
 }
 
 describe('dogfood observation and taxonomy', () => {
+  it('does not admit an origin-less receipt into an attributed natural run', () => {
+    const taskRef = '0123456789abcdef'
+    const naturalRun: DogfoodRun = { ...run, provenance: 'real', taskOrigin: 'natural', taskRef, captureMode: 'service' }
+    const receipt: OutcomeReceipt = {
+      schemaVersion: 1, receiptId: 'outcome-aaaaaaaaaaaaaaaa', attentionRef: 'bbbbbbbbbbbbbbbb', trialId: run.trialId,
+      source: 'real', taskRef, policyVersion: 'attention-policy.v1', eventClass: 'completion', reasonCode: 'TASK_COMPLETED',
+      level: 'C1', action: 'INBOX', sourceAuthority: 'runtime', opened: false, acknowledged: false, snoozed: false,
+      muted: false, feedback: 'unrated', laterOutcome: 'unknown', recoveredBeforeOpen: false, latencyBucket: 'unknown',
+      reviewFlags: [], recordedAt: run.startedAt,
+    }
+    const bundle: DogfoodBundle = { schemaVersion: 1, run: naturalRun, observations: [], receipts: [receipt] }
+    expect(isDogfoodBundle(bundle)).toBe(false)
+    expect(isDogfoodBundle({ ...bundle, receipts: [{ ...receipt, taskOrigin: 'unknown' }] })).toBe(false)
+    expect(isDogfoodBundle({ ...bundle, receipts: [{ ...receipt, taskOrigin: 'natural' }] })).toBe(true)
+  })
   it('keeps negative opportunities and review labels in a replayable report', () => {
     const bundle: DogfoodBundle = {
       schemaVersion: DOGFOOD_SCHEMA_VERSION,

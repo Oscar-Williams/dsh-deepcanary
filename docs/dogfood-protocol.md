@@ -71,7 +71,7 @@ Record one redacted `OutcomeReceipt` for each reviewed attention decision. The s
 }
 ```
 
-`source` is required and has one of three schemaVersion 1 values: `real` for a natural-real user trial, `controlled` for a controlled-real DSH scenario, and `replay` for a deterministic fixture or historical replay. Keep one source per aggregate. The independent `manual-audit` source belongs to the audit sidecar and remains visible in the report without being inserted into the OutcomeReceipt source enum. `trialId` uses a local redacted identifier and accepts letters, numbers, dots, underscores, colons, and hyphens.
+`source` identifies capture provenance: `real` for live DSH capture, `controlled` for a controlled manual capture, and `replay` for fixtures/replay. It does not establish natural intent. Optional `taskOrigin` and hashed `taskRef` preserve task ownership; missing origin stays unknown. Keep source cohorts separate. Independent `manual-audit` belongs to a sidecar rather than the receipt source enum. `trialId` is a redacted identifier accepting letters, numbers, dots, underscores, colons and hyphens.
 
 For a run-level summary, record:
 
@@ -221,11 +221,12 @@ $env:DSH_DEEPCANARY_DOGFOOD = '1'
 $env:DSH_DEEPCANARY_DOGFOOD_RUN_ID = 'real-coding-alpha5-01'
 $env:DSH_DEEPCANARY_DOGFOOD_TRIAL_ID = 'real-alpha5-01'
 $env:DSH_DEEPCANARY_DOGFOOD_TASK_ORIGIN = 'natural'
+$env:DSH_DEEPCANARY_DOGFOOD_TASK_REF = '<sha256-of-actual-session-id-first-16-hex>'
 $env:DSH_DEEPCANARY_DOGFOOD_TASK_FAMILY = 'coding'
 $env:DSH_DEEPCANARY_DOGFOOD_SCENARIO = 'normal-completion'
 $env:DSH_DEEPCANARY_DOGFOOD_RUNTIME_TAG = 'dsh-v0.1.2-alpha.5'
 dsh --profile headless "Run the selected read-only coding task"
-Remove-Item Env:DSH_DEEPCANARY_DOGFOOD,Env:DSH_DEEPCANARY_DOGFOOD_RUN_ID,Env:DSH_DEEPCANARY_DOGFOOD_TRIAL_ID,Env:DSH_DEEPCANARY_DOGFOOD_TASK_ORIGIN,Env:DSH_DEEPCANARY_DOGFOOD_TASK_FAMILY,Env:DSH_DEEPCANARY_DOGFOOD_SCENARIO,Env:DSH_DEEPCANARY_DOGFOOD_RUNTIME_TAG -ErrorAction SilentlyContinue
+Remove-Item Env:DSH_DEEPCANARY_DOGFOOD,Env:DSH_DEEPCANARY_DOGFOOD_RUN_ID,Env:DSH_DEEPCANARY_DOGFOOD_TRIAL_ID,Env:DSH_DEEPCANARY_DOGFOOD_TASK_ORIGIN,Env:DSH_DEEPCANARY_DOGFOOD_TASK_REF,Env:DSH_DEEPCANARY_DOGFOOD_TASK_FAMILY,Env:DSH_DEEPCANARY_DOGFOOD_SCENARIO,Env:DSH_DEEPCANARY_DOGFOOD_RUNTIME_TAG -ErrorAction SilentlyContinue
 ```
 
 Every accepted runtime signal is recorded, including C0 silence, suppression, deduplication, Bundle merges, recovery closure, delivery opportunities, and dropped-event outcomes. The recorder stores only bounded structured fields and hashed references. Pass the matching file explicitly to the capture helper so the runtime ledger remains authoritative for negative opportunities:
@@ -240,6 +241,7 @@ npm run dogfood:capture -- `
   --scenario normal-completion `
   --provenance real `
   --task-origin natural `
+  --task-ref <same-16-hex-as-runtime> `
   --started-at <ISO-start> `
   --ended-at <ISO-end> `
   --out output/dogfood/real-coding-alpha5-01.json

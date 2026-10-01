@@ -5,7 +5,18 @@
   "type": "object",
   "required": ["schemaVersion", "evidenceId", "source", "runId", "trialId", "provenance", "pluginVersion", "runtimeTag", "runWindow", "observedAt", "decision", "notification", "browser", "operatingSystem", "evidenceArtifacts", "rawContentPersisted"],
   "properties": {
-    "schemaVersion": { "const": 3 },
+    "schemaVersion": { "enum": [3, 4] },
+    "deployment": {
+      "type": "object",
+      "required": ["surface", "profile", "artifactSha256", "lifecycle"],
+      "properties": {
+        "surface": { "enum": ["web", "desktop"] },
+        "profile": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+        "artifactSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "lifecycle": { "enum": ["foreground", "minimized", "hidden", "reshown", "host-restarted", "fully-exited"] }
+      },
+      "additionalProperties": false
+    },
     "evidenceId": { "type": "string", "pattern": "^evidence-[a-f0-9]{16}$" },
     "source": { "const": "manual-windows-observation" },
     "runId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
@@ -53,11 +64,11 @@
       "type": "object",
       "required": ["name", "version", "notificationApi", "permission", "pageVisibility", "browserReceiptRef", "constructorObserved", "clickHandlerObserved"],
       "properties": {
-        "name": { "const": "edge" },
+        "name": { "enum": ["edge", "electron"] },
         "version": { "type": "string", "minLength": 1, "maxLength": 128 },
         "notificationApi": { "enum": ["supported", "unsupported"] },
         "permission": { "enum": ["granted", "denied", "default", "unsupported"] },
-        "pageVisibility": { "enum": ["foreground", "background", "minimized", "unknown"] },
+        "pageVisibility": { "enum": ["foreground", "background", "minimized", "hidden", "unknown"] },
         "browserReceiptRef": { "type": "string", "pattern": "^[a-f0-9]{16}$" },
         "constructorObserved": { "type": "boolean" },
         "clickHandlerObserved": { "type": "boolean" }
@@ -66,17 +77,19 @@
     },
     "operatingSystem": {
       "type": "object",
-      "required": ["name", "build", "notificationsEnabled", "edgeNotificationsEnabled", "focusAssistOff", "toastObserved", "notificationCenterObserved", "toastClicked", "edgeFocusedAfterClick", "returnedToDsh", "targetVisibleInDsh"],
+      "required": ["name", "build", "notificationsEnabled", "focusAssistOff", "toastObserved", "notificationCenterObserved", "toastClicked", "returnedToDsh", "targetVisibleInDsh"],
       "properties": {
         "name": { "const": "windows" },
         "build": { "type": "string", "minLength": 1, "maxLength": 128 },
         "notificationsEnabled": { "$ref": "#/$defs/observationStatus" },
         "edgeNotificationsEnabled": { "$ref": "#/$defs/observationStatus" },
+        "applicationNotificationsEnabled": { "$ref": "#/$defs/observationStatus" },
         "focusAssistOff": { "$ref": "#/$defs/observationStatus" },
         "toastObserved": { "$ref": "#/$defs/observationStatus" },
         "notificationCenterObserved": { "$ref": "#/$defs/observationStatus" },
         "toastClicked": { "$ref": "#/$defs/observationStatus" },
         "edgeFocusedAfterClick": { "$ref": "#/$defs/observationStatus" },
+        "applicationFocusedAfterClick": { "$ref": "#/$defs/observationStatus" },
         "returnedToDsh": { "$ref": "#/$defs/observationStatus" },
         "targetVisibleInDsh": { "$ref": "#/$defs/observationStatus" }
       },
@@ -85,7 +98,17 @@
     "evidenceArtifacts": { "$ref": "#/$defs/evidenceArtifacts" },
     "rawContentPersisted": { "const": false }
   },
+  "allOf": [
+    { "if": { "properties": { "schemaVersion": { "const": 3 } } },
+      "then": { "not": { "required": ["deployment"] }, "properties": { "browser": { "properties": { "name": { "const": "edge" } } }, "operatingSystem": { "$ref": "#/$defs/webObservations" } } },
+      "else": { "required": ["deployment"], "if": { "properties": { "deployment": { "properties": { "surface": { "const": "desktop" } } } } },
+        "then": { "properties": { "browser": { "properties": { "name": { "const": "electron" } } }, "operatingSystem": { "required": ["applicationNotificationsEnabled", "applicationFocusedAfterClick"], "not": { "anyOf": [{ "required": ["edgeNotificationsEnabled"] }, { "required": ["edgeFocusedAfterClick"] }] } } } },
+        "else": { "properties": { "browser": { "properties": { "name": { "const": "edge" } } }, "operatingSystem": { "$ref": "#/$defs/webObservations" } } }
+      }
+    }
+  ],
   "$defs": {
+    "webObservations": { "required": ["edgeNotificationsEnabled", "edgeFocusedAfterClick"], "not": { "anyOf": [{ "required": ["applicationNotificationsEnabled"] }, { "required": ["applicationFocusedAfterClick"] }] } },
     "observationStatus": { "enum": ["observed", "not-observed", "not-tested"] },
     "evidenceArtifacts": {
       "type": "object",

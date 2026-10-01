@@ -1,116 +1,44 @@
 # How DeepCanary works
 
-## From DSH activity to a reminder
+## Reminder flow
 
-DeepCanary keeps DSH integration, interpretation, and presentation separate:
-
-```text
-DSH runtime facts
-  -> ContextDshAdapter
-  -> provider-normalized CanarySignal
-  -> deterministic AttentionVerdict
-  -> dedupe + Decision Bundle + budget + quiet hours
-  -> local Inbox / browser notification / model-visible tools
-```
-
-The Persistent Supervisor prototype adds a bounded local projection after the Core has committed a decision:
+DSH public runtime facts pass through the adapter and providers into a deterministic attention core. Policy then groups related events, deduplicates, applies quiet hours and budget, commits bounded local state, and presents Inbox items and renderer notifications.
 
 ```text
-DeepCanary Core commit
-  -> hashed session/pending projection
-  -> bounded policy state (dedupe hashes + interrupt timestamps)
-  -> atomic supervisor.json snapshot
-  -> fenced supervisor.lease heartbeat
-  -> read-only /dsh-deepcanary/supervisor diagnostics
+Public Session / question projection / Host facts
+  → normalized CanarySignal with evidence authority
+  → deterministic AttentionVerdict
+  → lifecycle + grouping + dedupe + notification policy
+  → profile-local Inbox / renderer notification
+  → public session return / explicit feedback / recovery
 ```
 
-The Supervisor provides restart-visible state, single-owner protection, standby retry, stale-lease takeover, and resource counters. It remains experimental and off by default; `supervisorMode: experimental` enables it. The browser notification path records a bounded, per-logical-delivery ledger with idempotent attempt stages; Windows OS-visible browser notification delivery, Notification Center, and click-back facts are added by the Windows evidence record. The adapter uses the public Session v2 contract tested against alpha.5 and independently against alpha.13: subscriber-first buffering, public `ctx.sessions.list()` and `Session.snapshotEvents()` reads, reconciliation epochs, sequence-aware duplicate merging, authoritative disposal convergence for previously observed sessions, startup Human Needed reconstruction, bounded orphan grace with immediate cleanup on authoritative session return, public tool-result correlation, parent-session completion summaries, and an explicit degraded status. Full Stable semantics still require restart policy acceptance, authoritative OS delivery states, cross-process orphan convergence, resource delta, and real elapsed-time soak evidence; the virtual-clock report remains supplemental.
+C3 requires authoritative Host/runtime evidence. Child-agent count alone reaches at most C2. Pending question projections use their public sequence watermark and exact call identity; timeout retains an answerable C1 item and admitted answers close it. Completion summaries remain visible after task completion. Parallel running calls recompute tool class when each call finishes, preserving and releasing bounded long-tool grace at the correct time.
 
-The plugin observes DSH interfaces; it does not reimplement the agent loop. Session events are the primary runtime feed. Agent errors and Subagent lifecycle events add optional facts. Session heartbeat silence and WebServer probes provide conservative Host evidence.
+## Host contracts
 
-## Shared data and interfaces
+The release baseline is DSH 0.2.0-rc.2 at `639ed015397290b3745d163aafe02ffee4aa3f84`. Session startup subscribes before reconciliation, buffers events, merges sequence-aware duplicates and tracks authoritative active-set convergence. Missing authority remains degraded rather than closing pending work speculatively.
 
-`src/types.ts` defines the shared data types:
+Configuration uses Host ConfigForm mutation with the original draft revision, volatile snapshots and profile-isolated state. Dirty drafts retain their revision across remote refresh. Conflicts preserve the draft; discard and successful save reread Host state. Legacy settings migration uses the same Host service and preserves the original source on failure.
 
-- `CanarySignal` carries source, reason code, evidence, an optional severity hint, a dedupe key, a root-cause Bundle key, and privacy-safe scalar data;
-- `EvidenceRef` records the evidence type and authority: `host`, `runtime`, `derived`, or `heuristic`;
-- `AttentionVerdict` carries C0–C3, action, confidence, reason, evidence, a stable message key, the protocol/policy versions, and a privacy-safe `PolicyDecisionTrace`;
-- `InboxItem` adds reversible local status, feedback, Bundle count, lifecycle timestamps, and the reason-code set shown to users;
-- `DogfoodNotificationDelivery` links `attempted`, `constructed`, `click-handler-attached`, `clicked`, and `error` stages to one opaque notification attempt; OS observation remains a separate evidence layer;
-- `OutcomeReceipt` links one redacted decision to observed user and task outcomes while preserving source (`real`, `controlled`, or `replay`), policy version, review flags, and bounded outcome enums. Separate source/trial pairs can coexist for the same attention reference;
-- `PublicSnapshot` is the data exposed to the Web client, carries a monotonic revision for conditional reads, and excludes internal hashes and raw evidence references.
+HTTP contributions use public `connection.fetch.register()` exact routes under `/api/dsh-deepcanary/*`. The Host applies authentication and Host/Origin admission before routing. GET reads return no-store responses; POST mutations validate bounded structured input. Settings HTTP access is read-only. Feedback withdrawal uses filtered POST `/outcomes/delete` because the published Fetch registry supports GET, HEAD and POST. The old direct WebServer endpoints are removed. Missing Connection capability has no unauthenticated fallback.
 
-`PolicyDecisionTrace` records stable rule identifiers, applied scopes, suppression causes, evidence-authority counts, final delivery action, Bundle aggregation, and recovery correlation. It contains no prompt, transcript, tool payload, credential, or raw event reference. `deepcanary_explain` and the Web explain route expose this projection for user decisions and support diagnosis.
+The client requests allowlisted same-origin endpoints and returns through `uiWorkspace.openSession()`. Navigation validates the actual target and pending identity at click time. Runtime strings use DOM `textContent`; Inbox paints use dedicated opaque light/dark surfaces.
 
-Dogfood evidence keeps task intent separate from capture provenance. A run may mark its intent as `natural`, `controlled`, `replay`, or `unknown`; that field cannot upgrade a controlled capture into a natural task. Review metadata records `reviewSource`, `reviewBasis`, and `reviewConfidence` independently from usefulness. User-facing review coverage uses unique final delivery units only when `deliveryVisibility.status` is explicitly `visible`; materialized or browser-constructed units with unverified visibility are retained as `unknown` and do not enter that denominator.
+Host self-checks read mounted in-process WebServer facts. They establish service availability inside the process, with external reachability outside that observation scope.
 
-`src/adapters/dsh.ts` owns the DSH-facing adapter. `ContextDshAdapter` translates the alpha.5 Context events into a small lifecycle interface, reconciles the authoritative session list before releasing buffered events, and keeps only bounded metadata snapshots in memory. Providers do not depend on Web UI or persistence details.
+## Delivery and local state
 
-## Provider coverage
+Notification permission, level, quiet hours and budget decide interruptions. Expiring server-owned claims arbitrate multiple renderer pages; client storage is an optimization. Bounded attempt stages distinguish attempted, constructed, callback-attached, clicked and failed. OS visibility stays unknown without an observation.
 
-The RC includes six deterministic provider families:
+Local state stores bounded summaries, hashes, lifecycle, feedback and session navigation handles. Atomic replacement persists state in the active profile. Separate homes/profiles keep runtime instances independent. Raw conversation content, tool arguments, model output and credentials stay outside reminder capture.
 
-1. Human Needed — approval, permission, question, clarification, and blocked boundaries;
-2. Host Health — WebServer HTTP failures and recovery;
-3. Stuck / Progress — heartbeat silence, repeated tool failures, and explicit no-progress facts;
-4. Subagent Pressure — configurable relaxed, standard, and strict thresholds;
-5. Context Pressure — compaction, repeated compaction, overflow, token-limit, and pressure markers;
-6. Completion — normal, failed, aborted, and structured suspicious-completion boundaries.
+Supervisor projects bounded state with owner fencing and leases. It is experimental and off by default. Its lifetime follows its owning Host process. Public notification/window-wake bridging remains gated by released third-party capabilities.
 
-Each provider emits a consistent reason code and an `EvidenceRef`. The provider may summarize a structured runtime fact, but it never reads prompt text, model output, raw tool arguments, or transcript content into the local persistence path.
+## Feedback and policy iteration
 
-## Deterministic attention policy
+Capture provenance and task origin remain separate. Natural qualification requires service-captured real work with explicit natural origin and actual hashed task ownership. Missing origin remains unknown. Receipts, export and aggregation preserve ownership; repeated exports and identity conflicts cannot inflate counts.
 
-The judge is deterministic and runs before all notification policy. It emits a trace at the same time as the base verdict, and the pure delivery-policy layer appends quiet-hours, notification-level, budget, candidate-policy, Bundle, and recovery details:
+Confirmed failures become sanitized replay cases. Discovery and holdout use different actual tasks, with a frozen safety set. The evaluator separates insufficient evidence, scoped pass, pass, explicit local adoption and rollback. Evaluation does not modify live policy. See [feedback calibration](feedback-calibration.md) and [failure taxonomy](failure-taxonomy.md).
 
-- C0 is silent;
-- C1 is recorded in the Inbox;
-- C2 is an interrupt candidate, subject to quiet hours and the rolling budget;
-- C3 is an escalation candidate, requires Host or Runtime authority, and does not consume the ordinary C2 budget;
-- duplicate signals are rejected inside `dedupeWindowMinutes`;
-- an event with a shared root-cause key is merged into a Decision Bundle inside `bundleWindowSeconds`.
-
-The policy layer is pure and reusable by `DeepCanaryService.dryRun()`. Dry-run accepts bounded structured signal fields, compares current and candidate notification policy, returns field-level differences, and does not consume a budget, write state, send a notification, or mutate a DSH Session.
-
-Normal completion is C1. Human approval/question, failure, suspected stall, no-progress, repeated tool failures, context pressure, and suspicious completion are C2 by default. Host unreachability with Host evidence and the highest Subagent threshold are C3. A healthy fact is explicitly silent, and a user-viewing fact downgrades a reminder to C1.
-
-## Decision Bundle
-
-A Bundle is a user-facing compression unit, not a replacement for the raw DSH log. Providers provide a stable in-memory root key such as a session failure, context lifecycle, or human-needed boundary. DeepCanary hashes it before retaining it, merges adjacent open items, increments `bundleCount`, unions reason codes, de-duplicates evidence references, and keeps the highest level observed. The Inbox card presents one decision point while the original DSH session remains the source of detail.
-
-## DSH integration points
-
-The entry point is `src/index.ts`:
-
-- `inject = ['tools', 'sessions']` expresses the required DSH services;
-- `session/created`, `session/event`, and `session/disposed` feed the adapter and Session providers;
-- optional `agents` and `subagents` injections observe live lifecycle facts;
-- optional `webServer` injection registers exact same-origin state, settings, health, action, OutcomeReceipt, and read-only Supervisor routes;
-- optional `settings` injection registers the `dsh-deepcanary` namespace through the DSH Settings `installSection` API used by alpha.5, with the composed configuration as its base and live user changes applied through the provider;
-- DSH Tools are registered with `defineTool`, explicit JSON output schemas, and text renderers.
-
-The browser client is a DSH alpha.5 `dsh.client` module. Its `./client` export is built as a lazy-CJS factory for the client-module loader, then contributes the sidebar entry through `sidebar.footer.action`, the floating Inbox through `shell.overlay`, and the settings card through `settings.plugin.item`. The state route remains the source of truth; the overlay opens on demand. The Inbox renders the decision trace in a bilingual details section so policy reasoning remains available without opening another page.
-
-The Web protocol is versioned independently from the persisted file format. State and action responses expose `schemaVersion` and a monotonic `revision`; state reads use an ETag and may return `304 Not Modified`. Actions require a client-generated `requestId`, and identical replays return the original receipt without applying the mutation twice. `GET /dsh-deepcanary/explain?id=...` returns one public trace projection, while `POST /dsh-deepcanary/dry-run` returns a read-only current/candidate comparison. `POST /dsh-deepcanary/outcome` records one bounded OutcomeReceipt, and `GET /dsh-deepcanary/outcomes` returns filtered receipts for one source and trial. Inbox entries move through explicit `open`, `seen`, `acknowledged`, `snoozed`, `muted`, `recovered`, and `expired` states so a transient host recovery cannot create a second alert for the same root cause.
-
-Browser notification delivery has a server-side bounded claim boundary. A logical delivery is claimed by an opaque client instance with a short expiry before the browser path runs; competing tabs receive `already-claimed`, `already-complete`, or `unavailable` rather than arbitrating through `localStorage`. The server allows at most three claim opportunities for one logical delivery, then leaves the Inbox as the recovery path. The client records attempted, constructed, callback, and error stages, but a lost callback remains `unknown`, not success. Retries are finite and idempotent at the logical-delivery layer; the plugin does not claim cross-crash or cross-OS exactly-once delivery.
-
-## Configuration and lifecycle
-
-`Config` is a schemastery schema shared by bundle configuration and the optional Settings provider. Web updates pass through `sanitizeConfigPatch`; unknown keys, `stateDir`, invalid ranges, and malformed quiet-hour values are rejected. The state directory is restart-scoped. Notification level, budget, dedupe, Bundle window, liveness threshold, Subagent mode, quiet hours, privacy flag, health polling, and Inbox retention are bounded.
-
-The service queues persistence writes, uses atomic replace for `inbox.json`, disposes timers and adapter subscriptions, and leaves no process or route cleanup to the client. Startup subscribes to lifecycle events before reading the authoritative session list; the adapter reconciles `ctx.sessions.list()` and `Session.snapshotEvents()` inside an epoch, then merges buffered events by sequence. A previously observed session is not treated as expired merely because a transient feed or list read is empty: disposal and orphan convergence use authoritative absence plus a bounded timestamp-only grace period, while completion summaries remain separate from user-facing retention. The Supervisor uses atomic snapshot replacement, short-lived lease heartbeats, standby retry, stale-lease archival, bounded policy restoration, and a read-only route when explicitly enabled. DSH Context owns the host-side event listener lifecycle.
-
-Concurrent Supervisor starts share one initialization transaction. Shutdown prevents new starts, waits for an in-flight initialization and queued persistence, and then releases the lease. Concurrent stop callers await the same shutdown transaction, so an asynchronous standby retry cannot acquire a new lease after shutdown has completed.
-
-## Persistence and privacy
-
-`MetadataStore` writes an atomic `inbox.json` containing attention metadata only. `OutcomeStore` writes an independent atomic `outcomes.json` with validated, redacted decision-to-outcome records. Session and Workspace references are hashed before writing; evidence references are reduced to metadata codes. When DSH provides a native session identity, the Inbox may retain a bounded opaque local session handle solely for `sessions.open` navigation. No transcript cache, prompt cache, credential store, raw model-judgment log, network client, or child process belongs to the plugin.
-
-Outcome input requires an explicit source and redacted trial identifier. The service derives event class, reason code, level, action, policy version, and evidence authority from the stored Inbox item; callers supply only bounded user and later-outcome fields. The store caps records, validates every enum, keeps source aggregates separable, and uses an atomic replace. `scripts/generate-outcome-report.mjs` reads one source at a time and writes aggregate counts without trial identifiers or raw content.
-
-The store is local by construction and writes only below the configured state directory. Public Web responses omit internal hashes and evidence references; the client uses `textContent` for dynamic values. The persisted `orphanedAt` field is a timestamp-only lifecycle marker and is removed when the session returns or the item expires.
-
-## Adding or changing a provider
-
-Add a provider only when its runtime fact has a clear event or health-probe source. Give it a consistent reason code, evidence authority, dedupe key, Bundle key where appropriate, and an AttentionGold case. Prefer structured DSH facts over content inspection. Any new user-facing behavior must update the shared types, Web API definition, tests, README files, compatibility audit, security notes, quality report procedure, and release receipt procedure together. Outcome changes additionally update `benchmark/outcome-receipt.schema.json`, `benchmark/outcome-report.schema.json`, and the dogfood protocol. AttentionGold v3 and the local trial protocol provide the replay and aggregate-evidence path for rule changes.
+Selective offline Judge requires rule-hard natural cases and sufficient allowlisted metadata. Current live behavior stays deterministic. Supervisor expansion, second adapters and active actions retain independent entry conditions.

@@ -25,48 +25,202 @@
     "conclusion"
   ],
   "properties": {
-    "reportSchemaVersion": { "const": 1 },
-    "status": { "enum": ["dogfood", "controlled", "replay", "empty"] },
-    "source": { "enum": ["real", "controlled", "replay", "none"] },
-    "pluginVersion": { "type": "string", "minLength": 1 },
-    "policyVersions": { "type": "array", "items": { "type": "string" } },
-    "trialCount": { "type": "integer", "minimum": 0 },
-    "receiptCount": { "type": "integer", "minimum": 0 },
-    "opened": { "type": "integer", "minimum": 0 },
-    "acknowledged": { "type": "integer", "minimum": 0 },
-    "snoozed": { "type": "integer", "minimum": 0 },
-    "muted": { "type": "integer", "minimum": 0 },
-    "recoveredBeforeOpen": { "type": "integer", "minimum": 0 },
-    "feedbackCounts": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
-    "laterOutcomeCounts": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
-    "latencyBuckets": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
-    "reviewFlags": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
-    "byEventClass": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
-    "byReasonCode": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
-    "byLevel": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
-    "byAction": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+    "reportSchemaVersion": {
+      "const": 1
+    },
+    "status": {
+      "enum": [
+        "dogfood",
+        "controlled",
+        "replay",
+        "empty"
+      ]
+    },
+    "source": {
+      "enum": [
+        "real",
+        "controlled",
+        "replay",
+        "none"
+      ]
+    },
+    "pluginVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "policyVersions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "trialCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "receiptCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "opened": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "acknowledged": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "snoozed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "muted": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "recoveredBeforeOpen": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "feedbackCounts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "laterOutcomeCounts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "latencyBuckets": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "reviewFlags": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "byEventClass": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "byReasonCode": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "byLevel": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "byAction": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
     "dataQuality": {
       "type": "object",
-      "required": ["issueCounts", "issueCount", "status"],
+      "required": [
+        "issueCounts",
+        "issueCount",
+        "status"
+      ],
       "properties": {
-        "issueCounts": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
-        "issueCount": { "type": "integer", "minimum": 0 },
-        "status": { "enum": ["consistent", "review-required"] }
+        "issueCounts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "issueCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "status": {
+          "enum": [
+            "consistent",
+            "review-required"
+          ]
+        }
       },
       "additionalProperties": false
     },
     "fieldCompleteness": {
       "type": "object",
-      "required": ["feedback", "laterOutcome", "latency"],
+      "required": [
+        "feedback",
+        "laterOutcome",
+        "latency"
+      ],
       "properties": {
-        "feedback": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
-        "laterOutcome": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
-        "latency": { "type": ["number", "null"], "minimum": 0, "maximum": 1 }
+        "feedback": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "laterOutcome": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "latency": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        }
       },
       "additionalProperties": false
     },
-    "generatedAt": { "type": "string", "format": "date-time" },
-    "conclusion": { "type": "string", "minLength": 1, "maxLength": 500 }
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "conclusion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "byTaskOrigin": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "attributedNaturalReceiptCount": {
+      "type": "integer",
+      "minimum": 0
+    }
   },
   "additionalProperties": false
 }

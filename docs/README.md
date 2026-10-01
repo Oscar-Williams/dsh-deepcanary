@@ -16,6 +16,10 @@ Start with the [English quick start](../README.md) or [简体中文](../README.z
 - [Architecture](architecture.md) — providers, deterministic attention policy, delivery, and persistence.
 - [DSH surface audit](dsh-surface-audit.md) — public host interfaces, version pins, and fallbacks.
 - [Evaluation protocol](dogfood-protocol.md) — redacted trial data, review criteria, and uncertainty.
+- [Feedback and offline calibration](feedback-calibration.md) — task ownership, cohort separation, independent evaluation and entry decisions.
+- [Failure taxonomy](failure-taxonomy.md) — explicit sanitized-source auditing, task versus reminder failures and negative opportunities.
+- [Current offline evaluation](offline-evaluation.md) — supported fixes, replay results and long-term entry decisions.
+- [Web and Desktop verification](dual-host-acceptance.md) — profile boundaries and observed lifecycle scope.
 - [Release checklist](release-checklist.md) — artifact integrity, validation scope, and publication.
 
 Machine-readable schemas and historical release records are available in the repository's [benchmark directory](https://github.com/Oscar-Williams/dsh-deepcanary/tree/main/benchmark). Published artifacts are available from [GitHub Releases](https://github.com/Oscar-Williams/dsh-deepcanary/releases) and [npm](https://www.npmjs.com/package/dsh-deepcanary). Release receipts are repository-only so that package hashes do not depend on the receipt recording them.

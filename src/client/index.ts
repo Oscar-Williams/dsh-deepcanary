@@ -3,10 +3,13 @@ import type {
   CSSProperties, FormEvent, KeyboardEvent as ReactKeyboardEvent,
   PointerEvent as ReactPointerEvent, ReactNode,
 } from 'react'
-import type { SettingsScope, SettingsScopeSnapshot } from '@deepseek-ai/dsh-client-ui-settings/client'
-import type { SettingsPluginItemOwnerProps } from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
-import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
+import type { ConfigForm, ConfigFormSnapshot, SettingsPluginsTabOwnerProps } from '@deepseek-ai/dsh-client-ui-settings/client'
 import { handleNotificationClick, positionSelectedAttention } from './attention-navigation.js'
+import { hasCatalogSession, openAttentionSession } from './session-navigation.js'
+import { rendererCapabilities } from './capabilities.js'
+import { inboxStyles } from './inbox-styles.js'
+import { SettingsDraft } from '../settings-draft.js'
+import type { SessionNavigationContext } from './session-navigation.js'
 
 type Translate = (key: string, params?: Record<string, unknown>) => string
 
@@ -97,16 +100,17 @@ type ActionNotice = {
   tone: 'success' | 'error'
 }
 
-type ClientContext = {
+type ClientContext = SessionNavigationContext & {
   effect: (setup: () => void | (() => void), label?: string) => unknown
-  sessions: Pick<ISessions, 'open'> & { list?: { subscribe?: (listener: () => void) => () => void } }
+  sessions: SessionNavigationContext['sessions'] & { list?: { subscribe?: (listener: () => void) => () => void } }
   locale: { register: (namespace: string, dictionaries: { zh: Record<string, string>; en: Record<string, string> }) => () => void }
   slots: {
     inject: (name: string, callback: () => unknown) => unknown
     register: (options: Record<string, unknown>, component: unknown) => unknown
   }
-  settingsScope?: {
-    bind: <T>(spec: { namespace: string; decode?: (section: unknown) => T | undefined }) => SettingsScope<T>
+  configForms: {
+    get: <T>(entryId: string) => ConfigForm<T>
+    whileServed: (namespaces: string[], register: (served: ReadonlySet<string>) => () => void) => () => void
   }
 }
 
@@ -147,12 +151,13 @@ type Controller = {
     observedAt: string
   }) => Promise<void>
   openSession: (sessionId: string) => boolean
+  hasHistoricalSession: (sessionId: string) => boolean
   jump: (id: string) => Promise<void>
 }
 
 const NS = 'deepcanary'
 /** Settings namespace shared by the Host registration and keyed settings card. */
-const SETTINGS_NS = 'dsh-deepcanary'
+const SETTINGS_NS = 'deepcanary'
 const STYLE_ID = 'dsh-deepcanary-client-style'
 const SIZE_KEY = 'dsh-deepcanary-ui'
 const ATTEMPTED_NOTIFICATION_KEY = 'dsh-deepcanary-notification-attempted'
@@ -191,6 +196,8 @@ const zh = {
   'panel.updateRequired': 'DeepCanary 状态协议需要更新插件。',
   'panel.lastSynced': '最近同步：{time}',
   'panel.policyHint': 'C1 建议查看 · C2 需要处理 · C3 立即处理',
+  'panel.policyDetails': '提醒策略与通知预算',
+  'panel.inbox': '待处理',
   'panel.delivery': '通知预算 {used}/{limit}，剩余 {remaining} · 去重 {dedupe} 分钟 · 合并 {bundle} 秒 · {quiet}',
   'panel.quiet.active': '静默时段 {start}–{end}，当前生效',
   'panel.quiet.inactive': '静默时段 {start}–{end}，当前未生效',
@@ -248,6 +255,7 @@ const zh = {
   'settings.supervisorMode.experimental': '启用实验性 Supervisor',
   'item.reason.HUMAN_APPROVAL_REQUIRED': 'DSH 正在等待人工审批。',
   'item.reason.HUMAN_QUESTION_PENDING': 'DSH 正在等待你的回答。',
+  'item.reason.HUMAN_QUESTION_CONTINUED': '此问题仍可回答；DSH 已不再阻塞等待。',
   'item.reason.HOST_UNREACHABLE': 'DSH 主机暂时无法访问。',
   'item.reason.HOST_SUSPECTED_STALL': '已连续 {idleMinutes} 分钟未观察到会话活动，任务可能仍在运行。',
   'item.reason.TOOL_FAILURE_LOOP': '工具“{toolName}”已连续失败 {failureCount} 次。',
@@ -375,7 +383,7 @@ const en = {
   'panel.refreshing': 'Refreshing',
   'panel.empty': 'There are no pending alerts',
   'panel.emptyHint': 'Task updates that need your attention will appear here.',
-  'panel.sessions': '{count} active sessions',
+  'panel.sessions': 'Active sessions: {count}',
   'panel.notification.enable': 'Enable browser notifications',
   'panel.notification.enabled': 'Browser notifications enabled',
   'panel.notification.denied': 'Browser notifications are blocked; allow them in site permissions and try again',
@@ -387,6 +395,8 @@ const en = {
   'panel.updateRequired': 'The DeepCanary state protocol requires a newer plugin.',
   'panel.lastSynced': 'Last sync: {time}',
   'panel.policyHint': 'C1 Review · C2 Action needed · C3 Act now',
+  'panel.policyDetails': 'Reminder policy and notification budget',
+  'panel.inbox': 'Inbox',
   'panel.delivery': 'Interrupt budget {used}/{limit}, {remaining} remaining · dedupe {dedupe}m · bundle {bundle}s · {quiet}',
   'panel.quiet.active': 'Quiet hours {start}–{end}, active now',
   'panel.quiet.inactive': 'Quiet hours {start}–{end}, inactive now',
@@ -444,6 +454,7 @@ const en = {
   'settings.supervisorMode.experimental': 'Enable experimental Supervisor',
   'item.reason.HUMAN_APPROVAL_REQUIRED': 'DSH is waiting for human approval.',
   'item.reason.HUMAN_QUESTION_PENDING': 'DSH is waiting for your answer.',
+  'item.reason.HUMAN_QUESTION_CONTINUED': 'This question is still answerable; DSH is no longer blocking on it.',
   'item.reason.HOST_UNREACHABLE': 'The DSH host is temporarily unreachable.',
   'item.reason.HOST_SUSPECTED_STALL': 'No session activity has been observed for {idleMinutes} minutes. The task may still be running.',
   'item.reason.TOOL_FAILURE_LOOP': 'Tool “{toolName}” has failed {failureCount} times in a row.',
@@ -683,7 +694,8 @@ async function opaqueRef(value: string): Promise<string> {
   return [...new Uint8Array(digest)].slice(0, 8).map(byte => byte.toString(16).padStart(2, '0')).join('')
 }
 
-function createController(sessions: Pick<ISessions, 'open'> & { list?: { subscribe?: (listener: () => void) => () => void } }): Controller {
+function createController(ctx: ClientContext): Controller {
+  const sessions = ctx.sessions
   const initial = safeSize()
   // This is a per-page opaque owner identity. The server hashes it before any
   // delivery state is persisted; localStorage remains only a best-effort UI hint.
@@ -730,7 +742,7 @@ function createController(sessions: Pick<ISessions, 'open'> & { list?: { subscri
 
   const request = async (path: string, init?: RequestInit): Promise<Response | undefined> => {
     try {
-      return await fetch(path, { cache: 'no-store', ...init })
+      return await rendererCapabilities.request(path, init)
     } catch {
       return undefined
     }
@@ -813,7 +825,7 @@ function createController(sessions: Pick<ISessions, 'open'> & { list?: { subscri
       let requestTimeout: number | undefined
       try {
         requestTimeout = window.setTimeout(() => { abort?.abort() }, 12_000)
-        const response = await fetch('/dsh-deepcanary/state', {
+        const response = await rendererCapabilities.request('/api/dsh-deepcanary/state', {
           cache: 'no-store',
           signal: abort.signal,
           ...(etag ? { headers: { 'if-none-match': etag } } : {}),
@@ -863,24 +875,15 @@ function createController(sessions: Pick<ISessions, 'open'> & { list?: { subscri
       persistSize(next.width, next.height)
       publish(next)
     },
-    openSession: sessionId => {
-      try {
-        sessions.open(sessionId as Parameters<ISessions['open']>[0])
-        return true
-      } catch {
-        // The alpha5 Session API rejects unknown ids. Keeping the panel in
-        // place makes that failure visible instead of sending the user to a
-        // guessed URL that may open a different session.
-        return false
-      }
-    },
+    openSession: sessionId => openAttentionSession(ctx, sessionId),
+    hasHistoricalSession: sessionId => hasCatalogSession(ctx, sessionId),
     action: async (id, payload) => {
       if (state.pending.has(id)) return
       const nextPending = new Set(state.pending)
       nextPending.add(id)
       publish({ pending: nextPending })
       try {
-        const response = await request('/dsh-deepcanary/action', {
+        const response = await request('/api/dsh-deepcanary/action', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ id, requestId: makeRequestId(), ...payload }),
@@ -907,7 +910,7 @@ function createController(sessions: Pick<ISessions, 'open'> & { list?: { subscri
     },
     claimDelivery: async (id, expiresAt) => {
       try {
-        const response = await request('/dsh-deepcanary/action', {
+        const response = await request('/api/dsh-deepcanary/action', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
@@ -930,7 +933,7 @@ function createController(sessions: Pick<ISessions, 'open'> & { list?: { subscri
     },
     recordDelivery: async (id, payload) => {
       try {
-        await request('/dsh-deepcanary/action', {
+        await request('/api/dsh-deepcanary/action', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ id, action: 'notification-delivery', requestId: makeRequestId(), ...payload }),
@@ -945,7 +948,7 @@ function createController(sessions: Pick<ISessions, 'open'> & { list?: { subscri
       nextPending.add(id)
       publish({ pending: nextPending })
       try {
-        const response = await request('/dsh-deepcanary/action', {
+        const response = await request('/api/dsh-deepcanary/action', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ id, action: 'jump', requestId: makeRequestId() }),
@@ -953,7 +956,9 @@ function createController(sessions: Pick<ISessions, 'open'> & { list?: { subscri
         if (!response?.ok) throw new Error('jump request failed')
         const body = await response.json() as JumpResult | { result?: JumpResult }
         const result = 'result' in body && body.result !== undefined ? body.result : body as JumpResult
-        if (result.available && result.sessionId !== undefined && controller.openSession(result.sessionId)) {
+        if (result.sessionId !== undefined
+          && (result.available || controller.hasHistoricalSession(result.sessionId))
+          && controller.openSession(result.sessionId)) {
           controller.close()
           return
         }
@@ -987,38 +992,38 @@ function injectStyles(): () => void {
     '.dsc-mark{display:inline-flex;align-items:center;justify-content:center;flex:none;width:20px;height:20px;color:var(--dsw-alias-state-warn-primary,#c77700)}',
     '.dsc-mark svg{width:18px;height:18px;fill:currentColor}',
     '.dsc-overlay-root{position:relative;width:100%;height:100%;pointer-events:none}',
-    '.dsc-panel{position:fixed;right:16px;bottom:16px;z-index:30;display:flex;flex-direction:column;width:min(var(--dsc-width),calc(100vw - 16px));height:min(var(--dsc-height),calc(100dvh - 16px));min-width:320px;min-height:320px;max-width:calc(100vw - 16px);max-height:calc(100dvh - 16px);box-sizing:border-box;pointer-events:auto;overflow:visible;border:1px solid var(--dsw-alias-border-inverted,var(--dsw-alias-border-l2,#d9dce1));border-radius:14px;background:var(--dsw-specific-menu,var(--dsw-alias-bg-primary,#fff));box-shadow:var(--dsw-shadow-lv3,0 14px 42px rgba(0,0,0,.22));color:var(--dsw-alias-label-primary,#202124);font:13px/1.45 system-ui,sans-serif}',
-    '.dsc-header{display:flex;align-items:center;gap:10px;flex:none;min-height:52px;padding:10px 12px;box-sizing:border-box;border-bottom:1px solid var(--dsw-alias-border-l2,#eceef1)}',
+    '.dsc-panel{position:fixed;right:16px;bottom:16px;z-index:30;display:flex;flex-direction:column;width:min(var(--dsc-width),calc(100vw - 16px));height:min(var(--dsc-height),calc(100dvh - 16px));min-width:320px;min-height:320px;max-width:calc(100vw - 16px);max-height:calc(100dvh - 16px);box-sizing:border-box;pointer-events:auto;overflow:visible}',
+    '.dsc-header{display:flex;align-items:center;flex:none;box-sizing:border-box;border-bottom:1px solid var(--dsw-alias-border-l2,#eceef1)}',
     '.dsc-heading{min-width:0;flex:1;display:flex;flex-direction:column;gap:1px}',
-    '.dsc-title{font-size:14px;font-weight:600;line-height:20px}',
-    '.dsc-subtitle{color:var(--dsw-alias-label-tertiary,#6b7280);font-size:11px;line-height:16px}',
-    '.dsc-header-count{flex:none;color:var(--dsw-alias-label-tertiary,#6b7280);font-size:12px;font-variant-numeric:tabular-nums}',
-    '.dsc-icon-button{display:inline-flex;align-items:center;justify-content:center;flex:none;width:30px;height:30px;padding:0;border:0;border-radius:8px;background:transparent;color:var(--dsw-alias-label-secondary,#4b5563);font:inherit;cursor:pointer}',
+
+
+    '.dsc-header-count{flex:none;font-variant-numeric:tabular-nums}',
+    '.dsc-icon-button{display:inline-flex;align-items:center;justify-content:center;flex:none;padding:0;border:0;border-radius:8px;background:transparent;font:inherit;cursor:pointer}',
     '.dsc-icon-button:hover,.dsc-icon-button:focus-visible{background:var(--dsw-alias-interactive-bg-hover,rgba(128,128,128,.12));outline:none}',
     '.dsc-close{font-size:20px;line-height:1}',
-    '.dsc-toolbar{display:flex;align-items:center;gap:7px;flex:none;min-height:44px;padding:7px 12px;border-bottom:1px solid var(--dsw-alias-border-l2,#eceef1)}',
-    '.dsc-status{display:inline-flex;align-items:center;gap:6px;min-width:0;flex:1;color:var(--dsw-alias-label-tertiary,#6b7280);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.dsc-toolbar{align-items:center;flex:none;min-height:44px;border-bottom:1px solid var(--dsw-alias-border-l2,#eceef1)}',
+    '.dsc-status{display:inline-flex;align-items:center;gap:6px;min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis}',
     '.dsc-status-dot{width:7px;height:7px;flex:none;border-radius:50%;background:var(--dsw-alias-state-success-primary,#16803c)}',
     '.dsc-status-dot[data-state="loading"]{background:var(--dsw-alias-state-warn-primary,#c77700)}',
     '.dsc-status-dot[data-state="offline"]{background:var(--dsw-alias-state-error-primary,#c5221f)}',
     '.dsc-toolbar-button,.dsc-save{display:inline-flex;align-items:center;justify-content:center;min-height:28px;padding:4px 8px;border:1px solid var(--dsw-alias-border-l2,#d9dce1);border-radius:8px;background:transparent;color:var(--dsw-alias-label-secondary,#4b5563);font:inherit;font-size:11px;cursor:pointer}',
     '.dsc-toolbar-button:hover,.dsc-toolbar-button:focus-visible,.dsc-save:hover,.dsc-save:focus-visible{background:var(--dsw-alias-interactive-bg-hover,rgba(128,128,128,.12));outline:none}',
-    '.dsc-body{min-height:0;flex:1;overflow:auto;padding:0 12px 14px}',
-    '.dsc-note{margin:18px 4px;color:var(--dsw-alias-label-tertiary,#6b7280);text-align:center}',
+    '.dsc-body{min-height:0;flex:1;overflow:auto}',
+    '.dsc-note{margin:18px 4px;text-align:center}',
     '.dsc-note strong{display:block;margin-bottom:4px;color:var(--dsw-alias-label-secondary,#4b5563);font-size:13px}',
-    '.dsc-group-title{margin:11px 2px 7px;color:var(--dsw-alias-label-caption,#8a8f98);font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}',
-    '.dsc-card{display:flex;flex-direction:column;gap:7px;margin:0 0 8px;padding:11px 10px 10px;border:1px solid var(--dsw-alias-border-l2,#eceef1);border-radius:11px;background:var(--dsw-alias-bg-secondary,transparent)}',
+
+    '.dsc-card{display:flex;flex-direction:column;border:1px solid var(--dsw-alias-border-l2,#eceef1)}',
     '.dsc-card[data-selected="true"]{border-color:var(--dsw-alias-state-warn-primary,#c77700);box-shadow:0 0 0 2px color-mix(in srgb,var(--dsw-alias-state-warn-primary,#c77700) 18%,transparent)}',
-    '.dsc-card-head{display:flex;align-items:center;gap:7px;min-width:0}',
-    '.dsc-level{display:inline-flex;align-items:center;justify-content:center;flex:none;min-width:27px;height:20px;padding:0 5px;border-radius:6px;background:var(--dsw-alias-state-warn-tertiary,#fff0d0);color:var(--dsw-alias-state-warn-label,#8a4b00);font-size:10px;font-weight:700}',
+    '.dsc-card-head{min-width:0}',
+    '.dsc-level{display:inline-flex;align-items:center;justify-content:center;flex:none;padding:0 5px;border-radius:6px;font-weight:700}',
     '.dsc-level[data-level="C3"]{background:var(--dsw-alias-interactive-bg-hover-danger,#fce8e6);color:var(--dsw-alias-state-error-primary,#c5221f)}',
     '.dsc-level[data-level="C1"]{background:var(--dsw-alias-button-ghost-active-fill,#eef0f2);color:var(--dsw-alias-label-caption,#6b7280)}',
-    '.dsc-card-reason{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:600}',
-    '.dsc-card-time{flex:none;color:var(--dsw-alias-label-caption,#8a8f98);font-size:10px}',
+    '.dsc-card-reason{min-width:0;flex:1;text-overflow:ellipsis}',
+    '.dsc-card-time{flex:none}',
     '.dsc-card-copy{margin:0;color:var(--dsw-alias-label-secondary,#4b5563);font-size:12px}',
-    '.dsc-card-suggestion{margin:0;color:var(--dsw-alias-label-tertiary,#6b7280);font-size:11px}',
-    '.dsc-level-label{flex:none;color:var(--dsw-alias-label-tertiary,#6b7280);font-size:10px;font-weight:600}',
-    '.dsc-card-actions{display:flex;flex-wrap:wrap;gap:5px;margin-top:1px}',
+    '.dsc-card-suggestion{color:var(--dsw-alias-label-tertiary,#6b7280);font-size:11px}',
+    '.dsc-level-label{flex:none}',
+    '.dsc-card-actions{display:flex;flex-wrap:wrap}',
     '.dsc-card-action{padding:4px 7px;border:1px solid var(--dsw-alias-border-l2,#d9dce1);border-radius:7px;background:transparent;color:var(--dsw-alias-label-secondary,#4b5563);font:inherit;font-size:11px;cursor:pointer}',
     '.dsc-card-action[data-primary="true"]{border-color:var(--dsw-alias-state-warn-primary,#c77700);color:var(--dsw-alias-state-warn-label,#8a4b00)}',
     '.dsc-card-action:hover:not(:disabled),.dsc-card-action:focus-visible{background:var(--dsw-alias-interactive-bg-hover,rgba(128,128,128,.12));outline:none}',
@@ -1029,7 +1034,7 @@ function injectStyles(): () => void {
     '.dsc-more summary{display:inline-flex;align-items:center;min-height:28px;padding:4px 7px;border:1px solid var(--dsw-alias-border-l2,#d9dce1);border-radius:7px;color:var(--dsw-alias-label-secondary,#4b5563);font-size:11px;cursor:pointer;list-style:none}',
     '.dsc-more summary::-webkit-details-marker{display:none}',
     '.dsc-more[open] summary{background:var(--dsw-alias-interactive-bg-hover,rgba(128,128,128,.12))}',
-    '.dsc-more-actions{position:absolute;right:0;bottom:calc(100% + 5px);z-index:3;display:flex;align-items:flex-start;gap:5px;max-width:min(310px,calc(100vw - 40px));padding:7px;border:1px solid var(--dsw-alias-border-l2,#d9dce1);border-radius:8px;background:var(--dsw-specific-menu,var(--dsw-alias-bg-primary,#fff));box-shadow:0 8px 20px rgba(0,0,0,.14);white-space:nowrap;flex-wrap:wrap}',
+    '.dsc-more-actions{position:absolute;right:0;bottom:calc(100% + 5px);z-index:3;display:flex;align-items:flex-start;max-width:min(310px,calc(100vw - 40px));border:1px solid var(--dsw-alias-border-l2,#d9dce1);border-radius:8px;box-shadow:0 8px 20px rgba(0,0,0,.14);white-space:nowrap;flex-wrap:wrap}',
     '.dsc-more-label{align-self:center;color:var(--dsw-alias-label-tertiary,#6b7280);font-size:11px}',
     '.dsc-evidence{margin-top:1px;color:var(--dsw-alias-label-tertiary,#6b7280);font-size:11px}',
     '.dsc-evidence summary{cursor:pointer}',
@@ -1044,8 +1049,8 @@ function injectStyles(): () => void {
     '.dsc-settings-chevron{flex:none;color:var(--dsw-alias-label-tertiary,#6b7280);font-size:14px}',
     '.dsc-settings-card-body{display:grid;gap:9px;padding:0 12px 12px;border-top:1px solid var(--dsw-alias-border-l2,#eceef1)}',
     '.dsc-settings-hint{margin:0;color:var(--dsw-alias-label-tertiary,#6b7280);font-size:11px}',
-    '.dsc-policy-summary{margin:8px 0 0;color:var(--dsw-alias-label-secondary,#4b5563);font-size:11px;font-weight:600}',
-    '.dsc-suppressed-summary{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:5px 0 8px;color:var(--dsw-alias-label-tertiary,#6b7280);font-size:11px}',
+    '.dsc-policy-summary{font-weight:600}',
+    '.dsc-suppressed-summary{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:5px 0 8px}',
     '.dsc-suppressed-actions{display:flex;gap:5px;flex-wrap:wrap}',
     '.dsc-settings-status{margin:0;color:var(--dsw-alias-label-tertiary,#6b7280);font-size:11px}',
     '.dsc-settings-status-error{color:var(--dsw-alias-state-error-primary,#c5221f)}',
@@ -1065,7 +1070,7 @@ function injectStyles(): () => void {
     '@media (max-width:720px){.dsc-panel{right:8px;bottom:8px;width:min(var(--dsc-width),calc(100vw - 16px));height:min(var(--dsc-height),calc(100dvh - 16px))}.dsc-toolbar{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:center}.dsc-status{grid-column:1/-1;width:100%;flex:none}.dsc-toolbar-button{width:100%;min-width:0}.dsc-field-row{grid-template-columns:1fr}}',
     '@media (max-width:360px){.dsc-panel{right:4px;bottom:4px;width:calc(100vw - 8px);height:calc(100dvh - 8px);min-width:0;min-height:0;border-radius:10px}.dsc-body{padding-right:8px;padding-left:8px}.dsc-toolbar{padding-right:8px;padding-left:8px}.dsc-header{padding-right:8px;padding-left:8px}}',
     '@media (prefers-reduced-motion:reduce){.dsc-panel,.dsc-trigger{transition:none}}',
-  ].join('\n')
+  ].join('\n') + '\n' + inboxStyles
   document.head.append(style)
   return () => { style.remove() }
 }
@@ -1295,7 +1300,7 @@ async function notify(snapshot: ClientSnapshot, t: Translate, controller: Contro
         },
       }
       if (delivery !== undefined) options.tag = delivery.tagRef
-      notification = new Notification(`DeepCanary · ${notificationTitle(item, t)}`, options)
+      notification = rendererCapabilities.notify(`DeepCanary · ${notificationTitle(item, t)}`, options)
     } catch {
       // Permission can change between the guard above and construction. Keep
       // the Inbox path authoritative and avoid breaking the overlay.
@@ -1344,7 +1349,7 @@ async function notify(snapshot: ClientSnapshot, t: Translate, controller: Contro
       handleNotificationClick(
         notification,
         item.id,
-        () => { window.focus() },
+        () => { rendererCapabilities.focus() },
         controller.open,
         controller.openSession,
         url => { window.location.assign(url) },
@@ -1514,80 +1519,55 @@ function settingsValue(value: unknown): ClientSettings | undefined {
   }
 }
 
-type SettingsCardProps = SettingsPluginItemOwnerProps & {
+type SettingsCardProps = SettingsPluginsTabOwnerProps & {
   t: Translate
-  settingsScope?: SettingsScope<ClientSettings>
+  configForm?: ConfigForm<ClientSettings>
 }
 
-type SettingsOperations = Parameters<SettingsScope<ClientSettings>['mutate']>[0]
+type SettingsOperations = Parameters<ConfigForm<ClientSettings>['mutate']>[0]
 
 function DeepCanarySettingsCard(props: SettingsCardProps): ReactNode {
-  const scope = props.settingsScope
+  const scope = props.configForm
   if (scope === undefined) return null
-  const [remote, setRemote] = useState<SettingsScopeSnapshot<ClientSettings>>(() => scope.getSnapshot())
-  const [draft, setDraft] = useState<ClientSettings | undefined>(() => settingsValue(scope.getSnapshot().value))
-  const [dirty, setDirty] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [failed, setFailed] = useState(false)
-  const [open, setOpen] = useState(false)
-  const [resetFields, setResetFields] = useState<ReadonlySet<keyof ClientSettings>>(new Set())
+  const [remote, setRemote] = useState<ConfigFormSnapshot<ClientSettings>>(() => scope.getSnapshot())
+  const [, redraw] = useState(0)
+  const editor = useRef<SettingsDraft<ClientSettings> | undefined>(undefined)
+  if (editor.current === undefined) editor.current = new SettingsDraft(SETTINGS_KEYS, () => {
+    const snapshot = scope.getSnapshot()
+    return { value: settingsValue(snapshot.value), base: settingsValue(snapshot.base), revision: snapshot.revision, writable: snapshot.writable }
+  }, (operations, revision) => scope.mutate(operations as SettingsOperations, revision))
+  const draft = editor.current
+  const { dirty, saving, failure } = draft
+  const [open, setOpen] = useState(true)
 
   useEffect(() => {
-    const update = (): void => { setRemote(scope.getSnapshot()) }
+    const update = (): void => { draft.refresh(); setRemote(scope.getSnapshot()); redraw(value => value + 1) }
     update()
     return scope.subscribe(update)
-  }, [scope])
-  useEffect(() => {
-    if (!dirty && remote.value !== undefined) {
-      setDraft(settingsValue(remote.value))
-      setResetFields(new Set())
-    }
-  }, [dirty, remote.value])
+  }, [scope, draft])
 
   if (remote.value === undefined || remote.status === 'loading' || remote.status === 'unavailable') return null
-  const current = draft ?? settingsValue(remote.value) ?? DEFAULT_SETTINGS
-  const base = settingsValue(remote.base) ?? DEFAULT_SETTINGS
+  const current = draft.value ?? settingsValue(remote.value) ?? DEFAULT_SETTINGS
   const disabled = !remote.writable || saving
   const edit = <K extends keyof ClientSettings>(key: K, value: ClientSettings[K]): void => {
-    setDraft(previous => ({ ...(previous ?? current), [key]: value }))
-    setDirty(true)
-    setFailed(false)
-    setResetFields(previous => {
-      const next = new Set(previous)
-      next.delete(key)
-      return next
-    })
+    draft.edit(key, value)
+    redraw(value => value + 1)
   }
   const discard = (): void => {
-    setDraft(settingsValue(remote.value))
-    setDirty(false)
-    setFailed(false)
-    setResetFields(new Set())
+    draft.discard()
+    redraw(value => value + 1)
   }
   const reset = (): void => {
-    setDraft(base)
-    setDirty(true)
-    setFailed(false)
-    setResetFields(new Set(SETTINGS_KEYS))
+    draft.reset()
+    redraw(value => value + 1)
   }
   const save = (): void => {
-    if (!dirty || disabled || remote.revision === undefined) return
-    const operations = SETTINGS_KEYS.map(key => resetFields.has(key)
-      ? { op: 'unset' as const, path: [key] }
-      : { op: 'set' as const, path: [key], value: current[key] }) as SettingsOperations
-    setSaving(true)
-    setFailed(false)
-    void scope.mutate(operations, remote.revision).then(() => {
-      setDirty(false)
-      setResetFields(new Set())
-    }).catch(() => {
-      setFailed(true)
-    }).finally(() => {
-      setSaving(false)
-    })
+    const pending = draft.save()
+    redraw(value => value + 1)
+    void pending.finally(() => { redraw(value => value + 1) })
   }
   const t = props.t
-  return createElement('li', { className: 'dsc-settings-card', 'data-deepcanary-settings-card': true },
+  return createElement('section', { className: 'dsc-settings-card', 'data-deepcanary-settings-card': true },
     createElement('button', {
       type: 'button',
       className: 'dsc-settings-card-header',
@@ -1650,7 +1630,7 @@ function DeepCanarySettingsCard(props: SettingsCardProps): ReactNode {
           disabled,
           onChange: (event: { target: { value: string } }) => { edit('supervisorMode', event.target.value as ClientSettings['supervisorMode']) },
         }, ...(['off', 'experimental'] as const).map(value => createElement('option', { key: value, value }, translate(t, ('settings.supervisorMode.' + value) as LocaleKey))))),
-      failed && createElement('p', { className: 'dsc-settings-status dsc-settings-status-error', role: 'status' }, translate(t, remote.revision === undefined ? 'settings.saveFailed' : 'settings.conflict')),
+      failure && createElement('p', { className: 'dsc-settings-status dsc-settings-status-error', role: 'status' }, translate(t, failure === 'conflict' ? 'settings.conflict' : failure === 'readOnly' ? 'settings.readOnly' : 'settings.saveFailed')),
       createElement('div', { className: 'dsc-settings-actions' },
         createElement('button', { type: 'button', className: 'dsc-toolbar-button', disabled: !dirty || saving, onClick: discard }, translate(t, 'settings.discard')),
         createElement('button', { type: 'button', className: 'dsc-toolbar-button', disabled: disabled, onClick: reset }, translate(t, 'settings.reset')),
@@ -1755,6 +1735,8 @@ function decisionTraceDetails(item: ClientItem, t: Translate): ReactNode | undef
 
 function itemCard(item: ClientItem, state: ControllerState, t: Translate, controller: Controller, selected: boolean): ReactNode {
   const busy = state.pending.has(item.id)
+  const canReturn = item.sessionId !== undefined
+    && (item.targetAvailable !== false || controller.hasHistoricalSession(item.sessionId))
   const reason = reasonText(item, t)
   const evidence = item.evidence.map(value => translate(t, 'item.evidenceLine', {
     type: evidenceType(value.type, t),
@@ -1771,10 +1753,9 @@ function itemCard(item: ClientItem, state: ControllerState, t: Translate, contro
       createElement('span', { className: 'dsc-card-reason' }, reason),
       createElement('time', { className: 'dsc-card-time', dateTime: item.occurredAt }, formatTime(item.occurredAt)),
     ),
-    createElement('p', { className: 'dsc-card-copy', key: 'copy' }, reason),
-    createElement('p', { className: 'dsc-card-suggestion', key: 'suggestion' },
-      translate(t, 'item.suggestion', { text: suggestionText(item, t) })),
   ]
+  if (item.reasonCode !== 'TASK_COMPLETED') children.push(createElement('p', { className: 'dsc-card-suggestion', key: 'suggestion' },
+    translate(t, 'item.suggestion', { text: suggestionText(item, t) })))
   if (item.bundleCount > 1) {
     children.push(createElement('small', { className: 'dsc-card-suggestion', key: 'events' },
       translate(t, 'item.events', { count: item.bundleCount })))
@@ -1782,7 +1763,7 @@ function itemCard(item: ClientItem, state: ControllerState, t: Translate, contro
   if (item.sessionId === undefined) {
     children.push(createElement('small', { className: 'dsc-card-suggestion', key: 'session-link' },
       translate(t, 'item.noSessionLink')))
-  } else if (item.targetAvailable === false) {
+  } else if (!canReturn) {
     children.push(createElement('small', { className: 'dsc-card-suggestion', key: 'session-ended' },
       translate(t, 'item.sessionEnded')))
   }
@@ -1815,7 +1796,7 @@ function itemCard(item: ClientItem, state: ControllerState, t: Translate, contro
         : translate(t, item.feedback.useful ? 'item.notice.feedbackUseful' : 'item.notice.feedbackIrrelevant')))
   }
   const actions: ReactNode[] = [
-    item.sessionId && item.targetAvailable !== false
+    canReturn
       ? actionButton(translate(t, (`item.open.${item.level}`) as LocaleKey), () => {
         void controller.jump(item.id)
       }, busy, true)
@@ -1926,13 +1907,14 @@ function DeepCanaryOverlay(props: { t: Translate; controller: Controller }): Rea
   } as CSSProperties
   const body: ReactNode[] = []
   if (snapshot !== undefined) {
-    body.push(createElement('p', { className: 'dsc-settings-hint', key: 'settings-location' }, translate(props.t, 'panel.settingsLocation')))
-    body.push(createElement('p', { className: 'dsc-policy-summary', key: 'policy-hint' }, translate(props.t, 'panel.policyHint')))
+    const policy: ReactNode[] = []
+    policy.push(createElement('p', { className: 'dsc-settings-hint', key: 'settings-location' }, translate(props.t, 'panel.settingsLocation')))
+    policy.push(createElement('p', { className: 'dsc-policy-summary', key: 'policy-hint' }, translate(props.t, 'panel.policyHint')))
     if (snapshot.status.delivery !== undefined) {
-      body.push(createElement('p', { className: 'dsc-settings-hint', key: 'delivery' }, deliveryText(snapshot, props.t)))
+      policy.push(createElement('p', { className: 'dsc-settings-hint', key: 'delivery' }, deliveryText(snapshot, props.t)))
     }
     const suppressedReasonCodes = snapshot.settings.suppressedReasonCodes ?? []
-    body.push(createElement('div', { className: 'dsc-suppressed-summary', key: 'suppressed' },
+    if (suppressedReasonCodes.length > 0) policy.push(createElement('div', { className: 'dsc-suppressed-summary', key: 'suppressed' },
       createElement('span', null, translate(props.t, 'panel.suppressed', {
         types: suppressedReasonCodes.length === 0
           ? translate(props.t, 'panel.suppressed.none')
@@ -1946,6 +1928,8 @@ function DeepCanaryOverlay(props: { t: Translate; controller: Controller }): Rea
         )),
       ),
     ))
+    body.push(createElement('details', { className: 'dsc-policy-details', key: 'policy-details' },
+      createElement('summary', null, translate(props.t, 'panel.policyDetails')), ...policy))
     if (state.protocolUnsupported) body.push(createElement('p', { className: 'dsc-note', key: 'protocol' }, translate(props.t, 'panel.updateRequired')))
   }
   if (state.failed && snapshot === undefined) {
@@ -1965,7 +1949,7 @@ function DeepCanaryOverlay(props: { t: Translate; controller: Controller }): Rea
       createElement('span', null, translate(props.t, 'panel.emptyHint'))))
   } else {
     body.push(createElement('h3', { className: 'dsc-group-title', key: 'group' },
-      translate(props.t, 'panel.title')))
+      translate(props.t, 'panel.inbox')))
     for (const item of items.slice(0, 50)) {
       body.push(itemCard(item, state, props.t, props.controller, state.selectedId === item.id))
     }
@@ -2058,10 +2042,10 @@ function DeepCanaryOverlay(props: { t: Translate; controller: Controller }): Rea
   )
 }
 
-export const inject = ['slots', 'locale', 'settingsScope', 'sessions']
+export const inject = ['slots', 'locale', 'configForms', 'sessions']
 
 export function apply(ctx: ClientContext): void {
-  const controller = createController(ctx.sessions)
+  const controller = createController(ctx)
   ctx.effect(() => injectStyles(), 'deepcanary: client styles')
   ctx.effect(() => {
     controller.start()
@@ -2083,16 +2067,12 @@ export function apply(ctx: ClientContext): void {
     inject: () => ({ controller }),
   }, DeepCanaryOverlay))
 
-  const settingsScope = ctx.settingsScope?.bind<ClientSettings>({
-    namespace: SETTINGS_NS,
-    decode: value => settingsValue(value),
-  })
-  if (settingsScope !== undefined) {
-    ctx.slots.inject('settings.plugin.item', () => ctx.slots.register({
-      name: 'settings.plugin.item',
-      key: SETTINGS_NS,
+  const configForm = ctx.configForms.get<ClientSettings>(SETTINGS_NS)
+  ctx.effect(() => ctx.configForms.whileServed([SETTINGS_NS], () => ctx.slots.inject('settings.plugins.tab', () => ctx.slots.register({
+      name: 'settings.plugins.tab',
+      id: SETTINGS_NS,
+      label: () => 'DeepCanary',
       locale: NS,
-      inject: () => ({ settingsScope }),
-    }, DeepCanarySettingsCard))
-  }
+      inject: () => ({ configForm }),
+    }, DeepCanarySettingsCard)) as () => void))
 }

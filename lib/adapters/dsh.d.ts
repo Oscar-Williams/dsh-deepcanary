@@ -1,6 +1,7 @@
 import type { Context } from '@deepseek-ai/cordis';
 import type { SessionEventLike, SessionLike, ToolClass, TurnState } from '../providers.js';
 import type { ReconciliationStatus } from '../types.js';
+import type { UserQuestionFacts } from './user-questions.js';
 export interface Disposable {
     dispose(): void;
 }
@@ -30,6 +31,8 @@ export interface SessionSnapshot {
     toolClass?: ToolClass;
     humanNeededReason?: 'approval' | 'question';
     humanNeededSeq?: number;
+    /** Watermark-checked public timed-question projection, metadata only. */
+    userQuestions?: UserQuestionFacts;
     toolFailures?: number;
     sameToolFailures?: number;
     contextCompactions?: number;
@@ -85,6 +88,7 @@ export declare class ContextDshAdapter implements DshAdapter {
     getRuntimeHealth(): Promise<RuntimeHealth>;
     private publish;
     private publishLive;
+    private attachQuestionFacts;
     private performReconcile;
     private emit;
     private drainBuffered;

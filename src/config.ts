@@ -1,32 +1,36 @@
 import Schema from '@deepseek-ai/schemastery'
+import type { Volatile } from '@deepseek-ai/cordis'
 import type { DeepCanaryConfig, QuietHours } from './types.js'
 
 export interface DeepCanaryConfigInput extends Partial<Omit<DeepCanaryConfig, 'quietHours'>> {
   quietHours?: Partial<QuietHours>
 }
 
+/** Loader-resolved live fields; standalone callers may still supply plain inputs. */
+export type DeepCanaryRuntimeConfig = { [K in keyof DeepCanaryConfig]: K extends 'stateDir' ? string : Volatile<DeepCanaryConfig[K]> }
+
 export const Config = Schema.object({
-  stateDir: Schema.string().default('~/.dsh/dsh-deepcanary').description('Metadata-only local state directory'),
-  notificationLevel: Schema.union(['C1', 'C2', 'C3'] as const).default('C2').description('Highest level allowed to notify the user'),
-  openOnCritical: Schema.boolean().default(false).description('Open the DeepCanary panel for allowlisted C3 events'),
-  maxInterruptsPerHour: Schema.natural().min(0).max(10).default(3).description('C2 interrupt budget per rolling hour'),
-  dedupeWindowMinutes: Schema.natural().min(0).max(120).default(10).description('Dedupe window for equivalent signals'),
-  bundleWindowSeconds: Schema.natural().min(0).max(900).default(60).description('Window for bundling adjacent attention items'),
-  longRunThresholdMinutes: Schema.natural().min(1).max(120).default(5).description('Idle threshold before a running session is checked for a stall'),
-  subagentPressure: Schema.union(['relaxed', 'standard', 'strict'] as const).default('standard').description('Subagent pressure thresholds'),
+  stateDir: Schema.string().default('').description('Empty selects profile/instance-isolated metadata state'),
+  notificationLevel: Schema.union(['C1', 'C2', 'C3'] as const).default('C2').volatile().description('Highest level allowed to notify the user'),
+  openOnCritical: Schema.boolean().default(false).volatile().description('Open the DeepCanary panel for allowlisted C3 events'),
+  maxInterruptsPerHour: Schema.natural().min(0).max(10).default(3).volatile().description('C2 interrupt budget per rolling hour'),
+  dedupeWindowMinutes: Schema.natural().min(0).max(120).default(10).volatile().description('Dedupe window for equivalent signals'),
+  bundleWindowSeconds: Schema.natural().min(0).max(900).default(60).volatile().description('Window for bundling adjacent attention items'),
+  longRunThresholdMinutes: Schema.natural().min(1).max(120).default(5).volatile().description('Idle threshold before a running session is checked for a stall'),
+  subagentPressure: Schema.union(['relaxed', 'standard', 'strict'] as const).default('standard').volatile().description('Subagent pressure thresholds'),
   quietHours: Schema.object({
     enabled: Schema.boolean().default(false),
     start: Schema.string().default('22:00'),
     end: Schema.string().default('08:00'),
-  }).default({ enabled: false, start: '22:00', end: '08:00' }),
-  privacySafeSummary: Schema.boolean().default(true).description('Keep content and prompts out of plugin state and notifications'),
-  healthPollSeconds: Schema.natural().min(5).max(300).default(15).description('Local liveness check interval'),
-  maxInboxItems: Schema.natural().min(50).max(5000).default(500).description('Maximum retained metadata inbox items'),
-  supervisorMode: Schema.union(['off', 'experimental'] as const).default('off').description('Persistent Supervisor lifecycle; experimental is an explicit engineering opt-in'),
+  }).default({ enabled: false, start: '22:00', end: '08:00' }).volatile(),
+  privacySafeSummary: Schema.boolean().default(true).volatile().description('Keep content and prompts out of plugin state and notifications'),
+  healthPollSeconds: Schema.natural().min(5).max(300).default(15).volatile().description('Local liveness check interval'),
+  maxInboxItems: Schema.natural().min(50).max(5000).default(500).volatile().description('Maximum retained metadata inbox items'),
+  supervisorMode: Schema.union(['off', 'experimental'] as const).default('off').volatile().description('Persistent Supervisor lifecycle; experimental is an explicit engineering opt-in'),
 })
 
 const defaults: DeepCanaryConfig = {
-  stateDir: '~/.dsh/dsh-deepcanary',
+  stateDir: '',
   notificationLevel: 'C2',
   openOnCritical: false,
   maxInterruptsPerHour: 3,
@@ -41,11 +45,13 @@ const defaults: DeepCanaryConfig = {
   supervisorMode: 'off',
 }
 
-export function normalizeConfig(input: DeepCanaryConfigInput | undefined): DeepCanaryConfig {
-  const quietHours = input?.quietHours
+export function normalizeConfig(input: DeepCanaryConfigInput | DeepCanaryRuntimeConfig | undefined): DeepCanaryConfig {
+  const resolved = input === undefined ? undefined : Object.fromEntries(Object.entries(input).map(([key, value]) => [key,
+    value !== null && typeof value === 'object' && 'get' in value && typeof value.get === 'function' ? value.get() : value])) as DeepCanaryConfigInput
+  const quietHours = resolved?.quietHours
   return {
     ...defaults,
-    ...input,
+    ...resolved,
     quietHours: {
       ...defaults.quietHours,
       ...quietHours,
@@ -89,7 +95,7 @@ export function sanitizeConfigPatch(input: Record<string, unknown>): DeepCanaryC
     patch.subagentPressure = input.subagentPressure
   }
   if (input.quietHours !== undefined) {
-    if (input.quietHours === null || typeof input.quietHours !== 'object') throw new TypeError('quietHours must be an object')
+    if (input.quietHours === null || typeof input.quietHours !== 'object' || Array.isArray(input.quietHours)) throw new TypeError('quietHours must be an object')
     const quietHours = input.quietHours as Record<string, unknown>
     for (const key of Object.keys(quietHours)) if (!['enabled', 'start', 'end'].includes(key)) throw new TypeError(`unsupported quiet-hours setting: ${key}`)
     if (quietHours.enabled !== undefined && typeof quietHours.enabled !== 'boolean') throw new TypeError('quietHours.enabled must be boolean')

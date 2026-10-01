@@ -33,7 +33,8 @@ describe('attention judge', () => {
       kind: 'SUBAGENT_PRESSURE',
       severityHint: 3,
       evidence: [{ type: 'model-judgment', authority: 'heuristic', ref: 'model', summary: 'many subagents' }],
-    }))).toMatchObject({ level: 'C2', action: 'INTERRUPT', decisionTrace: { matchedRules: ['subagent.pressure-threshold', 'authority.guard-c3-to-c2'] } })
+    }))).toMatchObject({ level: 'C2', action: 'INTERRUPT', decisionTrace: { matchedRules: ['subagent.pressure-threshold'] } })
+    expect(judgeSignal(signal({ kind: 'SUBAGENT_PRESSURE', severityHint: 3, data: { activeSubagents: 100 } }))).toMatchObject({ level: 'C2', action: 'INTERRUPT' })
   })
 
   it('keeps an authoritative escalation at C3 while the user is viewing DSH', () => {

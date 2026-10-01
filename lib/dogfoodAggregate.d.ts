@@ -1,4 +1,4 @@
-import type { DogfoodBundle, DogfoodProvenance, DogfoodReport, DogfoodTaskFamily, DogfoodScenario } from './dogfood.js';
+import type { DogfoodBundle, DogfoodProvenance, DogfoodReport, DogfoodRun, DogfoodTaskFamily, DogfoodScenario } from './dogfood.js';
 export declare const DOGFOOD_AGGREGATE_SCHEMA_VERSION: 1;
 export interface DogfoodAggregate {
     schemaVersion: typeof DOGFOOD_AGGREGATE_SCHEMA_VERSION;
@@ -11,6 +11,9 @@ export interface DogfoodRunSummary {
     runId: string;
     trialId: string;
     provenance: DogfoodProvenance;
+    taskOrigin: NonNullable<DogfoodRun['taskOrigin']>;
+    declaredTaskOrigin: NonNullable<DogfoodRun['taskOrigin']>;
+    taskRef?: string;
     taskFamily: DogfoodTaskFamily;
     scenario: DogfoodScenario;
     pluginVersion: string;
@@ -38,8 +41,16 @@ export interface DogfoodAggregateReport {
     };
     coverage: DogfoodReport['coverage'];
     metrics: DogfoodReport['metrics'];
+    /** Cohort metrics never mix unknown/controlled task intent into natural calibration. */
+    cohorts: Record<NonNullable<DogfoodRun['taskOrigin']>, {
+        runCount: number;
+        observationCount: number;
+        metrics: DogfoodReport['metrics'];
+    }>;
     quality: {
         allReal: boolean;
+        naturalRunCount: number;
+        byTaskOrigin: Record<string, number>;
         requiredTaskFamilies: {
             required: DogfoodTaskFamily[];
             observed: DogfoodTaskFamily[];

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createDogfoodAggregate, isDogfoodAggregate, summarizeDogfoodAggregate } from '../src/dogfoodAggregate.js'
 import type { DogfoodBundle, DogfoodRun } from '../src/dogfood.js'
+import { isNaturalDogfoodRun } from '../src/dogfood.js'
 
 const makeBundle = (runId: string, taskFamily: DogfoodRun['taskFamily'], scenario: DogfoodRun['scenario']): DogfoodBundle => ({
   schemaVersion: 1,
@@ -23,6 +24,22 @@ const makeBundle = (runId: string, taskFamily: DogfoodRun['taskFamily'], scenari
 })
 
 describe('dogfood aggregate contract', () => {
+  it('does not upgrade legacy real or controlled captures into attributed natural work', () => {
+    const legacy = makeBundle('legacy', 'coding', 'normal-completion')
+    const controlled = makeBundle('controlled', 'build-test', 'normal-completion')
+    controlled.run.taskOrigin = 'controlled'
+    controlled.run.captureMode = 'service'
+    const natural = makeBundle('natural', 'coding', 'normal-completion')
+    natural.run = { ...natural.run, taskOrigin: 'natural', taskRef: '0123456789abcdef', captureMode: 'service' }
+    expect(isNaturalDogfoodRun(legacy.run)).toBe(false)
+    expect(isNaturalDogfoodRun(controlled.run)).toBe(false)
+    expect(isNaturalDogfoodRun({ ...natural.run, taskRef: undefined } as unknown as DogfoodRun)).toBe(false)
+    const report = summarizeDogfoodAggregate(createDogfoodAggregate('origins', [legacy, controlled, natural]))
+    expect(report.quality.naturalRunCount).toBe(1)
+    expect(report.quality.byTaskOrigin).toEqual({ unknown: 1, controlled: 1, natural: 1 })
+    const renamed = { ...natural, run: { ...natural.run, runId: 'renamed', trialId: 'renamed-trial' } }
+    expect(() => createDogfoodAggregate('duplicate-task', [natural, renamed])).toThrow('invalid dogfood aggregate')
+  })
   it('keeps independent runs and provenance visible', () => {
     const aggregate = createDogfoodAggregate('aggregate-test', [
       makeBundle('run-a', 'coding', 'normal-completion'),
@@ -34,6 +51,19 @@ describe('dogfood aggregate contract', () => {
     expect(report.quality.requiredTaskFamilies.missing).toContain('subagent')
     expect(report.quality.requiredScenarios.missing).toContain('approval-boundary')
     expect(report.runtimeTags).toEqual(['dsh-v0.1.2-alpha.5'])
+  })
+
+  it('keeps unproven natural declarations readable but consistently outside natural statistics', () => {
+    const legacy = makeBundle('declared-natural', 'coding', 'normal-completion')
+    legacy.run.taskOrigin = 'natural'
+    legacy.run.captureMode = 'service'
+    const report = summarizeDogfoodAggregate(createDogfoodAggregate('unproven', [legacy]))
+    expect(report.runs[0]).toMatchObject({ taskOrigin: 'unknown', declaredTaskOrigin: 'natural' })
+    expect(report.quality.byTaskOrigin).toEqual({ unknown: 1 })
+    expect(report.quality.naturalRunCount).toBe(0)
+    expect(report.cohorts.natural.runCount).toBe(0)
+    expect(report.cohorts.unknown.runCount).toBe(1)
+    expect(legacy.run.taskOrigin).toBe('natural')
   })
 
   it('rejects duplicate run identities', () => {

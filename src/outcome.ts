@@ -15,6 +15,7 @@ import type {
   OutcomeReceiptInput,
   OutcomeReviewFlag,
   OutcomeSource,
+  OutcomeTaskOrigin,
   ReasonCode,
 } from './types.js'
 import { OUTCOME_RECEIPT_SCHEMA_VERSION } from './types.js'
@@ -22,6 +23,7 @@ import { OUTCOME_RECEIPT_SCHEMA_VERSION } from './types.js'
 export const MAX_OUTCOME_RECEIPTS = 2_000
 
 const outcomeSources = new Set<OutcomeSource>(['real', 'controlled', 'replay'])
+const outcomeTaskOrigins = new Set<OutcomeTaskOrigin>(['natural', 'controlled', 'replay', 'unknown'])
 const outcomeFeedback = new Set<OutcomeFeedback>(['unrated', 'useful', 'not-useful'])
 const outcomeLaterOutcomes = new Set<OutcomeLaterOutcome>(['unknown', 'continued', 'completed', 'failed', 'aborted', 'recovered', 'user-stopped'])
 const outcomeLatencyBuckets = new Set<OutcomeLatencyBucket>(['unknown', 'not-opened', 'under-1m', '1-5m', '5-15m', 'over-15m'])
@@ -59,6 +61,8 @@ const outcomeReceiptFields = new Set([
   'attentionRef',
   'trialId',
   'source',
+  'taskOrigin',
+  'taskRef',
   'policyVersion',
   'eventClass',
   'reasonCode',
@@ -78,6 +82,7 @@ const outcomeReceiptFields = new Set([
 ])
 
 const trialIdPattern = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/
+const taskRefPattern = /^[a-f0-9]{16}$/
 const printablePattern = /^[^\u0000-\u001f\u007f]+$/
 
 export function normalizeOutcomeInput(value: unknown): OutcomeReceiptInput {
@@ -86,6 +91,8 @@ export function normalizeOutcomeInput(value: unknown): OutcomeReceiptInput {
   const allowed = new Set([
     'source',
     'trialId',
+    'taskOrigin',
+    'taskRef',
     'opened',
     'acknowledged',
     'snoozed',
@@ -101,6 +108,12 @@ export function normalizeOutcomeInput(value: unknown): OutcomeReceiptInput {
   if (!isOutcomeSource(raw.source)) throw new TypeError('outcome.source must be real, controlled, or replay')
   if (typeof raw.trialId !== 'string' || !trialIdPattern.test(raw.trialId)) {
     throw new TypeError('outcome.trialId must use 1-128 letters, numbers, dots, underscores, colons, or hyphens')
+  }
+  if (raw.taskOrigin !== undefined && !isOutcomeTaskOrigin(raw.taskOrigin)) {
+    throw new TypeError('outcome.taskOrigin must be natural, controlled, replay, or unknown')
+  }
+  if (raw.taskRef !== undefined && !isTaskRef(raw.taskRef)) {
+    throw new TypeError('outcome.taskRef must be 16 lowercase hexadecimal characters')
   }
 
   const booleans = ['opened', 'acknowledged', 'snoozed', 'muted', 'recoveredBeforeOpen'] as const
@@ -122,6 +135,8 @@ export function normalizeOutcomeInput(value: unknown): OutcomeReceiptInput {
   return {
     source: raw.source,
     trialId: raw.trialId,
+    ...(isOutcomeTaskOrigin(raw.taskOrigin) ? { taskOrigin: raw.taskOrigin } : {}),
+    ...(isTaskRef(raw.taskRef) ? { taskRef: raw.taskRef } : {}),
     ...(typeof raw.opened === 'boolean' ? { opened: raw.opened } : {}),
     ...(typeof raw.acknowledged === 'boolean' ? { acknowledged: raw.acknowledged } : {}),
     ...(typeof raw.snoozed === 'boolean' ? { snoozed: raw.snoozed } : {}),
@@ -192,6 +207,15 @@ export function buildOutcomeReceipt(item: InboxItem, input: OutcomeReceiptInput,
   if (previous !== undefined && (previous.attentionRef !== attentionRef || previous.source !== input.source || previous.trialId !== input.trialId)) {
     throw new Error('outcome record belongs to a different attention reference, source, or trial')
   }
+  // A recorded task identity is immutable: a later update may inherit it but
+  // must never relabel the task origin or point the receipt at another task.
+  if (previous?.taskOrigin !== undefined && input.taskOrigin !== undefined && previous.taskOrigin !== input.taskOrigin) {
+    throw new Error('outcome record already declares a different task origin')
+  }
+  if (previous?.taskRef !== undefined && input.taskRef !== undefined && previous.taskRef !== input.taskRef) {
+    throw new Error('outcome record already declares a different task reference')
+  }
+  const taskRef = input.taskRef ?? previous?.taskRef
 
   const openedByStatus = item.seenAt !== undefined || item.acknowledgedAt !== undefined || item.feedback !== undefined
   const defaultOpened = previous?.opened ?? openedByStatus
@@ -210,6 +234,9 @@ export function buildOutcomeReceipt(item: InboxItem, input: OutcomeReceiptInput,
     attentionRef,
     trialId: input.trialId,
     source: input.source,
+    // A missing task intent stays unknown; it is never inferred from `source`.
+    taskOrigin: input.taskOrigin ?? previous?.taskOrigin ?? 'unknown',
+    ...(taskRef === undefined ? {} : { taskRef }),
     policyVersion: item.policyVersion,
     eventClass: eventClassForReason(item.reasonCode),
     reasonCode: item.reasonCode,
@@ -274,6 +301,8 @@ export function isOutcomeReceipt(value: unknown): value is OutcomeReceipt {
     && typeof receipt.attentionRef === 'string' && /^[a-f0-9]{16}$/.test(receipt.attentionRef)
     && typeof receipt.trialId === 'string' && trialIdPattern.test(receipt.trialId)
     && isOutcomeSource(receipt.source)
+    && (receipt.taskOrigin === undefined || isOutcomeTaskOrigin(receipt.taskOrigin))
+    && (receipt.taskRef === undefined || isTaskRef(receipt.taskRef))
     && typeof receipt.policyVersion === 'string' && boundedPrintable(receipt.policyVersion, 128)
     && isOutcomeEventClass(receipt.eventClass)
     && isReasonCode(receipt.reasonCode)
@@ -299,6 +328,14 @@ function cloneOutcomeReceipt(receipt: OutcomeReceipt): OutcomeReceipt {
 
 function isOutcomeSource(value: unknown): value is OutcomeSource {
   return typeof value === 'string' && outcomeSources.has(value as OutcomeSource)
+}
+
+function isOutcomeTaskOrigin(value: unknown): value is OutcomeTaskOrigin {
+  return typeof value === 'string' && outcomeTaskOrigins.has(value as OutcomeTaskOrigin)
+}
+
+function isTaskRef(value: unknown): value is string {
+  return typeof value === 'string' && taskRefPattern.test(value)
 }
 
 function isOutcomeFeedback(value: unknown): value is OutcomeFeedback {

@@ -1,11 +1,11 @@
 import type { Context } from '@deepseek-ai/cordis';
 import { Config } from './config.js';
 import type { DeepCanaryConfig } from './types.js';
-import type { DeepCanaryConfigInput } from './config.js';
+import type { DeepCanaryConfigInput, DeepCanaryRuntimeConfig } from './config.js';
 export declare const name = "dsh-deepcanary";
 export declare const inject: string[];
 export { Config };
-export type { DeepCanaryConfig, DeepCanaryConfigInput };
+export type { DeepCanaryConfig, DeepCanaryConfigInput, DeepCanaryRuntimeConfig };
 export * from './types.js';
 export * from './providers.js';
 export { DedupeLedger, InterruptBudget } from './core/dedupe.js';
@@ -18,7 +18,7 @@ export { HostProbeEpoch } from './hostHealth.js';
 export type { HostProbeObservation, HostProbeState, HostProbeTransition } from './hostHealth.js';
 export { OutcomeStore, buildOutcomeReceipt, eventClassForReason, isOutcomeReceipt, normalizeOutcomeDeleteFilter, normalizeOutcomeInput, strongestEvidenceAuthority } from './outcome.js';
 export { DeepCanaryService } from './service.js';
-export { DOGFOOD_SCHEMA_VERSION, DogfoodLedger, hasDogfoodReview, hasQualifiedDogfoodReview, isDogfoodBundle, isUnknownVisibilityFinalDeliveryObservation, isUserFacingDeliveryObservation, isVisibleFinalDeliveryObservation, summarizeDogfood } from './dogfood.js';
+export { DOGFOOD_SCHEMA_VERSION, DogfoodLedger, hasDogfoodReview, hasQualifiedDogfoodReview, isDogfoodBundle, isNaturalDogfoodRun, isUnknownVisibilityFinalDeliveryObservation, isUserFacingDeliveryObservation, isVisibleFinalDeliveryObservation, summarizeDogfood } from './dogfood.js';
 export type { DogfoodBundle, DogfoodDecision, DogfoodDecisionDisposition, DogfoodDeliveryChannel, DogfoodDeliveryVisibilitySource, DogfoodDeliveryVisibilityStatus, DogfoodEventClass, DogfoodEventSource, DogfoodMetric, DogfoodNotificationDelivery, DogfoodNotificationStage, DogfoodObservation, DogfoodPhase, DogfoodPolicyReview, DogfoodProvenance, DogfoodReport, DogfoodReviewBasis, DogfoodReviewConfidence, DogfoodReviewLabel, DogfoodReviewSource, DogfoodRun, DogfoodScenario, DogfoodTaskFamily, DogfoodTaskOrigin, DogfoodUserFeedback, DogfoodUsefulnessReason } from './dogfood.js';
 export { DOGFOOD_AGGREGATE_SCHEMA_VERSION, createDogfoodAggregate, isDogfoodAggregate, summarizeDogfoodAggregate } from './dogfoodAggregate.js';
 export type { DogfoodAggregate, DogfoodAggregateReport, DogfoodRunSummary } from './dogfoodAggregate.js';
@@ -28,5 +28,5 @@ export { PersistentSupervisor, SupervisorStore, supervisorSnapshotFor } from './
 export type { PersistentSupervisorOptions, PersistentSupervisorStatus, SupervisorHostStatus, SupervisorLease, SupervisorMetrics, SupervisorSessionState, SupervisorSnapshot, SupervisorState } from './supervisor.js';
 export { NOTIFICATION_EVIDENCE_SCHEMA_VERSION, evaluateNotificationEvidence, evaluateNotificationEvidenceBinding, isNotificationEvidence } from './notificationEvidence.js';
 export type { NotificationEvidence, NotificationEvidenceResult, NotificationEvidenceSource, NotificationPageVisibility, NotificationPermission } from './notificationEvidence.js';
-export declare function apply(ctx: Context, config?: DeepCanaryConfigInput): void;
+export declare function apply(ctx: Context, config?: DeepCanaryConfigInput | DeepCanaryRuntimeConfig): void;
 //# sourceMappingURL=index.d.ts.map

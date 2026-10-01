@@ -1,13 +1,10 @@
 # Development and verification
 
-This page contains the longer commands omitted from the README. Keep the alpha.5 build/release lane and the alpha.13 compatibility lane in separate DSH checkouts, homes, profiles, and evidence records.
+## Current lane
 
-## Build lanes
+DeepCanary 0.1.4-rc.1 uses DSH 0.2.0-rc.2, commit `639ed015397290b3745d163aafe02ffee4aa3f84`. Direct development packages are pinned, with the npm lockfile owning the toolchain. Use Node 22.19+ in the 22.x line or Node 24+. DSH checkouts use their own pinned pnpm workflow.
 
-The normal lane uses the published alpha.5 packages in `package.json` and produces the release package. The alpha.13 lane overlays the public declarations from a clean local checkout; it does not claim that an alpha.13 npm package exists.
-
-```powershell
-Set-Location <pluginDir>
+```sh
 npm ci
 npm run verify:environment
 npm run typecheck
@@ -16,104 +13,46 @@ npm test
 npm run build
 npm run verify:distribution
 npm run pack:check
-
-# Against the exact local DSH alpha.13 checkout:
-$env:DSH_ALPHA13_RUNTIME = '<path-to-dsh-v0.1.3-alpha.1-checkout>'
-npm run typecheck:alpha13
-npm run build:alpha13
-$env:DSH_ALPHA13_RUNTIME = $null
 ```
 
-`build.mjs` validates all direct installed dependencies against the lockfile, then hashes the actual compiler/bundler versions, source tree, compiler configuration, lockfile, build scripts, dependency graph, and selected runtime identity. A matching `output/build/stamp.json` plus matching `lib/` digest makes a repeated build a no-op; `--force` is available when deliberately regenerating output. `pack:check` uses `--ignore-scripts` so a dry-run does not start a second build. See the [version and artifact map](workspace-layout.md) before choosing a runtime or an older package.
+The repository tracks `lib/` so DSH can consume a Git tag directly. Every source change needs a matching build; CI compares generated output with committed bytes.
 
-## Alpha.13 public contract
+Set `DSH_020_RUNTIME` to a clean, built official source checkout at the exact pin, then run:
 
-Use a clean checkout at DSH `dsh-v0.1.3-alpha.1`, commit `d347e703908d0406b7a7ef80e3a0e594d86b2215`, and an isolated profile. After `build:alpha13`, run:
-
-```powershell
-$env:DSH_ALPHA13_RUNTIME = '<path-to-dsh-v0.1.3-alpha.1-checkout>'
-node scripts/adapter-runtime-contract.mjs
+```sh
+npm run typecheck:dsh020
+npm run adapter:dsh020
+npm run settings:dsh020
+npm run connection:dsh020
 ```
 
-The contract test uses only public `Context`, `SessionStore`, `ctx.sessions.list()`, `Session.snapshotEvents()`, `prepare/enter/announce`, and append events. It covers a non-empty startup session, Session v2 tool identity, unrelated and matching results, attempt-versus-completion, dispose, seed reopen, abort, and child completion. It does not use `SessionHandle`, `agentLoop.create()`, model output, tool arguments, or transcript content.
+The Session contract exercises question timeout, accepted replies and parallel long tools. Settings checks use public revision-aware forms. Connection checks use the actual Host transport with ephemeral test authentication: 401/403 admission, authorized version, legacy-route removal, malformed and chunked request limits, path privacy and scoped registration disposal.
 
-## Isolated Web canary
+## Device work
 
-Build one candidate tgz, install that exact file into the alpha.13 profile, and restart `dsh web` only after confirming that no active task is running. Every restart prints a new one-time URL; use that URL in the authenticated browser.
+Use independent homes/profile state and candidate ports. Preserve an existing service and active work. WebUI development can attach Playwright to the user's existing Edge; Desktop targeted common-code checks use the official application. Current package bytes, actual loaded module and source identity must agree after a restart. Separate installation-file comparison from runtime observation.
 
-```powershell
-$env:DSH_ALPHA13_RUNTIME = '<alpha13 checkout>'
-$env:DSH_ALPHA13_PROFILE = '<isolated alpha13 profile home>'
-$env:DSH_ALPHA13_PACKAGE = '<exact candidate tgz>'
-$env:DSH_ALPHA13_WEB_PORT = '<port>'
-$env:DSH_ALPHA13_UI_EVIDENCE = 'output/playwright/alpha13-lifecycle-<date>/ui-observation.json'
-$env:DSH_ALPHA13_OUTPUT = 'output/gates/alpha13-compatibility-<date>.json'
-npm run compatibility:alpha13
+Follow [feedback calibration](feedback-calibration.md) for necessary sequential development tasks. Record natural, controlled, replay and unknown cohorts according to their facts. Repeated controlled runs add regression coverage within their own scope. Keep private raw artifacts local.
+
+## Freeze and publish
+
+Commit the reviewed source and generated output first. With a clean tracked snapshot, freeze once:
+
+```sh
+node scripts/freeze-local-candidate.mjs 0.1.4-rc.1
+node scripts/verify-installed-candidate.mjs output/releases/0.1.4-rc.1/local-candidate.json <isolated-home> web <local-receipt.json>
 ```
 
-The canary fails unless the installed `node_modules/dsh-deepcanary` file set and bytes match the supplied tgz, the public runtime contract passes, the Web process responds, and a separate UI evidence file is bound to the same candidate version/runtime. The old `DSH_ALPHA13_UI_OBSERVED=true` shortcut is intentionally unsupported.
+The freezer binds the committed source and refuses an existing artifact. Installation verification checks the manifest, archive identity and every installed file. Repeat for the separate Desktop profile and observe actual loading.
 
-The UI evidence file is a sanitized observation record, not a transcript. Its minimum shape is:
+Scan the staged snapshot, every pending push commit and the actual archive. The scanner reports locations and categories without matched values:
 
-```json
-{
-  "schemaVersion": 1,
-  "status": "observed",
-  "surface": "Edge DSH Web UI",
-  "pluginVersion": "<version-of-the-installed-package>",
-  "dshTag": "dsh-v0.1.3-alpha.1",
-  "packageSha256": "<sha256-of-the-installed-frozen-tgz>",
-  "profileRef": "<isolated-home-directory-name>/web",
-  "webPort": 43157,
-  "checks": {
-    "authenticated": true,
-    "pluginPanelVisible": true,
-    "currentInboxRendered": true
-  },
-  "screenshotPath": "output/playwright/alpha13-lifecycle-<date>/panel.png",
-  "screenshotSha256": "<sha256>"
-}
+```sh
+node scripts/scan-publication.mjs staged
+node scripts/scan-publication.mjs commits origin/main..HEAD
+node scripts/scan-publication.mjs package <frozen-package.tgz>
 ```
 
-## Playwright CLI loop
+[Release checklist](release-checklist.md) governs CI, immutable prerelease assets, npm byte verification and dist-tags. Publishing requires explicit authorization. Historical alpha.5/alpha.13 scripts reproduce their named artifacts and retain those historical identities.
 
-Use Playwright CLI from `output/playwright/<label>/`. Keep a named session for the DSH tab, snapshot before using element references, and capture screenshots after meaningful state changes. The browser observation proves browser/UI state; it does not by itself prove Windows notification-center visibility.
-
-```powershell
-Set-Location '<pluginDir>\output\playwright\alpha13-lifecycle-<date>'
-npx --yes --package @playwright/cli playwright-cli --session=deepcanary-alpha13 open '<fresh authenticated DSH URL>' --headed
-npx --yes --package @playwright/cli playwright-cli --session=deepcanary-alpha13 snapshot
-npx --yes --package @playwright/cli playwright-cli --session=deepcanary-alpha13 screenshot --filename=panel.png
-```
-
-For the current lifecycle window, record only bounded facts: panel loaded, current version/runtime labels, Inbox state, ask/answer closure, child summary routing, pause/abort or reopen result, and any screenshot hash. Do not place credentials, prompts, model output, tool arguments, raw event payloads, or complete local paths into the observation file.
-
-## Alpha.5 regression and gates
-
-The alpha.5 adapter smoke uses the locked npm `Context` and `SessionStore` packages, not a source checkout. It verifies that local `lib/` matches the referenced frozen tgz and records the actual execution lane. Runtime/profile environment variables cannot relabel this test:
-
-```powershell
-# Omit this variable to use output/releases/<version>/dsh-deepcanary-<version>.tgz.
-$env:DSH_ADAPTER_PACKAGE_TGZ = '<exact frozen tgz>'
-npm run adapter:smoke
-$env:DSH_ADAPTER_PACKAGE_TGZ = $null
-```
-
-Run the relevant focused tests after provider, adapter, lifecycle, delivery, or Supervisor changes. Run the build/test/distribution set below, then freeze its tgz before running `gate:stable`; the evaluator never repacks a missing artifact:
-
-```powershell
-npm run typecheck
-npm run typecheck:tests
-npm test
-npm run build
-npm run verify:distribution
-npm run pack:check
-# Freeze the new candidate as described in release-checklist.md, then:
-npm run gate:stable
-```
-
-`gate:stable` is a decision report, not a release command. Missing natural-use, OS-visible, independent audit, or full restart evidence remains pending and yields `CONTINUE_RC`; it must not be converted into Stable by a flag or by reusing a historical receipt. The virtual Supervisor soak is supplemental-only. These commands do not publish a package.
-
-## Release boundary
-
-Before a public release, freeze one tgz and bind its SHA-256 to the source/runtime/profile evidence. Check the official GitHub repository and npm registry once, then request the exact publish scope if it has not been explicitly authorized. Never alter historical tags, release assets, receipts, or withdrawn version identities.
+`gate:stable` reports evidence sufficiency and does not publish or automatically adopt policy. Windows-only development, native notification coverage and experimental Supervisor remain separately bounded.

@@ -50,7 +50,7 @@
       "id": "subagent-pressure",
       "source": "controlled-fixture",
       "signal": { "kind": "SUBAGENT_PRESSURE", "severityHint": 3, "authority": "runtime" },
-      "expected": { "level": "C3", "action": "ESCALATE", "reasonCode": "SUBAGENT_PRESSURE" }
+      "expected": { "level": "C2", "action": "INTERRUPT", "reasonCode": "SUBAGENT_PRESSURE" }
     },
     {
       "id": "context-compaction",

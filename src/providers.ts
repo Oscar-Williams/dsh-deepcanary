@@ -46,6 +46,14 @@ export function toolClassForName(name: string | undefined): ToolClass {
   return longRunningToolPattern.test(name.trim()) ? 'long-running' : 'ordinary'
 }
 
+/** Classify the tools still executing, rather than the most recently started one. */
+export function toolClassForActiveTools(names: Iterable<string | undefined>): ToolClass {
+  const classes = [...names].map(toolClassForName)
+  if (classes.includes('long-running')) return 'long-running'
+  if (classes.length === 0 || classes.includes('unknown')) return 'unknown'
+  return 'ordinary'
+}
+
 /** Read the public tool identity, never the model-facing result content. */
 export function toolCallIdOf(data: Record<string, unknown>): string | undefined {
   if (typeof data.callId === 'string') return data.callId

@@ -5,6 +5,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { resolveReleaseArtifact, verifyBuiltEntries } from './release-artifact.mjs'
+import { isNaturalDogfoodRun } from '../lib/dogfood.js'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const execFileAsync = promisify(execFile)
@@ -289,7 +290,7 @@ function deliveryReviewQualification(bundles) {
 }
 
 function naturalTaskCoverage(bundles) {
-  const natural = bundles.filter(bundle => bundle.run.provenance === 'real' && bundle.run.taskOrigin === 'natural')
+  const natural = bundles.filter(bundle => isNaturalDogfoodRun(bundle.run))
   const allExplicitNatural = bundles.length > 0 && natural.length === bundles.length
   const workdays = new Set(natural.map(bundle => new Date(bundle.run.startedAt).toISOString().slice(0, 10)))
   const taskFamilies = new Set(natural.map(bundle => bundle.run.taskFamily))
@@ -300,7 +301,7 @@ function naturalTaskCoverage(bundles) {
     workdayCount: workdays.size,
     taskFamilyCount: taskFamilies.size,
     taskFamilies: [...taskFamilies].sort(),
-    reason: allExplicitNatural ? undefined : 'every Gate D bundle must explicitly declare taskOrigin=natural',
+    reason: allExplicitNatural ? undefined : 'every Gate D bundle requires live capture, natural task origin and an attributed opaque taskRef',
   }
 }
 

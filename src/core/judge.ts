@@ -26,10 +26,14 @@ function levelFor(signal: CanarySignal): { level: AttentionLevel; matchedRules: 
     level = authoritative ? 'C3' : 'C2'
   } else if (signal.kind === 'SUBAGENT_PRESSURE') {
     matchedRules.push('subagent.pressure-threshold')
-    level = signal.severityHint === 3 ? 'C3' : signal.severityHint === 2 ? 'C2' : 'C1'
+    // A count proves pressure, not an urgent blocking condition.
+    level = signal.severityHint !== undefined && signal.severityHint >= 2 ? 'C2' : 'C1'
   } else if (signal.kind === 'HUMAN_APPROVAL_REQUIRED' && authoritative && signal.severityHint === 3) {
     matchedRules.push('human.approval-authoritative-c3')
     level = 'C3'
+  } else if (signal.kind === 'HUMAN_QUESTION_PENDING' && authoritative && signal.data.questionState === 'continued') {
+    matchedRules.push('human.question-continued-c1')
+    level = 'C1'
   } else if (signal.kind === 'HUMAN_QUESTION_PENDING' && authoritative && signal.severityHint === 3) {
     matchedRules.push('human.question-blocking-c3')
     level = 'C3'
@@ -165,7 +169,9 @@ export function judgeSignal(signal: CanarySignal): AttentionVerdict {
     action,
     confidence: confidenceFor(signal, level),
     reasonCode: signal.kind,
-    messageKey: signal.kind === 'TASK_COMPLETED' && signal.data.childCompletion === true
+    messageKey: signal.kind === 'HUMAN_QUESTION_PENDING' && signal.data.questionState === 'continued'
+      ? 'item.reason.HUMAN_QUESTION_CONTINUED'
+      : signal.kind === 'TASK_COMPLETED' && signal.data.childCompletion === true
       ? 'item.reason.SUBTASK_COMPLETED' : messageKeyFor(signal.kind),
     ...(messageParams === undefined ? {} : { messageParams }),
     ...(suggestedAction === undefined ? {} : { suggestionKey: suggestionKeyFor(signal.kind) }),

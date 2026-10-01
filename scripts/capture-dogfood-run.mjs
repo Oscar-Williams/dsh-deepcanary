@@ -22,6 +22,8 @@ const taskFamily = args.get('task-family')
 const scenario = args.get('scenario')
 const provenance = args.get('provenance')
 const taskOrigin = args.get('task-origin') ?? (provenance === 'controlled' ? 'controlled' : 'unknown')
+const taskRef = args.get('task-ref')
+if (taskRef !== undefined && !/^[a-f0-9]{16}$/.test(taskRef)) throw new Error('--task-ref must be an opaque 16-character lowercase hex reference')
 const startedAt = args.get('started-at')
 const endedAt = args.get('ended-at')
 const outputPath = path.resolve(root, args.get('out') ?? 'output/dogfood/real-run.json')
@@ -55,6 +57,7 @@ try {
   if (candidate.run.runId !== runId || candidate.run.trialId !== trialId || candidate.run.provenance !== 'real') {
     throw new Error('runtime dogfood ledger identity does not match this capture')
   }
+  if (candidate.run.captureMode !== 'service') throw new Error('runtime observation ledger must be a live service capture')
   if (candidate.run.taskFamily !== taskFamily || candidate.run.scenario !== scenario) {
     throw new Error('runtime dogfood ledger task family or scenario does not match this capture')
   }
@@ -67,6 +70,15 @@ if (provenance === 'real' && runtimeBundle === undefined) {
 }
 if (provenance === 'controlled' && runtimeBundle !== undefined) {
   throw new Error('--provenance controlled cannot use the runtime observation ledger; use --provenance real')
+}
+if (runtimeBundle !== undefined) {
+  if (args.has('task-origin') && (runtimeBundle.run.taskOrigin ?? 'unknown') !== taskOrigin) throw new Error('capture cannot relabel the runtime task origin')
+  if (taskRef !== undefined && runtimeBundle.run.taskRef !== taskRef) throw new Error('capture cannot relabel the runtime task reference')
+  if (Date.parse(startedAt) < Date.parse(runtimeBundle.run.startedAt)
+    || (runtimeBundle.run.endedAt !== undefined && Date.parse(endedAt) > Date.parse(runtimeBundle.run.endedAt))) throw new Error('capture window must remain inside the runtime run')
+}
+if (taskOrigin === 'natural' && (runtimeBundle?.run.taskOrigin !== 'natural' || runtimeBundle.run.taskRef === undefined)) {
+  throw new Error('natural capture requires an already attributed live task ledger')
 }
 
 const hash = value => createHash('sha256').update(String(value)).digest('hex').slice(0, 16)
@@ -159,7 +171,9 @@ const receipts = runtimeBundle === undefined
   : [
       ...runtimeBundle.receipts,
       ...outcomeState.receipts.filter(receipt => receipt.source === provenance && receipt.trialId === trialId),
-    ].filter((receipt, index, all) => all.findIndex(candidate => candidate.receiptId === receipt.receiptId) === index)
+    ].filter(receipt => (runtimeBundle.run.taskRef === undefined || receipt.taskRef === runtimeBundle.run.taskRef)
+      && (runtimeBundle.run.taskOrigin === undefined || (receipt.taskOrigin ?? 'unknown') === runtimeBundle.run.taskOrigin))
+      .filter((receipt, index, all) => all.findIndex(candidate => candidate.receiptId === receipt.receiptId) === index)
 const bundle = {
   schemaVersion: 1,
   run: {
@@ -173,10 +187,11 @@ const bundle = {
     pluginVersion: runtimeBundle?.run.pluginVersion ?? args.get('plugin-version') ?? packageJson.version,
     runtimeTag: runtimeBundle?.run.runtimeTag ?? args.get('runtime-tag') ?? 'dsh-v0.1.2-alpha.5',
     taskOrigin: runtimeBundle?.run.taskOrigin ?? taskOrigin,
+    ...(runtimeBundle?.run.taskRef === undefined ? {} : { taskRef: runtimeBundle.run.taskRef }),
     policyVersion: runtimeBundle?.run.policyVersion ?? args.get('policy-version') ?? 'attention-policy.v1',
     startedAt: new Date(startedAt).toISOString(),
     endedAt: new Date(endedAt).toISOString(),
-    captureMode: 'service',
+    captureMode: runtimeBundle === undefined ? 'manual' : 'service',
     rawContentPersisted: false,
   },
   observations,

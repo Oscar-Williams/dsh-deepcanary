@@ -2,6 +2,28 @@ import { describe, expect, it } from 'vitest'
 import { ContextDshAdapter } from '../src/adapters/dsh.js'
 
 describe('DSH adapter boundary', () => {
+  it.each([true, false])('classifies remaining parallel tools independent of call order: long first %s', async (longFirst) => {
+    const calls = [
+      { name: 'bash', callId: 'long' },
+      { name: 'read_file', callId: 'short' },
+    ]
+    if (!longFirst) calls.reverse()
+    const events: Array<{ type: string; seq: number; time: number; data: Record<string, unknown> }> = [
+      { type: 'turn/start', seq: 0, time: 1, data: {} },
+      ...calls.map((data, index) => ({ type: 'tool/call', seq: index + 1, time: index + 2, data })),
+    ]
+    const session = { id: 'parallel-liveness', snapshotEvents: () => events }
+    const adapter = new ContextDshAdapter({ sessions: { list: () => [session] } } as never)
+    await adapter.start()
+    expect(await adapter.getSessionSnapshot(session.id)).toMatchObject({ activeToolCount: 2, toolClass: 'long-running' })
+    const finished = longFirst ? 'short' : 'long'
+    events.push({ type: 'tool/result', seq: 3, time: 4, data: { message: { source: { kind: 'tool', callId: finished } } } })
+    await adapter.reconcile()
+    expect(await adapter.getSessionSnapshot(session.id)).toMatchObject({ activeToolCount: 1, toolClass: longFirst ? 'long-running' : 'ordinary' })
+    events.push({ type: 'tool/result', seq: 4, time: 5, data: { callId: longFirst ? 'long' : 'short' } })
+    await adapter.reconcile()
+    expect(await adapter.getSessionSnapshot(session.id)).toMatchObject({ activeToolCount: 0, toolClass: 'unknown' })
+  })
   it.each([
     { id: 'missing-snapshot' },
     { id: 'throwing-snapshot', snapshotEvents: () => { throw new Error('unavailable') } },

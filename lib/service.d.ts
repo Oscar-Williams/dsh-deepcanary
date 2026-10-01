@@ -1,12 +1,12 @@
 import type { Context } from '@deepseek-ai/cordis';
-import type { DeepCanaryConfigInput } from './config.js';
+import type { DeepCanaryConfigInput, DeepCanaryRuntimeConfig } from './config.js';
 import { ContextDshAdapter } from './adapters/dsh.js';
 import { MetadataStore, SuppressionStore } from './persistence.js';
 import { OutcomeStore } from './outcome.js';
 import { PersistentSupervisor } from './supervisor.js';
 import type { CanarySignal, DeepCanaryConfig, DryRunRequest, DryRunResult, FeedbackValue, InboxItem, PublicInboxItem, PublicSettings, PublicSnapshot, OutcomeReceipt, OutcomeDeleteFilter, OutcomeReceiptInput, RuntimeStatus, SuppressibleReasonCode } from './types.js';
 declare const PLUGIN_NAME = "dsh-deepcanary";
-declare const PLUGIN_VERSION = "0.1.1-rc.6";
+declare const PLUGIN_VERSION = "0.1.4-rc.1";
 interface ActionReceipt {
     status: number;
     body: Record<string, unknown>;
@@ -36,13 +36,13 @@ export declare class DeepCanaryService {
     private hostProbeInterval;
     private hostProbePort;
     private hostProbeInFlight;
+    private hostServicePort;
     private readonly hostProbe;
     private supervisorHostStatus;
-    private settingsScope;
     private settingsProvider;
-    private settingsSource;
     private settingsSubscription;
     private saveChain;
+    private questionChain;
     private hydrated;
     private disposed;
     private started;
@@ -56,7 +56,8 @@ export declare class DeepCanaryService {
     private supervisorStart;
     private supervisorStarted;
     readonly supervisor: PersistentSupervisor;
-    constructor(ctx: Context, input?: DeepCanaryConfigInput);
+    private readonly stateIdentity;
+    constructor(ctx: Context, input?: DeepCanaryConfigInput | DeepCanaryRuntimeConfig);
     start(): void;
     setRegisteredTools(names: readonly string[]): void;
     ingest(signal: CanarySignal): Promise<InboxItem | undefined>;
@@ -116,6 +117,8 @@ export declare class DeepCanaryService {
     private onSessionDisposed;
     private onSessionEvent;
     private resolveHumanWait;
+    private queueQuestionSync;
+    private syncQuestionFacts;
     private onSubagentDelta;
     /**
      * `agent/error` is the AgentLoop driver's terminal boundary. Most current

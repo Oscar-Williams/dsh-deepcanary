@@ -1,130 +1,99 @@
-<div align="center">
-
 # DeepCanary
 
-**Let long tasks run quietly. Know when they need you.**
+**Let tasks run quietly. Know when they need you. Return to the right session.**
 
-[![npm latest](https://img.shields.io/npm/v/dsh-deepcanary/latest?label=npm)](https://www.npmjs.com/package/dsh-deepcanary)
+[![npm](https://img.shields.io/npm/v/dsh-deepcanary/latest)](https://www.npmjs.com/package/dsh-deepcanary)
 [![CI](https://github.com/Oscar-Williams/dsh-deepcanary/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Oscar-Williams/dsh-deepcanary/actions/workflows/ci.yml)
-[![DSH Web](https://img.shields.io/badge/DSH-Web-2563eb)](docs/compatibility.md)
-[![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f.svg)](LICENSE)
+[![MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 English · [简体中文](README.zh-CN.md) · [Documentation](docs/README.md) · [Changelog](CHANGELOG.md)
 
-[Features](#what-you-get) · [Quick start](#quick-start) · [FAQ](#faq) · [Contributing](#contributing) · [Acknowledgments](#acknowledgments)
+DeepCanary adds a local task inbox to [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). It brings questions, approvals, failures and completion summaries together, with quiet notification policies and a direct return to the relevant session.
 
-</div>
+**Version: 0.1.4-rc.1 · Host baseline: DSH 0.2.0-rc.2.** This is a release candidate. The npm `latest` and `next` channels both select this RC; their channel names describe installation defaults. See [compatibility and device coverage](docs/compatibility.md) for the supported scope.
 
-DeepCanary is a local attention inbox for [DeepSeek Harness (DSH)](https://github.com/deepseek-ai/deepseek-harness). It brings approvals, questions, failures, and completion summaries into one place, so you can step away from a running task and return to the session that needs you.
+![DeepCanary Inbox](assets/deepcanary-panel-en.png)
 
-![DeepCanary Inbox in DSH Web](assets/deepcanary-panel-en.png)
+## Install
 
-*The Inbox opens from the DSH sidebar. Interface shown on an earlier DSH release; host appearance varies by version.*
+### Desktop
 
-## What you get
+Open DSH **Plugins**, use its official package installation control, and enter:
 
-- **An inbox across tasks.** See pending approvals, unanswered questions, possible stalls, service failures, and task outcomes without checking each session.
-- **Fewer repeat interruptions.** Related signals are grouped; deduplication, quiet hours, notification budgets, and snooze keep routine activity quiet.
-- **A direct route back.** Open the relevant DSH session from an Inbox item or browser notification. Resolved conditions close their earlier reminders.
-- **Reasons you can inspect.** Each item explains the signal and the policy behind it. A possible stall remains a suggestion to check, not a claim that a task has failed.
-- **Local control.** Acknowledge, snooze, mute, or give feedback in a resizable English/Chinese panel. DeepCanary does not approve, stop, or restart tasks.
-
-## Quick start
-
-Requires an existing DSH Web installation and Node.js `22.19+` within the 22.x line, or `24+`. DSH `0.1.2-alpha.5` is the build and CI baseline; `0.1.3-alpha.1` has separate compatibility coverage. Read the [version and platform limits](docs/compatibility.md) before using a different host.
-
-The current default release is **`0.1.1-rc.6` (prerelease)**. npm `latest` and the preview channel `next` currently point to this version.
-
-With `dsh` available in your terminal, install into the profile you use:
-
-```sh
-dsh plugin --profile web add dsh-deepcanary@latest
-dsh web
+```text
+dsh-deepcanary@0.1.4-rc.1
 ```
 
-Finish active tasks before restarting an existing DSH process. Open the address printed by the new process, then select **DeepCanary** in the sidebar.
+Apply the change using the manager's enable/restart instructions. Save active work before restarting. Desktop manages its own reserved profile; use the application's manager for installation, update and removal.
 
-Using a DSH source checkout? Run the equivalent commands from that checkout:
+### WebUI with the DSH CLI
+
+Check that your installed host is DSH `0.2.0-rc.2`, then install into the **web** profile:
 
 ```sh
-npx --yes pnpm@11.7.0 dsh plugin --profile web add dsh-deepcanary@latest
-npx --yes pnpm@11.7.0 dsh web
+dsh --version
+dsh plugin --profile web add dsh-deepcanary@0.1.4-rc.1
+dsh --profile web
 ```
 
-For a reproducible installation, replace `dsh-deepcanary@latest` with `dsh-deepcanary@0.1.1-rc.6`. Use `dsh-deepcanary@next` when you want the preview channel. You can also download the fixed `.tgz` from [GitHub Releases](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.1-rc.6) and pass its path to the same `plugin add` command. If a registry mirror has not synchronized the version, use the official npm registry or the release artifact.
+Open the authenticated URL printed by DSH. The fixed package version makes installation reproducible. You can also pass the downloaded `.tgz` from [GitHub Releases](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.4-rc.1) to `plugin add`. Use the official npm registry if a mirror has not synchronized the release.
 
-### Update or remove
+### Existing DSH source checkout
 
-To update, rerun the installation command above. To remove DeepCanary from the same profile:
+From a built checkout at `dsh-v0.2.0-rc.2` (commit `639ed015397290b3745d163aafe02ffee4aa3f84`), run the checkout's CLI script:
+
+```sh
+npx --yes pnpm@11.7.0 run dsh plugin --profile web add dsh-deepcanary@0.1.4-rc.1
+npx --yes pnpm@11.7.0 run dsh --profile web
+```
+
+Follow DSH's [source setup instructions](https://github.com/deepseek-ai/deepseek-harness/tree/dsh-v0.2.0-rc.2) to prepare that checkout. The plugin repository uses its own npm lockfile; its development commands are in [development](docs/development.md).
+
+### Update and remove
+
+To update the Web profile, rerun the fixed-version installation command and follow DSH's reload instructions. To remove it:
 
 ```sh
 dsh plugin --profile web remove dsh-deepcanary
 ```
 
-In a DSH source checkout, prefix this command with `npx --yes pnpm@11.7.0`. Finish active tasks before restarting DSH to apply the change. Package removal leaves saved reminder state in the [local data directory](docs/security.md#stored-data); it does not require deleting your DSH profile or sessions.
+In a source checkout, use `npx --yes pnpm@11.7.0 run dsh plugin --profile web remove dsh-deepcanary`. Removal preserves the host profile, sessions and saved reminder data.
 
-## Your first reminder
+## Use
 
 1. Open **DeepCanary** from the DSH sidebar.
-2. Choose **Enable browser notifications** and allow the browser permission request. Desktop delivery also needs notifications enabled for your browser in the operating system.
-3. Run your tasks normally. Open an Inbox item to inspect its reason, return to its session, or acknowledge, snooze, mute, and review it.
+2. Configure it under **Settings → Plugins → DeepCanary**. Choose the notification level, hourly budget and quiet hours.
+3. Enable browser notifications if you want them, then run your tasks normally.
+4. Open an Inbox item to return to its session, inspect its evidence, snooze it or give explicit feedback.
 
-Configure notification level, quiet hours, budgets, and retention under **DSH Settings → Plugins → DeepCanary**. Normal completion is recorded in the Inbox; interruptions depend on the signal and your policy. The highest-severity reminders require host or runtime evidence and do not consume the ordinary notification budget.
+| Level | Meaning | Behavior |
+| --- | --- | --- |
+| C1 | Suggested check | Routine outcomes and completion summaries remain available in Inbox. |
+| C2 | Needs attention | Failures and possible stalls are evaluated against your notification policy. |
+| C3 | Immediate human attention | Requires authoritative Host/runtime evidence, including open human questions and approval boundaries. |
 
-## Design choices
+Related events are grouped and deduplicated. Healthy long tools keep bounded progress grace; parallel tool completion updates that grace. Timed questions remain answerable after timeout, and accepted replies close their reminder. Completion summaries survive recovery and reload.
 
-**Attention is not activity.** A busy task does not always need a reminder. DeepCanary separates runtime facts from attention policy, then groups related events into one decision point.
+The resizable Inbox has opaque light/dark surfaces, keyboard controls and expandable evidence. Navigation uses DSH's public session-opening capability. When a target is unavailable, the item explains its availability and preserves the summary.
 
-**Uncertainty stays visible.** Silence can suggest a stall, but it does not prove failure. A browser-created notification does not prove that the operating system displayed it. The plugin keeps those distinctions explicit.
+Settings use DSH's revision-aware configuration service. A concurrent change produces a conflict while retaining your draft; discard and reread before editing against the current snapshot.
 
-**The task stays in DSH.** DeepCanary is an observer and navigation aid. It does not replace the agent loop or add approval, shell, or process-control tools. No additional model API is required.
+## Privacy
 
-See the [architecture](docs/architecture.md) for the event model, policy, and persistence boundaries.
+Reminder state stays in the local profile. Stored fields are bounded metadata, hashed references, explicit feedback and the local session handle used for navigation. Conversation text, prompts, model output, tool arguments and API credentials remain outside captured reminder state.
 
-## Privacy and limits
+Plugin HTTP endpoints use DSH's authenticated shared API, with Host/Origin checks, bounded JSON input and sanitized errors. Feedback collection is optional. Open and acknowledge actions describe interaction; usefulness is supplied by explicit feedback. See [security](docs/security.md) and [feedback calibration](docs/feedback-calibration.md).
 
-- State stays local: bounded reminder metadata, hashed references, feedback, and a local session handle for navigation. Conversation text, model output, tool arguments, and credentials are not persisted. See [security and privacy](docs/security.md).
-- Browser notifications require DSH and the web page to remain running. Permission settings, background throttling, and OS notification settings can affect delivery; closing the page stops its notifications.
-- The Inbox works without desktop notification permission. Windows/Edge notification display, retention, and click-back were observed for RC4; this is not a guarantee for every browser or OS.
-- Persistent Supervisor is experimental and disabled by default. It is not a standalone background service and does not keep running after DSH exits.
-- WSL2 end-to-end desktop delivery, physical touch hardware, and screen-reader output do not yet have release-level validation. See [compatibility](docs/compatibility.md).
+## Limits
 
-## FAQ
+- Notifications require the Host and renderer to remain running, browser permission and suitable OS settings. Operating-system delivery remains unknown until observed.
+- Desktop shares the deterministic core, settings and Inbox. Hidden-window notification wake-up and Toast click return require public Host support and device evidence; this RC provides the renderer notification path.
+- Windows WebUI is the current development and device-validation entry. Other operating systems have automated source coverage where CI runs; native delivery coverage is documented separately.
+- Supervisor remains experimental and disabled by default. Its local projection lasts while its owning Host process runs.
+- Natural feedback currently supports specific defect investigation. Cross-workday policy calibration and model Judge adoption retain their evidence gates; current live policy is deterministic.
 
-<details>
-<summary>Why does my terminal say dsh: command not found?</summary>
-
-DeepCanary needs an existing DSH installation. If you use a DSH source checkout, run the pinned pnpm commands in [Quick start](#quick-start) from that checkout. Installing this plugin alone does not install the DSH host.
-
-</details>
-
-<details>
-<summary>Why is an item in the Inbox but not in a desktop notification?</summary>
-
-Not every Inbox item triggers an interruption. Check your notification level, quiet hours, browser permission, and OS notification settings. DSH and the page must remain running. See [notification troubleshooting](docs/compatibility.md#troubleshooting).
-
-</details>
-
-<details>
-<summary>Why do I still see an older version after an update?</summary>
-
-Moving an npm channel does not update an existing installation. Rerun the installation command for the profile you actually use, then restart DSH after finishing active tasks. If a registry mirror is behind, use the official npm registry or the fixed Release artifact linked above.
-
-</details>
-
-## Contributing
-
-Bug reports, focused improvements, and translations are welcome. Include your plugin version, DSH version, operating system, browser, and reproduction steps in a [GitHub issue](https://github.com/Oscar-Williams/dsh-deepcanary/issues). Remove credentials and private session content before sharing logs.
-
-Start with [Contributing](CONTRIBUTING.md) and the [development guide](docs/development.md). [Release notes](CHANGELOG.md) describe changes between versions.
-
-## Acknowledgments
-
-- [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) and its maintainers, for the runtime, plugin APIs, and WebUI extension points that DeepCanary builds on.
-- [React](https://react.dev/) and its contributors, for the component library used in the DSH Web integration.
-
-DeepCanary is an independent community plugin.
+See [compatibility](docs/compatibility.md) for coverage and troubleshooting, [architecture](docs/architecture.md) for the implementation, and [contributing](CONTRIBUTING.md) to help improve it.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). Built on the public DeepSeek Harness plugin APIs.

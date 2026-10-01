@@ -19,11 +19,11 @@ export async function verifyEnvironment(root, nodeVersion = process.versions.nod
       const version = lock.packages[`node_modules/${name}`]?.version
       const installed = await json(`node_modules/${name}/package.json`).catch(() => undefined)
       if (!version || installed?.version !== version) throw new Error(`Installed ${name} ${installed?.version ?? '(missing)'} differs from lockfile ${version}; run npm ci.`)
-      if (name.startsWith('@deepseek-ai/dsh-') && (requested !== '0.1.2-alpha.5' || version !== requested)) throw new Error(`${name} must remain pinned to the alpha.5 npm build lane.`)
+      if (name.startsWith('@deepseek-ai/dsh-') && (requested !== '0.2.0-rc.2' || version !== requested)) throw new Error(`${name} must remain pinned to the DSH 0.2.0-rc.2 build lane.`)
       rows.push({ name, requested, locked: version, installed: installed.version })
     }
   }
-  return { passed: true, node: nodeVersion, pluginVersion: manifest.version, runtimeLane: 'npm-0.1.2-alpha.5', dependencies: rows }
+  return { passed: true, node: nodeVersion, pluginVersion: manifest.version, runtimeLane: 'npm-0.2.0-rc.2', dependencies: rows }
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

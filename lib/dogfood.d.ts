@@ -44,6 +44,8 @@ export interface DogfoodRun {
     provenance: DogfoodProvenance;
     /** Optional on v1 records; absent/unknown never qualifies a natural-real Gate D run. */
     taskOrigin?: DogfoodTaskOrigin;
+    /** Hash of the actual DSH session assigned to this task; never a transcript or path. */
+    taskRef?: string;
     taskFamily: DogfoodTaskFamily;
     scenario: DogfoodScenario;
     pluginVersion: string;
@@ -175,4 +177,6 @@ export declare class DogfoodLedger {
     bundle(): DogfoodBundle;
     save(): Promise<void>;
 }
+/** Live capture and verified task attribution are independent of the filename/source label. */
+export declare function isNaturalDogfoodRun(run: DogfoodRun): boolean;
 //# sourceMappingURL=dogfood.d.ts.map

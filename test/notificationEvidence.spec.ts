@@ -108,6 +108,18 @@ const boundBundle = {
 } satisfies DogfoodBundle
 
 describe('notification evidence contract', () => {
+  it('binds new Desktop evidence independently and keeps Edge history readable', () => {
+    const { edgeNotificationsEnabled, edgeFocusedAfterClick, ...os } = evidence.operatingSystem
+    const desktop = { ...evidence, schemaVersion: 4, deployment: { surface: 'desktop', profile: 'desktop', artifactSha256: 'a'.repeat(64), lifecycle: 'hidden' },
+      browser: { ...evidence.browser, name: 'electron', pageVisibility: 'hidden' },
+      operatingSystem: { ...os, applicationNotificationsEnabled: edgeNotificationsEnabled, applicationFocusedAfterClick: 'not-tested' } }
+    expect(isNotificationEvidence(evidence)).toBe(true)
+    expect(isNotificationEvidence(desktop)).toBe(true)
+    expect(evaluateNotificationEvidence(desktop).reasons).toContain('desktop-focus-after-toast-click-observed-not-tested')
+    expect(isNotificationEvidence({ ...desktop, browser: evidence.browser })).toBe(false)
+    expect(isNotificationEvidence({ ...desktop, operatingSystem: evidence.operatingSystem })).toBe(false)
+    expect(isNotificationEvidence({ ...desktop, deployment: undefined })).toBe(false)
+  })
   it('requires a complete developer-observed Edge and Windows path', () => {
     expect(isNotificationEvidence(evidence)).toBe(true)
     expect(evaluateNotificationEvidence(evidence)).toEqual({ status: 'pass', reasons: [] })

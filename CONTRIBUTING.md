@@ -4,7 +4,7 @@ Bug reports, focused pull requests, and translations are welcome. For a substant
 
 ## Development
 
-Use Node.js `22.19+` within the 22.x line, or `24+`, matching DSH's supported range. Dependencies are locked to the DSH `0.1.2-alpha.5` compatibility baseline.
+Use Node.js `22.19+` within the 22.x line, or `24+`, matching DSH's supported range. Dependencies are locked to the DSH `0.2.0-rc.2` compatibility baseline.
 
 ```sh
 npm ci
@@ -25,7 +25,7 @@ For a different DSH revision, use the isolated checks in the [development guide]
 - Highest-severity (C3) decisions require host or runtime authority. A heuristic or model summary cannot supply that authority.
 - Preserve deduplication, grouping, budgets, quiet hours, recovery, and bounded state.
 - Keep persisted data limited to allowlisted metadata. Session/workspace references are hashed; a bounded local session handle is allowed only for navigation. Never persist prompts, transcripts, tool arguments, workspace paths, or credentials.
-- Keep Web routes same-origin and `no-store`, and render untrusted values with safe DOM APIs.
+- Register HTTP routes with the authenticated public Connection API, retain same-origin/no-store responses, and render untrusted values with safe DOM APIs.
 - Do not add shell, arbitrary file-write, process-control, approval, or rejection capabilities.
 
 ## Tests and documentation

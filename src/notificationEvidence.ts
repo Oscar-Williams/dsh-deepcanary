@@ -1,14 +1,20 @@
 import type { DogfoodBundle } from './dogfood.js'
 
-export const NOTIFICATION_EVIDENCE_SCHEMA_VERSION = 3 as const
+export const NOTIFICATION_EVIDENCE_SCHEMA_VERSION = 4 as const
 
 export type NotificationPermission = 'granted' | 'denied' | 'default' | 'unsupported'
-export type NotificationPageVisibility = 'foreground' | 'background' | 'minimized' | 'unknown'
+export type NotificationPageVisibility = 'foreground' | 'background' | 'minimized' | 'hidden' | 'unknown'
 export type NotificationEvidenceSource = 'manual-windows-observation'
 export type NotificationObservationStatus = 'observed' | 'not-observed' | 'not-tested'
 
 export interface NotificationEvidence {
-  schemaVersion: typeof NOTIFICATION_EVIDENCE_SCHEMA_VERSION
+  schemaVersion: 3 | typeof NOTIFICATION_EVIDENCE_SCHEMA_VERSION
+  deployment?: {
+    surface: 'web' | 'desktop'
+    profile: string
+    artifactSha256: string
+    lifecycle: 'foreground' | 'minimized' | 'hidden' | 'reshown' | 'host-restarted' | 'fully-exited'
+  }
   evidenceId: string
   source: NotificationEvidenceSource
   runId: string
@@ -38,7 +44,7 @@ export interface NotificationEvidence {
     minimalContentOnly: boolean
   }
   browser: {
-    name: 'edge'
+    name: 'edge' | 'electron'
     version: string
     notificationApi: 'supported' | 'unsupported'
     permission: NotificationPermission
@@ -51,12 +57,14 @@ export interface NotificationEvidence {
     name: 'windows'
     build: string
     notificationsEnabled: NotificationObservationStatus
-    edgeNotificationsEnabled: NotificationObservationStatus
+    edgeNotificationsEnabled?: NotificationObservationStatus
+    applicationNotificationsEnabled?: NotificationObservationStatus
     focusAssistOff: NotificationObservationStatus
     toastObserved: NotificationObservationStatus
     notificationCenterObserved: NotificationObservationStatus
     toastClicked: NotificationObservationStatus
-    edgeFocusedAfterClick: NotificationObservationStatus
+    edgeFocusedAfterClick?: NotificationObservationStatus
+    applicationFocusedAfterClick?: NotificationObservationStatus
     returnedToDsh: NotificationObservationStatus
     targetVisibleInDsh: NotificationObservationStatus
   }
@@ -78,7 +86,7 @@ const opaqueRefPattern = /^[a-f0-9]{16}$/
 const printablePattern = /^[^\u0000-\u001f\u007f]{1,128}$/
 const titleKeyPattern = /^notification\.title\.[A-Z0-9_]+$/
 const permissions = new Set<NotificationPermission>(['granted', 'denied', 'default', 'unsupported'])
-const visibilities = new Set<NotificationPageVisibility>(['foreground', 'background', 'minimized', 'unknown'])
+const visibilities = new Set<NotificationPageVisibility>(['foreground', 'background', 'minimized', 'hidden', 'unknown'])
 const observationStatuses = new Set<NotificationObservationStatus>(['observed', 'not-observed', 'not-tested'])
 const sha256Pattern = /^[a-f0-9]{64}$/
 
@@ -100,9 +108,19 @@ function hasExactKeys(value: Record<string, unknown>, keys: readonly string[]): 
 }
 
 export function isNotificationEvidence(value: unknown): value is NotificationEvidence {
+  const current = isRecord(value) && value.schemaVersion === 4
+  const desktop = current && isRecord(value.deployment) && value.deployment.surface === 'desktop'
+  const appEnabled = desktop ? 'applicationNotificationsEnabled' : 'edgeNotificationsEnabled'
+  const appFocused = desktop ? 'applicationFocusedAfterClick' : 'edgeFocusedAfterClick'
+  if (current && (!isRecord(value.deployment)
+    || !hasExactKeys(value.deployment, ['surface', 'profile', 'artifactSha256', 'lifecycle'])
+    || !['web', 'desktop'].includes(String(value.deployment.surface))
+    || typeof value.deployment.profile !== 'string' || !idPattern.test(value.deployment.profile)
+    || typeof value.deployment.artifactSha256 !== 'string' || !sha256Pattern.test(value.deployment.artifactSha256)
+    || !['foreground', 'minimized', 'hidden', 'reshown', 'host-restarted', 'fully-exited'].includes(String(value.deployment.lifecycle)))) return false
   if (!isRecord(value)
-    || !hasExactKeys(value, ['schemaVersion', 'evidenceId', 'source', 'runId', 'trialId', 'provenance', 'pluginVersion', 'runtimeTag', 'runWindow', 'observedAt', 'decision', 'notification', 'browser', 'operatingSystem', 'evidenceArtifacts', 'rawContentPersisted'])
-    || value.schemaVersion !== NOTIFICATION_EVIDENCE_SCHEMA_VERSION
+    || !hasExactKeys(value, ['schemaVersion', 'evidenceId', 'source', 'runId', 'trialId', 'provenance', 'pluginVersion', 'runtimeTag', 'runWindow', 'observedAt', 'decision', 'notification', 'browser', 'operatingSystem', 'evidenceArtifacts', 'rawContentPersisted', ...(current ? ['deployment'] : [])])
+    || (value.schemaVersion !== 3 && value.schemaVersion !== 4)
     || typeof value.evidenceId !== 'string' || !evidenceIdPattern.test(value.evidenceId)
     || value.source !== 'manual-windows-observation'
     || typeof value.runId !== 'string' || !idPattern.test(value.runId)
@@ -137,7 +155,7 @@ export function isNotificationEvidence(value: unknown): value is NotificationEvi
     || typeof value.notification.minimalContentOnly !== 'boolean'
     || !isRecord(value.browser)
     || !hasExactKeys(value.browser, ['name', 'version', 'notificationApi', 'permission', 'pageVisibility', 'browserReceiptRef', 'constructorObserved', 'clickHandlerObserved'])
-    || value.browser.name !== 'edge'
+    || value.browser.name !== (desktop ? 'electron' : 'edge')
     || typeof value.browser.version !== 'string' || !printablePattern.test(value.browser.version)
     || (value.browser.notificationApi !== 'supported' && value.browser.notificationApi !== 'unsupported')
     || !permissions.has(value.browser.permission as NotificationPermission)
@@ -146,10 +164,10 @@ export function isNotificationEvidence(value: unknown): value is NotificationEvi
     || typeof value.browser.constructorObserved !== 'boolean'
     || typeof value.browser.clickHandlerObserved !== 'boolean'
     || !isRecord(value.operatingSystem)
-    || !hasExactKeys(value.operatingSystem, ['name', 'build', 'notificationsEnabled', 'edgeNotificationsEnabled', 'focusAssistOff', 'toastObserved', 'notificationCenterObserved', 'toastClicked', 'edgeFocusedAfterClick', 'returnedToDsh', 'targetVisibleInDsh'])
+    || !hasExactKeys(value.operatingSystem, ['name', 'build', 'notificationsEnabled', appEnabled, 'focusAssistOff', 'toastObserved', 'notificationCenterObserved', 'toastClicked', appFocused, 'returnedToDsh', 'targetVisibleInDsh'])
     || value.operatingSystem.name !== 'windows'
     || typeof value.operatingSystem.build !== 'string' || !printablePattern.test(value.operatingSystem.build)
-    || !isObservationRecord(value.operatingSystem, ['notificationsEnabled', 'edgeNotificationsEnabled', 'focusAssistOff', 'toastObserved', 'notificationCenterObserved', 'toastClicked', 'edgeFocusedAfterClick', 'returnedToDsh', 'targetVisibleInDsh'])
+    || !isObservationRecord(value.operatingSystem, ['notificationsEnabled', appEnabled, 'focusAssistOff', 'toastObserved', 'notificationCenterObserved', 'toastClicked', appFocused, 'returnedToDsh', 'targetVisibleInDsh'])
     || !isRecord(value.evidenceArtifacts)
     || !hasExactKeys(value.evidenceArtifacts, ['screenshotSha256', 'automationTreeSha256'])
     || typeof value.evidenceArtifacts.screenshotSha256 !== 'string' || !sha256Pattern.test(value.evidenceArtifacts.screenshotSha256)
@@ -160,6 +178,8 @@ export function isNotificationEvidence(value: unknown): value is NotificationEvi
 export function evaluateNotificationEvidence(value: unknown): NotificationEvidenceResult {
   if (!isNotificationEvidence(value)) return { status: 'pending', reasons: ['invalid-notification-evidence'] }
   const reasons: string[] = []
+  const desktop = value.deployment?.surface === 'desktop'
+  if (value.deployment?.lifecycle === 'fully-exited') reasons.push('fully-exited-not-supported')
   if (value.provenance !== 'real') reasons.push('provenance-must-be-real')
   if (value.browser.notificationApi !== 'supported') reasons.push('browser-notification-api-unavailable')
   if (value.browser.permission !== 'granted') reasons.push('browser-notification-permission-not-granted')
@@ -169,12 +189,12 @@ export function evaluateNotificationEvidence(value: unknown): NotificationEviden
   const os = value.operatingSystem
   const requiredOsEvidence: Array<[keyof typeof os, string]> = [
     ['notificationsEnabled', 'windows-notifications-enabled'],
-    ['edgeNotificationsEnabled', 'edge-notifications-enabled'],
+    [desktop ? 'applicationNotificationsEnabled' : 'edgeNotificationsEnabled', desktop ? 'desktop-notifications-enabled' : 'edge-notifications-enabled'],
     ['focusAssistOff', 'windows-focus-assist-off'],
     ['toastObserved', 'windows-toast-observed'],
     ['notificationCenterObserved', 'notification-center-retention-observed'],
     ['toastClicked', 'windows-toast-click-observed'],
-    ['edgeFocusedAfterClick', 'edge-focus-after-toast-click-observed'],
+    [desktop ? 'applicationFocusedAfterClick' : 'edgeFocusedAfterClick', desktop ? 'desktop-focus-after-toast-click-observed' : 'edge-focus-after-toast-click-observed'],
     ['returnedToDsh', 'dsh-return-after-toast-click-observed'],
     ['targetVisibleInDsh', 'target-item-visible-after-return'],
   ]

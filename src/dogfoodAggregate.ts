@@ -4,12 +4,14 @@ import type {
   DogfoodObservation,
   DogfoodProvenance,
   DogfoodReport,
+  DogfoodRun,
   DogfoodTaskFamily,
   DogfoodScenario,
 } from './dogfood.js'
 import {
   hasQualifiedDogfoodReview,
   isDogfoodBundle,
+  isNaturalDogfoodRun,
   isUnknownVisibilityFinalDeliveryObservation,
   isUserFacingDeliveryObservation,
   isVisibleFinalDeliveryObservation,
@@ -30,6 +32,9 @@ export interface DogfoodRunSummary {
   runId: string
   trialId: string
   provenance: DogfoodProvenance
+  taskOrigin: NonNullable<DogfoodRun['taskOrigin']>
+  declaredTaskOrigin: NonNullable<DogfoodRun['taskOrigin']>
+  taskRef?: string
   taskFamily: DogfoodTaskFamily
   scenario: DogfoodScenario
   pluginVersion: string
@@ -56,8 +61,12 @@ export interface DogfoodAggregateReport {
   taxonomy: DogfoodReport['taxonomy'] & { byProvenance: Record<string, number> }
   coverage: DogfoodReport['coverage']
   metrics: DogfoodReport['metrics']
+  /** Cohort metrics never mix unknown/controlled task intent into natural calibration. */
+  cohorts: Record<NonNullable<DogfoodRun['taskOrigin']>, { runCount: number; observationCount: number; metrics: DogfoodReport['metrics'] }>
   quality: {
     allReal: boolean
+    naturalRunCount: number
+    byTaskOrigin: Record<string, number>
     requiredTaskFamilies: {
       required: DogfoodTaskFamily[]
       observed: DogfoodTaskFamily[]
@@ -114,6 +123,10 @@ function scopedRef(observation: DogfoodObservation, ref: string): string {
   return `${observation.runId}:${ref}`
 }
 
+function classifiedOrigin(run: DogfoodRun): NonNullable<DogfoodRun['taskOrigin']> {
+  return run.taskOrigin === 'natural' ? isNaturalDogfoodRun(run) ? 'natural' : 'unknown' : run.taskOrigin ?? 'unknown'
+}
+
 export function isDogfoodAggregate(value: unknown): value is DogfoodAggregate {
   if (!isRecord(value)
     || value.schemaVersion !== DOGFOOD_AGGREGATE_SCHEMA_VERSION
@@ -126,7 +139,9 @@ export function isDogfoodAggregate(value: unknown): value is DogfoodAggregate {
     || !value.bundles.every(isDogfoodBundle)) return false
   const runs = value.bundles.map(bundle => bundle.run.runId)
   const trials = value.bundles.map(bundle => `${bundle.run.provenance}:${bundle.run.trialId}`)
+  const taskRefs = value.bundles.flatMap(bundle => bundle.run.taskRef === undefined ? [] : [bundle.run.taskRef])
   return new Set(runs).size === runs.length && new Set(trials).size === trials.length
+    && new Set(taskRefs).size === taskRefs.length
 }
 
 export function createDogfoodAggregate(aggregateId: string, bundles: readonly DogfoodBundle[], generatedAt = new Date().toISOString()): DogfoodAggregate {
@@ -196,6 +211,16 @@ export function summarizeDogfoodAggregate(aggregate: DogfoodAggregate): DogfoodA
   }
   const missingTasks = requiredTaskFamilies.filter(value => !observedTasks.includes(value))
   const missingScenarios = requiredScenarios.filter(value => !observedScenarios.includes(value))
+  const cohorts = Object.fromEntries((['natural', 'controlled', 'replay', 'unknown'] as const).map(origin => {
+    const selected = aggregate.bundles.filter(bundle => {
+      return classifiedOrigin(bundle.run) === origin
+    })
+    const cohortReports = selected.map(summarizeDogfood)
+    const metrics = Object.fromEntries(Object.keys(reports[0]!.metrics).map(key => [key,
+      combineMetric(cohortReports, key as keyof DogfoodReport['metrics'], key === 'reviewCoverage', key === 'reviewCoverage' ? 0.8 : undefined),
+    ])) as DogfoodReport['metrics']
+    return [origin, { runCount: selected.length, observationCount: selected.reduce((count, bundle) => count + bundle.observations.length, 0), metrics }]
+  })) as DogfoodAggregateReport['cohorts']
   return {
     reportSchemaVersion: DOGFOOD_AGGREGATE_SCHEMA_VERSION,
     aggregateSchemaVersion: DOGFOOD_AGGREGATE_SCHEMA_VERSION,
@@ -213,6 +238,9 @@ export function summarizeDogfoodAggregate(aggregate: DogfoodAggregate): DogfoodA
       runId: bundle.run.runId,
       trialId: bundle.run.trialId,
       provenance: bundle.run.provenance,
+      taskOrigin: classifiedOrigin(bundle.run),
+      declaredTaskOrigin: bundle.run.taskOrigin ?? 'unknown',
+      ...(bundle.run.taskRef === undefined ? {} : { taskRef: bundle.run.taskRef }),
       taskFamily: bundle.run.taskFamily,
       scenario: bundle.run.scenario,
       pluginVersion: bundle.run.pluginVersion,
@@ -222,6 +250,7 @@ export function summarizeDogfoodAggregate(aggregate: DogfoodAggregate): DogfoodA
       receiptCount: bundle.receipts.length,
     })),
     taxonomy,
+    cohorts,
     coverage,
     metrics: {
       humanNeededRecall: combineMetric(reports, 'humanNeededRecall'),
@@ -236,12 +265,14 @@ export function summarizeDogfoodAggregate(aggregate: DogfoodAggregate): DogfoodA
     },
     quality: {
       allReal: provenance === 'real',
+      naturalRunCount: aggregate.bundles.filter(bundle => isNaturalDogfoodRun(bundle.run)).length,
+      byTaskOrigin: countBy(aggregate.bundles, bundle => classifiedOrigin(bundle.run)),
       requiredTaskFamilies: { required: [...requiredTaskFamilies], observed: observedTasks, missing: missingTasks },
       requiredScenarios: { required: [...requiredScenarios], observed: observedScenarios, missing: missingScenarios },
     },
     generatedAt: new Date().toISOString(),
-    conclusion: provenance === 'real' && missingTasks.length === 0 && missingScenarios.length === 0
-      ? 'This aggregate covers every declared real-task family and scenario; metric status still determines release readiness.'
+    conclusion: aggregate.bundles.every(bundle => isNaturalDogfoodRun(bundle.run)) && missingTasks.length === 0 && missingScenarios.length === 0
+      ? 'This aggregate covers attributed natural task families and scenarios; metric status still determines release readiness.'
       : 'This aggregate is a traceable multi-run diagnostic. Missing provenance, task families, scenarios, or reviewed opportunities remain explicit in quality and metric fields.',
   }
 }

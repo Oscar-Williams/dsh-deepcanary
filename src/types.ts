@@ -139,6 +139,8 @@ export interface InboxItem extends AttentionVerdict {
   targetAvailable?: boolean
   /** Last structured task lifecycle fact associated with this item. */
   taskState?: TaskState
+  /** Timed question lifecycle; call identity is retained only as a bundle hash. */
+  questionState?: 'open' | 'continued'
   feedback?: {
     useful: boolean
     value?: FeedbackValue
@@ -244,7 +246,7 @@ export interface RuntimeStatus {
     platform: string
     node: string
   }
-  workspace: WorkspaceIdentity
+  workspace: Pick<WorkspaceIdentity, 'platform' | 'windowsInterop' | 'nativeToast'>
   sessions: number
   tools: string[]
   openInbox: number
@@ -285,6 +287,7 @@ export interface PublicInboxItem {
   mutedUntil?: string
   targetAvailable?: boolean
   taskState?: TaskState
+  questionState?: 'open' | 'continued'
   feedback?: { useful: boolean; value?: FeedbackValue; at: string }
   bundleCount: number
   reasonCodes: ReasonCode[]
@@ -347,6 +350,13 @@ export const OUTCOME_RECEIPT_SCHEMA_VERSION = 1 as const
 /** Provenance of an outcome record; reports must keep these sources separate. */
 export type OutcomeSource = 'real' | 'controlled' | 'replay'
 
+/**
+ * Intent of the work an outcome record observes. Task intent is independent of
+ * `OutcomeSource`: capture provenance never implies, upgrades, or downgrades
+ * it. An absent origin means `unknown` and is never inferred as `natural`.
+ */
+export type OutcomeTaskOrigin = 'natural' | 'controlled' | 'replay' | 'unknown'
+
 export type OutcomeEventClass = 'human-needed' | 'host-health' | 'stuck-progress' | 'subagent-pressure' | 'context-pressure' | 'completion'
 export type OutcomeFeedback = 'unrated' | 'useful' | 'not-useful'
 export type OutcomeLaterOutcome = 'unknown' | 'continued' | 'completed' | 'failed' | 'aborted' | 'recovered' | 'user-stopped'
@@ -360,6 +370,14 @@ export interface OutcomeReceipt {
   attentionRef: string
   trialId: string
   source: OutcomeSource
+  /**
+   * Task intent behind the observed work, separate from the capture `source`.
+   * Optional for backward compatibility: a schemaVersion 1 record written
+   * before this field exists stays valid and reads as `unknown`.
+   */
+  taskOrigin?: OutcomeTaskOrigin
+  /** Opaque reference to the originating task: 16 lowercase hex characters, never a raw task identifier. */
+  taskRef?: string
   policyVersion: string
   eventClass: OutcomeEventClass
   reasonCode: ReasonCode
@@ -382,6 +400,10 @@ export interface OutcomeReceipt {
 export interface OutcomeReceiptInput {
   source: OutcomeSource
   trialId: string
+  /** Optional task intent; it is independent of the capture `source`. */
+  taskOrigin?: OutcomeTaskOrigin
+  /** Optional opaque task reference: 16 lowercase hex characters. */
+  taskRef?: string
   opened?: boolean
   acknowledged?: boolean
   snoozed?: boolean

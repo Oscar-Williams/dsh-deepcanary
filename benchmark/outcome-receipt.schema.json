@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "DeepCanary Outcome Receipt",
-  "description": "Privacy-safe metadata linking one attention decision to an observed local, controlled, or replay outcome.",
+  "description": "Privacy-safe metadata linking one attention decision to an observed local, controlled, or replay outcome. Capture provenance (`source`) and task intent (`taskOrigin`) are independent: an absent or unknown taskOrigin means unknown and must never be read as natural.",
   "type": "object",
   "required": [
     "schemaVersion",
@@ -32,6 +32,15 @@
     "attentionRef": { "type": "string", "pattern": "^[a-f0-9]{16}$" },
     "trialId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
     "source": { "enum": ["real", "controlled", "replay"] },
+    "taskOrigin": {
+      "description": "Task intent behind the observed work; optional so schemaVersion 1 records written before this field exists stay readable. Absent means unknown, never natural.",
+      "enum": ["natural", "controlled", "replay", "unknown"]
+    },
+    "taskRef": {
+      "description": "Opaque 16-lowercase-hex reference to the originating task; never a raw task identifier.",
+      "type": "string",
+      "pattern": "^[a-f0-9]{16}$"
+    },
     "policyVersion": { "type": "string", "minLength": 1, "maxLength": 128 },
     "eventClass": { "enum": ["human-needed", "host-health", "stuck-progress", "subagent-pressure", "context-pressure", "completion"] },
     "reasonCode": { "type": "string" },

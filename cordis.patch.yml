@@ -4,7 +4,6 @@
     - id: deepcanary
       name: 'dsh-deepcanary'
       config:
-        stateDir: !!js dshHomePath('dsh-deepcanary')
         notificationLevel: 'C2'
         openOnCritical: false
         maxInterruptsPerHour: 3

@@ -60,6 +60,8 @@ export interface DogfoodRun {
   provenance: DogfoodProvenance
   /** Optional on v1 records; absent/unknown never qualifies a natural-real Gate D run. */
   taskOrigin?: DogfoodTaskOrigin
+  /** Hash of the actual DSH session assigned to this task; never a transcript or path. */
+  taskRef?: string
   taskFamily: DogfoodTaskFamily
   scenario: DogfoodScenario
   pluginVersion: string
@@ -217,13 +219,18 @@ function isDecision(value: unknown): value is DogfoodDecision {
   return value.reasonCode.length > 0 && value.reasonCode.length <= 128
 }
 
+const runFields = new Set(["schemaVersion","runId","trialId","provenance","taskOrigin","taskFamily","scenario","pluginVersion","runtimeTag","policyVersion","startedAt","endedAt","captureMode","rawContentPersisted","taskRef"])
+const observationFields = new Set(["schemaVersion","observationRef","runId","attentionRef","occurredAt","eventClass","eventSubtype","eventSource","authority","phase","decisionDisposition","observedDecision","expectedDecision","deliveryChannel","deliveryUnitRef","bundleRef","reviewLabel","policyReview","userFeedback","reviewSource","reviewBasis","reviewConfidence","usefulnessReason","deliveryVisibility","notificationDelivery","recoveredBeforeOpen"])
+
 function isDogfoodRun(value: unknown): value is DogfoodRun {
   return isRecord(value)
+    && Object.keys(value).every(key => runFields.has(key))
     && value.schemaVersion === DOGFOOD_SCHEMA_VERSION
     && typeof value.runId === 'string' && runIdPattern.test(value.runId)
     && typeof value.trialId === 'string' && runIdPattern.test(value.trialId)
     && provenances.has(value.provenance as DogfoodProvenance)
     && (value.taskOrigin === undefined || taskOrigins.has(value.taskOrigin as DogfoodTaskOrigin))
+    && (value.taskRef === undefined || (typeof value.taskRef === 'string' && opaqueRefPattern.test(value.taskRef)))
     && taskFamilies.has(value.taskFamily as DogfoodTaskFamily)
     && scenarios.has(value.scenario as DogfoodScenario)
     && isPrintable(value.pluginVersion)
@@ -237,6 +244,7 @@ function isDogfoodRun(value: unknown): value is DogfoodRun {
 
 function isDogfoodObservation(value: unknown, runId: string): value is DogfoodObservation {
   if (!isRecord(value)
+    || Object.keys(value).some(key => !observationFields.has(key))
     || value.schemaVersion !== DOGFOOD_SCHEMA_VERSION
     || typeof value.observationRef !== 'string' || !opaqueRefPattern.test(value.observationRef)
     || value.runId !== runId
@@ -285,13 +293,15 @@ function isDogfoodObservation(value: unknown, runId: string): value is DogfoodOb
 }
 
 export function isDogfoodBundle(value: unknown): value is DogfoodBundle {
-  if (!isRecord(value) || value.schemaVersion !== DOGFOOD_SCHEMA_VERSION || !isDogfoodRun(value.run) || !Array.isArray(value.observations) || !Array.isArray(value.receipts)) return false
+  if (!isRecord(value) || Object.keys(value).some(key => !['schemaVersion', 'run', 'observations', 'receipts'].includes(key)) || value.schemaVersion !== DOGFOOD_SCHEMA_VERSION || !isDogfoodRun(value.run) || !Array.isArray(value.observations) || !Array.isArray(value.receipts)) return false
   const run = value.run
   if (!value.observations.every(observation => isDogfoodObservation(observation, run.runId))) return false
   const refs = value.observations.map(observation => observation.observationRef)
   if (new Set(refs).size !== refs.length) return false
   if (run.endedAt !== undefined && Date.parse(run.endedAt) < Date.parse(run.startedAt)) return false
-  return value.receipts.every(receipt => isOutcomeReceipt(receipt) && receipt.source === run.provenance && receipt.trialId === run.trialId)
+  return value.receipts.every(receipt => isOutcomeReceipt(receipt) && receipt.source === run.provenance && receipt.trialId === run.trialId
+    && (run.taskRef === undefined || receipt.taskRef === run.taskRef)
+    && (run.taskOrigin === undefined || (receipt.taskOrigin ?? 'unknown') === run.taskOrigin))
 }
 
 const userFacingDispositions = new Set<DogfoodDecisionDisposition>(['inbox', 'digest', 'interrupt', 'escalate'])
@@ -471,7 +481,10 @@ export class DogfoodLedger {
     try {
       const raw = JSON.parse(await readFile(this.file, 'utf8')) as unknown
       if (isDogfoodBundle(raw)) {
-        if (raw.run.runId !== this.bundleValue.run.runId || raw.run.trialId !== this.bundleValue.run.trialId) {
+        if (raw.run.runId !== this.bundleValue.run.runId || raw.run.trialId !== this.bundleValue.run.trialId
+          || raw.run.provenance !== this.bundleValue.run.provenance
+          || raw.run.taskOrigin !== this.bundleValue.run.taskOrigin || raw.run.taskRef !== this.bundleValue.run.taskRef
+          || raw.run.pluginVersion !== this.bundleValue.run.pluginVersion || raw.run.runtimeTag !== this.bundleValue.run.runtimeTag) {
           throw new Error('dogfood state belongs to a different run or trial')
         }
         this.bundleValue = raw
@@ -491,7 +504,9 @@ export class DogfoodLedger {
   }
 
   setReceipts(receipts: readonly OutcomeReceipt[]): void {
-    if (!receipts.every(receipt => isOutcomeReceipt(receipt) && receipt.source === this.bundleValue.run.provenance && receipt.trialId === this.bundleValue.run.trialId)) {
+    if (!receipts.every(receipt => isOutcomeReceipt(receipt) && receipt.source === this.bundleValue.run.provenance && receipt.trialId === this.bundleValue.run.trialId
+      && (this.bundleValue.run.taskRef === undefined || receipt.taskRef === this.bundleValue.run.taskRef)
+      && (this.bundleValue.run.taskOrigin === undefined || receipt.taskOrigin === this.bundleValue.run.taskOrigin))) {
       throw new TypeError('dogfood receipts must match the run provenance and trial')
     }
     this.bundleValue.receipts = [...receipts]
@@ -565,6 +580,12 @@ export class DogfoodLedger {
     await writeFile(temporary, `${JSON.stringify(this.bundleValue, null, 2)}\n`, 'utf8')
     await rename(temporary, this.file)
   }
+}
+
+/** Live capture and verified task attribution are independent of the filename/source label. */
+export function isNaturalDogfoodRun(run: DogfoodRun): boolean {
+  return run.provenance === 'real' && run.captureMode === 'service'
+    && run.taskOrigin === 'natural' && typeof run.taskRef === 'string' && opaqueRefPattern.test(run.taskRef)
 }
 
 function isNotificationDelivery(value: unknown): value is DogfoodNotificationDelivery {

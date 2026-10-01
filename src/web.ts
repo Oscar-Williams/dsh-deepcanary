@@ -1,234 +1,137 @@
-import type { IncomingMessage, ServerResponse } from 'node:http'
+import type { ConnectionFetchRoute, HostConnectionFetch } from '@deepseek-ai/dsh-client-connection'
 import type { DeepCanaryService } from './service.js'
 import { ATTENTION_PROTOCOL_VERSION, OUTCOME_RECEIPT_SCHEMA_VERSION } from './types.js'
 import type { OutcomeSource } from './types.js'
 
-const basePath = '/dsh-deepcanary'
-
-function sendJson(res: ServerResponse, status: number, value: unknown, headers: Record<string, string> = {}): void {
-  const body = JSON.stringify(value)
-  res.statusCode = status
-  res.setHeader('content-type', 'application/json; charset=utf-8')
-  res.setHeader('cache-control', 'no-store')
-  for (const [name, value] of Object.entries(headers)) res.setHeader(name, value)
-  res.end(body)
+/** Exact Fetch routes are admitted by DSH's public, authenticated shared API. */
+export const API_BASE_PATH = '/api/dsh-deepcanary'
+const MAX_BODY_BYTES = 32_000
+type FetchRoute = ConnectionFetchRoute
+interface ConnectionContext {
+  connection?: { fetch?: HostConnectionFetch }
 }
 
-function sendNotModified(res: ServerResponse, etag: string): void {
-  res.statusCode = 304
-  res.setHeader('cache-control', 'no-store')
-  res.setHeader('etag', etag)
-  res.end()
+function json(status: number, value: unknown, headers: Record<string, string> = {}): Response {
+  return new Response(JSON.stringify(value), { status, headers: {
+    'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...headers,
+  } })
 }
-
-function etagFor(revision: number): string {
-  return `W/"dc-${revision}"`
+function etagFor(revision: number): string { return `W/"dc-${revision}"` }
+class InvalidBody extends Error {
+  constructor(readonly status: number) { super('invalid request body') }
 }
-
-function readBody(req: IncomingMessage): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let value = ''
-    req.setEncoding('utf8')
-    req.on('data', chunk => {
-      value += chunk
-      if (value.length > 32_000) reject(new Error('request body too large'))
-    })
-    req.on('end', () => resolve(value))
-    req.on('error', reject)
-  })
-}
-
-async function actionHandler(req: IncomingMessage, res: ServerResponse, service: DeepCanaryService): Promise<void> {
-  if (req.method !== 'POST') {
-    sendJson(res, 405, { error: 'POST required' })
-    return
-  }
+async function body(request: Request): Promise<Record<string, unknown>> {
+  if (request.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() !== 'application/json') throw new InvalidBody(415)
+  const declaredLength = Number(request.headers.get('content-length') ?? 0)
+  if (declaredLength > MAX_BODY_BYTES) throw new InvalidBody(413)
+  const reader = request.body?.getReader()
+  if (!reader) throw new InvalidBody(400)
+  const chunks: Uint8Array[] = []
+  let size = 0
   try {
-    const payload = JSON.parse(await readBody(req)) as Record<string, unknown>
-    const id = typeof payload.id === 'string' ? payload.id : ''
-    const action = typeof payload.action === 'string' ? payload.action : ''
-    const requestId = typeof payload.requestId === 'string' ? payload.requestId : ''
-    const receipt = await service.performAction(requestId, id, action, payload)
-    sendJson(res, receipt.status, receipt.body)
-  } catch {
-    sendJson(res, 400, { error: 'invalid action payload', schemaVersion: ATTENTION_PROTOCOL_VERSION })
-  }
+    for (;;) {
+      const next = await reader.read()
+      if (next.done) break
+      size += next.value.byteLength
+      // Releasing the reader stops consumption; the public bridge closes an unread request after its response.
+      if (size > MAX_BODY_BYTES) throw new InvalidBody(413)
+      chunks.push(next.value)
+    }
+  } finally { reader.releaseLock() }
+  const bytes = new Uint8Array(size)
+  let offset = 0
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength }
+  const value: unknown = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes))
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) throw new InvalidBody(400)
+  return value as Record<string, unknown>
 }
-
-function explainHandler(req: IncomingMessage, res: ServerResponse, service: DeepCanaryService): void {
-  if (req.method !== 'GET') {
-    sendJson(res, 405, { error: 'GET required', schemaVersion: ATTENTION_PROTOCOL_VERSION })
-    return
-  }
-  const url = new URL(req.url ?? '/', 'http://127.0.0.1')
-  const id = url.searchParams.get('id') ?? ''
-  const explanation = service.explain(id)
-  if (explanation === undefined) sendJson(res, 404, { id, found: false, schemaVersion: ATTENTION_PROTOCOL_VERSION })
-  else sendJson(res, 200, explanation)
-}
-
-async function dryRunHandler(req: IncomingMessage, res: ServerResponse, service: DeepCanaryService): Promise<void> {
-  if (req.method !== 'POST') {
-    sendJson(res, 405, { error: 'POST required', schemaVersion: ATTENTION_PROTOCOL_VERSION })
-    return
-  }
-  try {
-    const payload = JSON.parse(await readBody(req))
-    const result = await service.dryRun(payload)
-    sendJson(res, 200, result)
-  } catch (error: unknown) {
-    sendJson(res, 400, { error: error instanceof Error ? error.message : 'invalid dry-run payload', schemaVersion: ATTENTION_PROTOCOL_VERSION })
-  }
-}
-
 function sourceParam(value: string | null): OutcomeSource | undefined {
   if (value === null) return undefined
   if (value === 'real' || value === 'controlled' || value === 'replay') return value
-  throw new TypeError('source must be real, controlled, or replay')
+  throw new Error('invalid source')
 }
-
-function outcomeListHandler(req: IncomingMessage, res: ServerResponse, service: DeepCanaryService): void {
-  if (req.method === 'DELETE') {
-    void outcomeDeleteHandler(req, res, service)
-    return
-  }
-  if (req.method !== 'GET') {
-    sendJson(res, 405, { error: 'GET required', schemaVersion: ATTENTION_PROTOCOL_VERSION })
-    return
-  }
-  try {
-    const url = new URL(req.url ?? '/', 'http://127.0.0.1')
-    const limit = url.searchParams.get('limit')
-    const parsedLimit = limit === null ? 100 : Number(limit)
-    if (!Number.isFinite(parsedLimit) || parsedLimit < 1) throw new TypeError('limit must be a positive number')
-    const trialId = url.searchParams.get('trialId') ?? undefined
-    if (trialId !== undefined && !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(trialId)) throw new TypeError('trialId has an invalid format')
-    const source = sourceParam(url.searchParams.get('source'))
-    const receipts = service.outcomes(parsedLimit, source, trialId)
-    sendJson(res, 200, {
-      schemaVersion: ATTENTION_PROTOCOL_VERSION,
-      outcomeSchemaVersion: OUTCOME_RECEIPT_SCHEMA_VERSION,
-      count: receipts.length,
-      receipts,
-    })
-  } catch (error: unknown) {
-    sendJson(res, 400, { error: error instanceof Error ? error.message : 'invalid outcome query', schemaVersion: ATTENTION_PROTOCOL_VERSION })
-  }
-}
-
-async function outcomeDeleteHandler(req: IncomingMessage, res: ServerResponse, service: DeepCanaryService): Promise<void> {
-  try {
-    const url = new URL(req.url ?? '/', 'http://127.0.0.1')
-    const trialId = url.searchParams.get('trialId') ?? undefined
-    if (trialId !== undefined && !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(trialId)) throw new TypeError('trialId has an invalid format')
-    const source = sourceParam(url.searchParams.get('source'))
-    const before = url.searchParams.get('before') ?? undefined
-    const removed = await service.deleteOutcomes({
-      ...(source === undefined ? {} : { source }),
-      ...(trialId === undefined ? {} : { trialId }),
-      ...(before === undefined ? {} : { before }),
-    })
-    sendJson(res, 200, {
-      schemaVersion: ATTENTION_PROTOCOL_VERSION,
-      outcomeSchemaVersion: OUTCOME_RECEIPT_SCHEMA_VERSION,
-      removed,
-      remaining: service.outcomes(2_000).length,
-    })
-  } catch (error: unknown) {
-    sendJson(res, 400, {
-      error: error instanceof Error ? error.message : 'invalid outcome deletion',
-      schemaVersion: ATTENTION_PROTOCOL_VERSION,
-      outcomeSchemaVersion: OUTCOME_RECEIPT_SCHEMA_VERSION,
-    })
-  }
-}
-
-async function outcomeRecordHandler(req: IncomingMessage, res: ServerResponse, service: DeepCanaryService): Promise<void> {
-  if (req.method !== 'POST') {
-    sendJson(res, 405, { error: 'POST required', schemaVersion: ATTENTION_PROTOCOL_VERSION })
-    return
-  }
-  try {
-    const payload = JSON.parse(await readBody(req)) as Record<string, unknown>
-    const id = typeof payload.id === 'string' ? payload.id : ''
-    const input = { ...payload }
-    delete input.id
-    const receipt = await service.recordOutcome(id, input)
-    if (receipt === undefined) {
-      sendJson(res, 404, { id, found: false, schemaVersion: ATTENTION_PROTOCOL_VERSION, outcomeSchemaVersion: OUTCOME_RECEIPT_SCHEMA_VERSION })
-      return
-    }
-    sendJson(res, 200, { schemaVersion: ATTENTION_PROTOCOL_VERSION, outcomeSchemaVersion: OUTCOME_RECEIPT_SCHEMA_VERSION, receipt })
-  } catch (error: unknown) {
-    sendJson(res, 400, { error: error instanceof Error ? error.message : 'invalid outcome payload', schemaVersion: ATTENTION_PROTOCOL_VERSION })
-  }
-}
-
-function supervisorHandler(req: IncomingMessage, res: ServerResponse, service: DeepCanaryService): void {
-  if (req.method !== 'GET') {
-    sendJson(res, 405, { error: 'GET required', schemaVersion: ATTENTION_PROTOCOL_VERSION })
-    return
-  }
-  const status = service.supervisor.status()
-  sendJson(res, 200, {
-    schemaVersion: ATTENTION_PROTOCOL_VERSION,
-    supervisorSchemaVersion: status.schemaVersion,
-    status,
-    snapshot: service.supervisor.snapshot(),
-  })
+function outcomeQuery(request: Request) {
+  const query = new URL(request.url).searchParams
+  const trialId = query.get('trialId') ?? undefined
+  if (trialId !== undefined && !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(trialId)) throw new Error('invalid trial')
+  const source = sourceParam(query.get('source'))
+  return { query, trialId, source }
 }
 
 export function installWebRoutes(ctx: unknown, service: DeepCanaryService): void {
-  const context = ctx as {
-    inject?: (services: string[], callback: (ctx: any) => unknown) => unknown
-  }
-  context.inject?.(['webServer'], (webCtx: any) => {
-    const server = webCtx.webServer as {
-      register?: (route: { kind: 'exact'; path: string; handler: (req: IncomingMessage, res: ServerResponse) => void | Promise<void> }) => () => void
-    } | undefined
-    if (!server?.register) return
-    const disposers = [
-      server.register({ kind: 'exact', path: `${basePath}/state`, handler: (req, res) => {
-        if (req.method !== 'GET') sendJson(res, 405, { error: 'GET required' })
-        else {
-          const snapshot = service.snapshot()
-          const etag = etagFor(snapshot.revision)
-          if (req.headers['if-none-match'] === etag) sendNotModified(res, etag)
-          else sendJson(res, 200, snapshot, { etag })
+  const context = ctx as { inject?: (services: string[], callback: (ctx: ConnectionContext) => unknown) => unknown }
+  context.inject?.(['connection'], connectionCtx => {
+    const registry = connectionCtx.connection?.fetch
+    if (!registry?.register) return
+    const register = (suffix: string, methods: FetchRoute['methods'], handler: FetchRoute['fetch']) => {
+      // The registry owns contribution lifetime. No unauthenticated WebServer fallback.
+      registry.register({ path: `${API_BASE_PATH}/${suffix}`, methods, requestBody: methods.includes('POST') ? 'streaming' : 'buffered', fetch: async request => {
+        try { return await handler(request) } catch (error: unknown) {
+          return json(error instanceof InvalidBody ? error.status : 400, {
+            error: `invalid ${suffix} request`, schemaVersion: ATTENTION_PROTOCOL_VERSION,
+          })
         }
-      } }),
-      server.register({ kind: 'exact', path: `${basePath}/settings`, handler: async (req, res) => {
-        if (req.method === 'GET') {
-          sendJson(res, 200, service.settings(), { etag: etagFor(service.status().revision) })
-          return
-        }
-        if (req.method !== 'POST') {
-          sendJson(res, 405, { error: 'GET or POST required' })
-          return
-        }
-        try {
-          const payload = JSON.parse(await readBody(req)) as Record<string, unknown>
-          const settings = await service.updateSettings(payload)
-          sendJson(res, 200, settings, { etag: etagFor(service.status().revision) })
-        } catch (error: unknown) {
-          sendJson(res, 400, { error: error instanceof Error ? error.message : 'invalid settings payload' })
-        }
-      } }),
-      server.register({ kind: 'exact', path: `${basePath}/health`, handler: (req, res) => {
-        if (req.method !== 'GET') sendJson(res, 405, { error: 'GET required' })
-        else {
-          const status = service.status()
-          sendJson(res, 200, { ok: true, schemaVersion: ATTENTION_PROTOCOL_VERSION, revision: status.revision, plugin: status.plugin, sessions: status.sessions, tools: status.tools, supervisor: status.supervisor })
-        }
-      } }),
-      server.register({ kind: 'exact', path: `${basePath}/action`, handler: (req, res) => actionHandler(req, res, service) }),
-      server.register({ kind: 'exact', path: `${basePath}/explain`, handler: (req, res) => explainHandler(req, res, service) }),
-      server.register({ kind: 'exact', path: `${basePath}/dry-run`, handler: (req, res) => dryRunHandler(req, res, service) }),
-      server.register({ kind: 'exact', path: `${basePath}/outcomes`, handler: (req, res) => outcomeListHandler(req, res, service) }),
-      server.register({ kind: 'exact', path: `${basePath}/outcome`, handler: (req, res) => outcomeRecordHandler(req, res, service) }),
-      server.register({ kind: 'exact', path: `${basePath}/supervisor`, handler: (req, res) => supervisorHandler(req, res, service) }),
-    ]
-
-    webCtx.on?.('dispose', () => { for (const dispose of disposers) dispose() })
+      } })
+    }
+    register('state', ['GET'], async request => {
+      const snapshot = service.snapshot()
+      const etag = etagFor(snapshot.revision)
+      if (request.headers.get('if-none-match') === etag) return new Response(null, { status: 304, headers: { etag, 'cache-control': 'no-store' } })
+      return json(200, snapshot, { etag })
+    })
+    register('settings', ['GET'], async () => {
+      const settings = service.settings()
+      return json(200, settings, { etag: etagFor(service.status().revision) })
+    })
+    register('health', ['GET'], async () => {
+      const status = service.status()
+      return json(200, { ok: true, schemaVersion: ATTENTION_PROTOCOL_VERSION, revision: status.revision,
+        plugin: status.plugin, sessions: status.sessions, tools: status.tools, supervisor: status.supervisor })
+    })
+    register('action', ['POST'], async request => {
+      const payload = await body(request)
+      const receipt = await service.performAction(typeof payload.requestId === 'string' ? payload.requestId : '',
+        typeof payload.id === 'string' ? payload.id : '', typeof payload.action === 'string' ? payload.action : '', payload)
+      return json(receipt.status, receipt.body)
+    })
+    register('explain', ['GET'], async request => {
+      const result = service.explain(new URL(request.url).searchParams.get('id') ?? '')
+      return result === undefined ? json(404, { found: false, schemaVersion: ATTENTION_PROTOCOL_VERSION }) : json(200, result)
+    })
+    register('dry-run', ['POST'], async request => json(200, await service.dryRun(await body(request) as unknown as Parameters<DeepCanaryService['dryRun']>[0])))
+    register('outcomes', ['GET'], async request => {
+      const { query, source, trialId } = outcomeQuery(request)
+      const common = { schemaVersion: ATTENTION_PROTOCOL_VERSION, outcomeSchemaVersion: OUTCOME_RECEIPT_SCHEMA_VERSION }
+      const limit = Number(query.get('limit') ?? 100)
+      if (!Number.isSafeInteger(limit) || limit < 1 || limit > 2_000) throw new Error('invalid limit')
+      const receipts = service.outcomes(limit, source, trialId)
+      return json(200, { ...common, count: receipts.length, receipts })
+    })
+    register('outcomes/delete', ['POST'], async request => {
+      const common = { schemaVersion: ATTENTION_PROTOCOL_VERSION, outcomeSchemaVersion: OUTCOME_RECEIPT_SCHEMA_VERSION }
+      const filter = await body(request)
+      if (Object.keys(filter).some(key => !['source', 'trialId', 'before'].includes(key))) throw new Error('invalid deletion filter')
+      for (const value of Object.values(filter)) if (typeof value !== 'string') throw new Error('invalid deletion filter')
+      const source = sourceParam(typeof filter.source === 'string' ? filter.source : null)
+      const trialId = typeof filter.trialId === 'string' ? filter.trialId : undefined
+      if (trialId !== undefined && !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(trialId)) throw new Error('invalid trial')
+      const before = typeof filter.before === 'string' ? filter.before : undefined
+      const removed = await service.deleteOutcomes({ ...(source === undefined ? {} : { source }),
+        ...(trialId === undefined ? {} : { trialId }), ...(before === undefined ? {} : { before }) })
+      return json(200, { ...common, removed, remaining: service.outcomes(2_000).length })
+    })
+    register('outcome', ['POST'], async request => {
+      const payload = await body(request)
+      const id = typeof payload.id === 'string' ? payload.id : ''
+      delete payload.id
+      const receipt = await service.recordOutcome(id, payload)
+      const common = { schemaVersion: ATTENTION_PROTOCOL_VERSION, outcomeSchemaVersion: OUTCOME_RECEIPT_SCHEMA_VERSION }
+      return receipt === undefined ? json(404, { ...common, found: false }) : json(200, { ...common, receipt })
+    })
+    register('supervisor', ['GET'], async () => {
+      const status = service.supervisor.status()
+      return json(200, { schemaVersion: ATTENTION_PROTOCOL_VERSION, supervisorSchemaVersion: status.schemaVersion,
+        status, snapshot: service.supervisor.snapshot() })
+    })
   })
 }

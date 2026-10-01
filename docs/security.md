@@ -1,57 +1,37 @@
-# Security and privacy boundary
-
-## Data flow
-
-DeepCanary is a local observer. It receives structured DSH runtime facts, normalizes them into `CanarySignal`, classifies them with deterministic policy, and writes bounded Inbox metadata to the configured local state directory. It has no remote telemetry path and no child-process dependency.
+# Security and privacy
 
 ## Stored data
 
-The bundle stores state below the DSH home with `dshHomePath('dsh-deepcanary')`; when `DSH_HOME` is not set, this normally resolves to `~/.dsh/dsh-deepcanary`. The files are `inbox.json`, `outcomes.json`, and, when `supervisorMode: experimental` is selected, `supervisor.json` plus the short-lived `supervisor.lease`. The second file contains only redacted decision-to-outcome records; the Supervisor files contain bounded state projections and lease metadata. The default `supervisorMode: off` keeps this experimental persistence path inactive for ordinary installations.
+DeepCanary stores bounded reminder metadata in the current Host profile's state directory: event classes, levels, lifecycle timestamps, hashed references, explicit feedback and the local session handle required for navigation. Optional capture stores sanitized observations with provenance and task ownership. Supervisor stores bounded projections and lease metadata when explicitly enabled.
 
-- schema version, item ID, timestamp, level, action, status, reason code, and bounded feedback;
-- hashed Session and Workspace references;
-- a bounded opaque DSH session handle may be retained locally for native `sessions.open` navigation when the host provides it; it contains no session content and is never sent to external telemetry;
-- hashed evidence references plus provider-written type, authority, and bounded summary;
-- Decision Bundle hash, count, and reason-code set;
-- bounded `PolicyDecisionTrace` fields: policy version, stable rule IDs, scopes, suppression markers, authority counts, final decision, and recovery rule.
+Conversation text, prompts, model output, tool arguments and API credentials remain outside captured reminder state. Feedback uses bounded enums; optional note content is reduced by the existing privacy-safe handling. Atomic writes replace local state. Retention caps bound Inbox, receipts, delivery claims and action idempotency records.
 
-It does not contain prompts, assistant output, tool arguments, raw tool results, environment variables, API keys, credentials, arbitrary file contents, or a session transcript. The provider contract rejects the use of raw conversation content as an input to the local state path; new providers must use structured facts and short summaries.
+## Authenticated interfaces
 
-Outcome records add an explicit source (`real`, `controlled`, or `replay`), a bounded trial identifier, event class, policy version, derived attention fields, user-action booleans, feedback, later outcome, latency bucket, and allowlisted review flags. Dogfood observations additionally retain the task-intent marker, review source/basis/confidence, and delivery visibility (`visible` or `unknown`) as bounded enums. These fields describe how an observation was reviewed; they do not infer user usefulness from a level, label, or materialization event. The service derives the attention fields from the matching Inbox item and rejects unknown fields, path-shaped trial identifiers, and unsupported enum values. The same Inbox item can have independent records for separate source/trial pairs; filtered reports keep those aggregates separate. The OutcomeStore caps records and replaces `outcomes.json` atomically.
+All plugin HTTP routes use the Host's public `connection.fetch.register()` beneath `/api/dsh-deepcanary/*`. DSH applies browser authentication and Host/Origin trust checks before dispatch. The previous direct, unauthenticated WebServer routes are closed. The plugin reads no authentication tokens and supplies no alternative authentication or configuration store.
 
-The optional Supervisor snapshot retains only a schema version, monotonic revision, runtime version, host status, hashed session references, bounded pending references, a bounded logical browser delivery ledger, and resource counters. Its lease contains an instance identifier, process identifier, start time, and heartbeat time. A fresh lease blocks a second owner; an expired lease is archived before takeover, and the previous owner is fenced when it no longer owns the current heartbeat token. The Supervisor is a local projection and diagnostic surface; it does not execute shell commands, control processes, approve requests, or close an alert without Core evidence.
+Reads use `cache-control: no-store`. JSON mutation requests require `application/json`, an object payload and a maximum of 32,000 bytes; write routes use the public streaming mode, stop consumption at that bound and let the Host bridge close unread requests after responding. This avoids the Host's larger RPC/image buffering allowance. Read routes retain the buffered Host mode. Error responses use fixed public messages, preserving internal errors and local paths outside responses. Missing-item responses omit arbitrary submitted identifiers.
 
-Persistence uses an atomic temporary file and rename within the configured state directory. The plugin does not create files elsewhere.
+`GET /state`, `/settings`, `/health`, `/explain`, `/outcomes` and `/supervisor` are bounded reads. `POST /action`, `/outcome`, `/dry-run` and filtered `/outcomes/delete` use existing service validation. All paths above are relative to `/api/dsh-deepcanary`. Outcome withdrawal requires an explicit trial or cutoff; malformed filters produce no mutation. Settings writes use the Host ConfigForm service with revision fencing.
 
-## Public interfaces and actions
+Authenticated clients may inspect local metadata and apply allowed reminder actions. These actions cover acknowledgement, snooze, mute, suppression, feedback, refresh, navigation and notification delivery accounting. Dry-run operates on allowlisted facts and policy fields. Host self-checks read in-process service facts and perform no credential-dependent HTTP probe.
 
-The Web routes are registered on DSH's local same-origin WebServer and send `cache-control: no-store`. The action endpoint accepts `seen`, `acknowledge`, `snooze`, `mute`, `unmute`, `feedback`, `suppress`, `unsuppress`, `retry`, and `jump`. The OutcomeReceipt endpoints accept bounded metadata and return redacted records; `GET /dsh-deepcanary/outcomes` can filter by one source and trial, while `DELETE /dsh-deepcanary/outcomes` requires an explicit `trialId` or `before` cutoff for local withdrawal and retention cleanup. Model-visible tools continue to expose the bounded read and action operations. `jump` uses the native DSH session-open path when an opaque local session handle is available; an older item without that handle remains in Inbox with a clear unavailable-link state.
+## Client and navigation
 
-Browser delivery is arbitrated by a bounded server-side logical-delivery claim with an expiring opaque client lease. `localStorage` is only a client optimization and is not the final cross-tab authority. A logical delivery has at most three claim opportunities; after that bound the Inbox remains available without automatic notification replay. Attempt records distinguish attempted, constructed, callback-attached, clicked, and error states; missing callback or OS acknowledgement is preserved as `unknown` and never promoted to success. The implementation uses finite retries and does not promise exactly-once behavior across browser crashes or operating-system delivery boundaries.
+Runtime values enter DOM through `textContent`. Client requests permit only exact plugin endpoints on the current origin. Navigation uses the public Host workspace capability and actual stored session identity. An unavailable target produces an availability message.
 
-`deepcanary_explain` returns the same privacy-safe trace for one Inbox item. `deepcanary_dry_run` and `POST /dsh-deepcanary/dry-run` accept only bounded structured signal fields and an allowlisted notification-policy candidate. `GET /dsh-deepcanary/supervisor` is read-only and returns the bounded snapshot, lease ownership state, and resource counters. Dry-run and Supervisor reads never write state, consume an interrupt budget, send a notification, or mutate a DSH Session.
+Browser notification permission is explicit. Server-owned expiring claims arbitrate pages, with bounded attempts. Constructor success and callback attachment retain their limited meaning; OS-visible delivery remains unknown until observed. The renderer and Host must remain running for the notification path.
 
-The plugin has no shell, file-write, process-control, approval, rejection, arbitrary network, or destructive tool. It does not terminate or restart DSH or any Agent.
+## Evidence and policy
 
-## Client safety
+C3 requires Host/runtime authority. Heuristic and model suggestions cannot independently create C3 or weaken authoritative Human Needed. Captured source, declared task origin and task ownership remain explicit; unknown and controlled records stay outside qualified natural counts. User usefulness is supplied through explicit feedback. Offline evaluation and local policy adoption have distinct identities.
 
-The DSH client-module browser interface uses DOM node construction and `textContent` for runtime values. It does not interpolate runtime values into `innerHTML`. The panel is mounted in the host's additive overlay slot and remains click-through outside its own bounds. Browser notifications are created only after the user grants permission. If permission is denied or the browser API is unavailable, the Web Inbox and model tools remain available as fallbacks.
+The model-Judge gate permits only categorical facts, authority, counts, time buckets and rule results. Future offline use additionally requires bounded attempts, timeout/cancellation and enum-only output. Current release uses deterministic live policy.
 
-## Evidence authority
+## Deployment and reporting
 
-Every provider assigns an authority to each evidence reference:
+DSH owns the authentication and trust boundary. Deployments should preserve its admission checks and use protected transport where needed. Credentials remain with the Host's credential service. Desktop uses public renderer transport; signed application resources and private Electron APIs are outside plugin implementation.
 
-- `host` — a local Host or WebServer observation;
-- `runtime` — a DSH Session, Agent, or Subagent fact;
-- `derived` — deterministic inference over structured facts;
-- `heuristic` — a bounded heuristic that must not independently promote an event to C3.
+Before publication, review the explicit Git snapshot, complete pending push range and actual tgz for secrets, private paths, raw samples and authentication URLs. Publish only allowlisted package files; local design material, machine-specific maintenance files and raw browser logs remain local. Scanner output records file locations and issue categories without secret values.
 
-C3 requires Host or Runtime authority. The deterministic judge remains the final policy boundary even if a model-assisted provider is added in a later release.
-
-## Settings safety
-
-The Settings provider receives the same schema as the bundle configuration. Web updates pass through an allowlist and bounded range checks; `stateDir` and unknown keys cannot be changed through the live Web interface. State-directory changes remain restart-scoped. Privacy-safe summaries are enabled by default.
-
-## Deployment boundary
-
-The DSH WebServer is assumed to be a trusted local host. This plugin is not an authentication layer. Do not expose DSH Web or the DeepCanary routes through an unauthenticated public reverse proxy. If a deployment adds a reverse proxy, it must provide authentication, origin controls, and transport protection independently of this plugin.
+Report security issues through the repository's private security reporting facility when available. Supply affected versions and a sanitized reproduction.

@@ -35,6 +35,8 @@ export interface SessionEventLike {
 }
 /** Classify only the public tool name; arguments and result content are never inspected. */
 export declare function toolClassForName(name: string | undefined): ToolClass;
+/** Classify the tools still executing, rather than the most recently started one. */
+export declare function toolClassForActiveTools(names: Iterable<string | undefined>): ToolClass;
 /** Read the public tool identity, never the model-facing result content. */
 export declare function toolCallIdOf(data: Record<string, unknown>): string | undefined;
 /** Whether an event is a bounded, structured progress boundary for liveness. */

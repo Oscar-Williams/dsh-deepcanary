@@ -5,16 +5,17 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 export const alpha13 = { version: '0.1.3-alpha.1', tag: 'dsh-v0.1.3-alpha.1', commit: 'd347e703908d0406b7a7ef80e3a0e594d86b2215' }
+export const rc020 = { version: '0.2.0-rc.2', tag: 'dsh-v0.2.0-rc.2', commit: '639ed015397290b3745d163aafe02ffee4aa3f84' }
 const run = promisify(execFile)
 
-export async function loadRuntimeCheckout(root) {
-  if (!root) throw new Error('Set DSH_ALPHA13_RUNTIME to the built official 0.1.3-alpha.1 checkout.')
+export async function loadRuntimeCheckout(root, pin = alpha13) {
+  if (!root) throw new Error(`Set the runtime path to the built official ${pin.version} checkout.`)
   root = path.resolve(root)
   const manifest = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'))
   const commit = (await run('git', ['rev-parse', 'HEAD'], { cwd: root, windowsHide: true })).stdout.trim()
   const dirty = (await run('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: root, windowsHide: true })).stdout.trim()
-  if (manifest.version !== alpha13.version || commit !== alpha13.commit || dirty) {
-    throw new Error('The runtime must be the clean, pinned official 0.1.3-alpha.1 checkout; active runtimes are never upgraded by this check.')
+  if (manifest.version !== pin.version || commit !== pin.commit || dirty) {
+    throw new Error(`The runtime must be the clean, pinned official ${pin.version} checkout; active runtimes are never upgraded by this check.`)
   }
   const packages = new Map()
   const dirs = async base => (await readdir(base, { withFileTypes: true })).filter(entry => entry.isDirectory()).map(entry => path.join(base, entry.name))

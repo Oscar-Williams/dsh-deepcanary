@@ -4,8 +4,10 @@ import { DeliveryLedger } from './core/delivery.js'
 import type { DeliveryClaimOutcome } from './core/delivery.js'
 import { judgeSignal } from './core/judge.js'
 import { applyDeliveryPolicy, mergeBundleTrace, withRecoveryTrace } from './core/policy.js'
-import { Config, normalizeConfig, sanitizeConfigPatch } from './config.js'
-import type { DeepCanaryConfigInput } from './config.js'
+import { normalizeConfig, sanitizeConfigPatch } from './config.js'
+import { resolveStateIdentity, claimStateDirectory, importLegacyInbox } from './state-identity.js'
+import { importLegacySettings } from './settings-migration.js'
+import type { DeepCanaryConfigInput, DeepCanaryRuntimeConfig } from './config.js'
 import { ContextDshAdapter } from './adapters/dsh.js'
 import type { Disposable, SessionSnapshot } from './adapters/dsh.js'
 import { getWorkspaceIdentity } from './adapters/windows.js'
@@ -26,6 +28,7 @@ import {
   signalFromAuthoritativeHumanWait,
   isMeaningfulSessionEvent,
   toolClassForName,
+  toolClassForActiveTools,
   toolCallIdOf,
   signalsFromSessionEvent,
 } from './providers.js'
@@ -57,8 +60,8 @@ import type {
 import { ATTENTION_POLICY_VERSION, ATTENTION_PROTOCOL_VERSION as PROTOCOL_VERSION, SUPPRESSIBLE_REASON_CODES } from './types.js'
 
 const PLUGIN_NAME = 'dsh-deepcanary'
-const PLUGIN_VERSION = '0.1.1-rc.6'
-const SETTINGS_NAMESPACE = 'dsh-deepcanary'
+const PLUGIN_VERSION = '0.1.4-rc.1'
+const SETTINGS_NAMESPACE = 'deepcanary'
 const DEFAULT_MUTE_MINUTES = 60
 const ORPHAN_GRACE_MS = 30_000
 
@@ -91,26 +94,18 @@ interface LoggerLike {
 }
 
 interface ContextLike {
+  get?: (name: string) => { await?: () => Promise<unknown> } | undefined
+  fiber?: { entry?: { options?: { id?: string } } }
+  profileContext?: { name: string; dir: string; home: string }
   on?: (event: string, listener: (...args: any[]) => any) => unknown
   inject?: (services: string[], callback: (ctx: any) => any) => unknown
   logger?: LoggerLike
 }
 
-interface SettingsScopeLike {
-  get: () => unknown
-  watch?: (callback: (next: unknown) => void) => unknown
-  update?: (patch: object) => Promise<void>
-}
-
 interface SettingsProviderLike {
-  installSection?: (owner: Context, namespace: string, schema: unknown, entry: DeepCanaryConfig, hooks: {
-    setSource: (current: () => DeepCanaryConfig) => void
-    onChange: () => void
-    validate?: (value: DeepCanaryConfig) => void
-  }) => void
-  register?: (namespace: string, schema: unknown, options: { base: DeepCanaryConfig; applies: 'live' }) => SettingsScopeLike
-  get?: (namespace: string) => unknown
-  update?: (namespace: string, patch: object) => Promise<void>
+  configure: (presentation: { auto: boolean }, owner: unknown) => () => void
+  describe: () => { ns: string; value: unknown; user?: unknown; revision: number }[]
+  update: (namespace: string, patch: object, expectedRevision?: number) => Promise<void>
 }
 
 interface ActionReceipt {
@@ -214,13 +209,13 @@ export class DeepCanaryService {
   private hostProbeInterval: ReturnType<typeof setInterval> | undefined
   private hostProbePort: number | undefined
   private hostProbeInFlight = false
+  private hostServicePort: (() => number | undefined) | undefined
   private readonly hostProbe = new HostProbeEpoch(2, 'dsh-webserver')
   private supervisorHostStatus: SupervisorHostStatus = 'degraded'
-  private settingsScope: SettingsScopeLike | undefined
   private settingsProvider: SettingsProviderLike | undefined
-  private settingsSource: (() => DeepCanaryConfig) | undefined
   private settingsSubscription: (() => void) | undefined
   private saveChain = Promise.resolve()
+  private questionChain = Promise.resolve()
   private hydrated = false
   private disposed = false
   private started = false
@@ -234,11 +229,14 @@ export class DeepCanaryService {
   private supervisorStart = Promise.resolve()
   private supervisorStarted = false
   readonly supervisor: PersistentSupervisor
+  private readonly stateIdentity: ReturnType<typeof resolveStateIdentity>
 
-  constructor(ctx: Context, input?: DeepCanaryConfigInput) {
+  constructor(ctx: Context, input?: DeepCanaryConfigInput | DeepCanaryRuntimeConfig) {
     this.ctx = ctx as unknown as ContextLike
     this.adapter = new ContextDshAdapter(ctx)
     this.config = normalizeConfig(input)
+    this.stateIdentity = resolveStateIdentity(this.ctx.profileContext, this.ctx.fiber?.entry?.options?.id ?? SETTINGS_NAMESPACE, this.config.stateDir)
+    this.config.stateDir = this.stateIdentity.directory
     this.store = new MetadataStore(this.config.stateDir)
     this.suppressionStore = new SuppressionStore(this.config.stateDir)
     this.outcomeStore = new OutcomeStore(this.config.stateDir)
@@ -249,6 +247,7 @@ export class DeepCanaryService {
     this.budget = new InterruptBudget(this.config.maxInterruptsPerHour)
     this.logger = this.ctx.logger ?? {}
     this.ready = this.hydrate()
+    this.ctx.on?.('loader/volatile-update', () => this.applySettings(normalizeConfig(input)))
   }
 
   start(): void {
@@ -259,7 +258,18 @@ export class DeepCanaryService {
       else if (event.type === 'session/event') this.onSessionEvent(event.session, event.event, event.snapshot)
       else this.onSessionDisposed(event.session)
     })
-    void this.adapter.start().then(() => this.normalizeLifecycle(Date.now()))
+    void this.adapter.start().then(() => this.normalizeLifecycle(Date.now())).catch(() => {
+      this.disposed = true
+      this.logger.error?.(`${PLUGIN_NAME}: initialization failed; state access refused`)
+      this.adapterSubscription?.dispose()
+    })
+    void this.ready.catch(() => {
+      this.disposed = true
+      this.adapterSubscription?.dispose()
+      if (this.interval) clearInterval(this.interval)
+      if (this.hostProbeInterval) clearInterval(this.hostProbeInterval)
+      this.logger.error?.(`${PLUGIN_NAME}: state ownership validation failed; writes refused`)
+    })
     this.ctx.on?.call(this.ctx, 'dispose', () => { void this.dispose() })
 
     this.ctx.inject?.(['agents'], (agentCtx: any) => {
@@ -277,34 +287,23 @@ export class DeepCanaryService {
       const settings = settingsCtx.settings as SettingsProviderLike | undefined
       if (!settings) return
       this.settingsProvider = settings
-      try {
-        const applyCurrent = (): void => {
-          const current = this.settingsSource?.() ?? settings.get?.(SETTINGS_NAMESPACE) ?? this.settingsScope?.get()
-          if (current !== undefined) this.applySettings(current)
-        }
-        if (settings.installSection) {
-          settings.installSection(this.ctx as unknown as Context, SETTINGS_NAMESPACE, Config, this.config, {
-            setSource: current => { this.settingsSource = current },
-            onChange: applyCurrent,
-          })
-        } else if (settings.register) {
-          const scope = settings.register(SETTINGS_NAMESPACE, Config, { base: this.config, applies: 'live' })
-          this.settingsScope = scope
-          this.applySettings(scope.get())
-          const disposeWatch = scope.watch?.(next => this.applySettings(next))
-          if (typeof disposeWatch === 'function') this.settingsSubscription = () => { disposeWatch() }
-        } else {
-          applyCurrent()
-        }
-      } catch (error: unknown) {
-        this.logger.warn?.(`${PLUGIN_NAME}: live settings are unavailable; using composed config`, error)
-      }
+      this.settingsSubscription = settings.configure({ auto: false }, this.ctx.fiber)
+      const descriptor = settings.describe().find(row => row.ns === SETTINGS_NAMESPACE)
+      if (descriptor) this.applySettings(descriptor.value)
+      void this.ready.then(async () => {
+        if (!this.ctx.profileContext) return
+        await this.ctx.get?.('loader')?.await?.()
+        await importLegacySettings(this.ctx.profileContext.home, this.config.stateDir, settings)
+        const accepted = settings.describe().find(row => row.ns === SETTINGS_NAMESPACE)
+        if (accepted) this.applySettings(accepted.value)
+      }).catch(() => this.logger.warn?.(`${PLUGIN_NAME}: legacy settings import failed; source preserved and no success marker written`))
     })
 
     this.ctx.inject?.(['webServer'], (webCtx: any) => {
       const port = webCtx.webServer?.port
       if (typeof port !== 'number' || port <= 0) return
       this.hostProbePort = port
+      this.hostServicePort = () => webCtx.webServer?.port
       this.resetHostProbeTimer()
       void this.probeHost()
     })
@@ -435,7 +434,7 @@ export class DeepCanaryService {
     return {
       plugin: { name: PLUGIN_NAME, version: PLUGIN_VERSION, state: this.hydrated ? 'ready' : 'loading' },
       process: { platform: process.platform, node: process.version },
-      workspace: this.workspace,
+      workspace: { platform: this.workspace.platform, windowsInterop: this.workspace.windowsInterop, nativeToast: this.workspace.nativeToast },
       sessions: [...this.sessions.values()].filter(session => session.active).length,
       tools: [...this.registeredTools],
       openInbox: open.length,
@@ -475,16 +474,13 @@ export class DeepCanaryService {
 
   async updateSettings(input: Record<string, unknown>): Promise<PublicSettings> {
     const patch = sanitizeConfigPatch(input)
-    if (this.settingsProvider?.update) {
-      await this.settingsProvider.update(SETTINGS_NAMESPACE, patch)
-      const current = this.settingsProvider.get?.(SETTINGS_NAMESPACE)
-      this.applySettings(current ?? { ...this.config, ...patch })
-    } else if (this.settingsScope?.update) {
-      await this.settingsScope.update(patch)
-      this.applySettings({ ...this.config, ...patch })
-    } else {
-      this.applySettings({ ...this.config, ...patch })
-    }
+    const provider = this.settingsProvider
+    const descriptor = provider?.describe().find(row => row.ns === SETTINGS_NAMESPACE)
+    if (!provider || !descriptor) throw new Error('Host settings are unavailable; no configuration was persisted')
+    await provider.update(SETTINGS_NAMESPACE, patch, descriptor.revision)
+    const accepted = provider.describe().find(row => row.ns === SETTINGS_NAMESPACE)
+    if (!accepted) throw new Error('Host settings disappeared after mutation')
+    this.applySettings(accepted.value)
     return this.publicSettings()
   }
 
@@ -503,6 +499,15 @@ export class DeepCanaryService {
     const normalized = normalizeOutcomeInput(input)
     const item = this.find(id)
     if (item === undefined) return undefined
+    const run = this.dogfoodRecorder?.run
+    if (run !== undefined && normalized.source === run.provenance && normalized.trialId === run.trialId) {
+      const sessionRef = item.sessionRef ?? (item.sessionId === undefined ? undefined : hashMetadata(item.sessionId))
+      if (run.taskRef !== undefined && sessionRef !== run.taskRef) throw new TypeError('outcome does not belong to the recorded task')
+      if (normalized.taskRef !== undefined && run.taskRef !== undefined && normalized.taskRef !== run.taskRef) throw new TypeError('outcome taskRef conflicts with the recorded task')
+      if (normalized.taskOrigin !== undefined && run.taskOrigin !== undefined && normalized.taskOrigin !== run.taskOrigin) throw new TypeError('outcome taskOrigin conflicts with the recorded task')
+      if (run.taskOrigin !== undefined) normalized.taskOrigin ??= run.taskOrigin
+      if (run.taskRef !== undefined) normalized.taskRef ??= run.taskRef
+    }
     const attentionRef = hashMetadata(item.id)
     const previous = this.outcomeReceipts.get(outcomeStorageKey({ attentionRef, source: normalized.source, trialId: normalized.trialId }))
     const receipt = buildOutcomeReceipt(item, normalized, previous)
@@ -706,7 +711,7 @@ export class DeepCanaryService {
       return {
         sessionId: item.sessionId,
         available: false,
-        note: 'The associated DSH session is no longer available; the retained Inbox summary remains viewable.',
+        note: 'The live session has ended; the client can verify retained history in the public DSH session catalog. The Inbox summary remains viewable.',
       }
     }
     return {
@@ -1021,27 +1026,17 @@ export class DeepCanaryService {
     const port = this.hostProbePort
     if (port === undefined || this.disposed || this.hostProbeInFlight) return
     this.hostProbeInFlight = true
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 2_500)
     try {
-      // The DSH root page may require an authenticated browser session and
-      // legitimately return 401 to a local server-side fetch. Probe the
-      // plugin's public health route instead so host liveness is independent
-      // of WebUI authentication and conversation content.
-      const response = await fetch(`http://127.0.0.1:${port}/dsh-deepcanary/health`, { signal: controller.signal })
-      if (!response.ok) throw new Error(`host probe returned HTTP ${response.status}`)
+      // Public in-process service facts avoid authentication probes and token access.
+      // This establishes mounted WebServer availability, not external reachability.
+      const currentPort = this.hostServicePort?.()
+      if (typeof currentPort !== 'number' || currentPort <= 0) return
+      this.hostProbePort = currentPort
       const observation = this.hostProbe.observe(true)
       if (observation.transition === 'recovered') {
         await this.ingest(signalFromHostRecovery(observation.outageId, Date.parse(observation.lastCheckedAt)))
       }
-    } catch {
-      const observation = this.hostProbe.observe(false)
-      if (observation.transition === 'outage-opened') {
-        const signal = signalFromHostProbe(false, `The local DSH WebServer did not answer on port ${port}.`, Date.parse(observation.lastCheckedAt), observation.outageId)
-        if (signal) await this.ingest(signal)
-      }
     } finally {
-      clearTimeout(timeout)
       this.hostProbeInFlight = false
       await this.refreshSupervisorHealth()
       this.syncSupervisor()
@@ -1074,6 +1069,7 @@ export class DeepCanaryService {
     await this.supervisorStart.catch(() => undefined)
     if (this.supervisorStarted) await this.supervisor.stop()
     await this.ready.catch(() => undefined)
+    await this.questionChain
     await this.saveChain
     await this.outcomeSaveChain
     await this.suppressionSaveChain
@@ -1082,6 +1078,8 @@ export class DeepCanaryService {
   }
 
   private async hydrate(): Promise<void> {
+    await claimStateDirectory(this.stateIdentity)
+    await importLegacyInbox(this.stateIdentity)
     try {
       await this.dogfoodRecorder?.load()
     } catch (error: unknown) {
@@ -1170,7 +1168,8 @@ export class DeepCanaryService {
         if (!this.disposed) this.resolveHumanWait(id, now, authoritativeSnapshot.turnState === 'running' ? 'running' : 'unknown')
       })
     }
-    if (authoritativeSnapshot?.waitingForHuman && authoritativeSnapshot.humanNeededReason !== undefined) {
+    if (authoritativeSnapshot?.waitingForHuman && authoritativeSnapshot.humanNeededReason !== undefined
+      && !(authoritativeSnapshot.humanNeededReason === 'question' && authoritativeSnapshot.userQuestions?.active.some(question => question.state === 'open'))) {
       const bundleKey = hashMetadata(`${id}:human-needed`)
       const alreadyTracked = this.items.some(item => item.sessionId === id
         && item.bundleKey === bundleKey
@@ -1184,6 +1183,7 @@ export class DeepCanaryService {
         ))
       }
     }
+    this.queueQuestionSync(id, authoritativeSnapshot, now)
     this.bumpRevision()
     this.syncSupervisor()
   }
@@ -1227,7 +1227,11 @@ export class DeepCanaryService {
     const event = asRecord(eventValue)
     const id = idOf(sessionRecord)
     if (!id || typeof event.type !== 'string') return
-    if (event.ignorable === true) return
+    if (event.ignorable === true) {
+      // Projection changes still matter; ignorable events must not count as progress.
+      this.queueQuestionSync(id, authoritativeSnapshot, Date.now())
+      return
+    }
     let session = this.sessions.get(id)
     if (!session) {
       this.onSessionCreated(sessionValue)
@@ -1302,6 +1306,9 @@ export class DeepCanaryService {
       }
       if (session.activeToolCount === 0) session.toolClass = 'unknown'
     }
+    if (session.activeToolCount === session.activeToolIds.size) {
+      session.toolClass = toolClassForActiveTools(session.activeToolIds.values())
+    }
     if (authoritativeSnapshot?.eventCount !== undefined) {
       session.activeToolCount = authoritativeSnapshot.activeToolCount ?? session.activeToolCount
       session.toolClass = authoritativeSnapshot.toolClass ?? session.toolClass
@@ -1330,6 +1337,16 @@ export class DeepCanaryService {
       { type: event.type, ...(typeof event.seq === 'number' ? { seq: event.seq } : {}), ...(typeof event.time === 'number' ? { time: event.time } : {}), ...(event.ignorable === true ? { ignorable: true } : {}), data: asRecord(event.data) },
       facts,
     ))
+    const questionFacts = authoritativeSnapshot?.userQuestions
+    if (questionFacts !== undefined && callId !== undefined
+      && (questionFacts.active.some(question => question.callId === callId) || questionFacts.settledCallIds.includes(callId))) {
+      // Timed questions are joined per call by the projection, not by the
+      // legacy session-wide wait. Approval and blocking-legacy signals remain.
+      for (let index = signals.length - 1; index >= 0; index -= 1) {
+        if (signals[index]?.kind === 'HUMAN_QUESTION_PENDING') signals.splice(index, 1)
+      }
+    }
+    this.queueQuestionSync(id, authoritativeSnapshot, now)
     if (signals.some(signal => (signal.kind === 'HUMAN_APPROVAL_REQUIRED' || signal.kind === 'HUMAN_QUESTION_PENDING')
       && signal.evidence.some(evidence => evidence.authority === 'runtime'))) {
       session.waitingForHuman = true
@@ -1360,7 +1377,7 @@ export class DeepCanaryService {
   private resolveHumanWait(sessionId: string, now: number, taskState: TaskState): void {
     let changed = false
     for (const item of this.items) {
-      if (item.sessionId !== sessionId || item.taskState !== 'waiting-human'
+      if (item.questionState !== undefined || item.sessionId !== sessionId || item.taskState !== 'waiting-human'
         || (item.status !== 'open' && item.status !== 'seen' && item.status !== 'snoozed')
         || Date.parse(item.occurredAt) > now) continue
       if (!(item.reasonCodes ?? [item.reasonCode]).some(reason => reason === 'HUMAN_QUESTION_PENDING' || reason === 'HUMAN_APPROVAL_REQUIRED')) continue
@@ -1372,6 +1389,75 @@ export class DeepCanaryService {
       if (trace !== undefined) item.decisionTrace = trace
       const previousOutcome = [...this.outcomeReceipts.values()].find(receipt => receipt.attentionRef === hashMetadata(item.id))
       if (previousOutcome) this.updateExistingOutcome(item, { laterOutcome: 'recovered', recoveredBeforeOpen: !previousOutcome.opened })
+      changed = true
+    }
+    if (changed) {
+      this.bumpRevision()
+      this.queueSave()
+      this.syncSupervisor()
+    }
+  }
+
+  private queueQuestionSync(sessionId: string, snapshot: SessionSnapshot | undefined, now: number): void {
+    if (snapshot?.userQuestions === undefined) return
+    // Serialize rapid host events; a result can arrive before the call's
+    // asynchronous ingest has completed. Never claim/answer the host's wait.
+    this.questionChain = this.questionChain.then(async () => {
+      await this.ready
+      if (!this.disposed) await this.syncQuestionFacts(sessionId, snapshot, now)
+    }).catch(() => { this.logger.warn?.('DeepCanary could not reconcile question metadata.') })
+  }
+
+  private async syncQuestionFacts(sessionId: string, snapshot: SessionSnapshot, now: number): Promise<void> {
+    const active = snapshot.userQuestions!.active
+    const keys = new Set(active.map(question => hashMetadata(`${sessionId}:question:${question.callId}`)))
+    let changed = false
+    for (const item of this.items) {
+      if (item.sessionId !== sessionId || item.questionState === undefined
+        || (item.status !== 'open' && item.status !== 'seen' && item.status !== 'snoozed')
+        || (item.bundleKey !== undefined && keys.has(item.bundleKey))) continue
+      item.status = 'recovered'
+      item.recoveredAt = new Date(now).toISOString()
+      item.taskState = snapshot.running ? 'running' : 'unknown'
+      delete item.snoozedUntil
+      const trace = withRecoveryTrace(item.decisionTrace, 'recovery.authoritative-question-settled')
+      if (trace !== undefined) item.decisionTrace = trace
+      this.updateExistingOutcome(item, { laterOutcome: 'recovered' })
+      changed = true
+    }
+    for (const question of active) {
+      const bundleKey = `${sessionId}:question:${question.callId}`
+      const hashedKey = hashMetadata(bundleKey)
+      let item = this.items.find(item => item.sessionId === sessionId && item.bundleKey === hashedKey)
+      // Respect acknowledgement, snooze, and retention; no repeated re-delivery
+      // just because the same answerable card remains in a host snapshot.
+      if (item !== undefined && item.status !== 'open' && item.status !== 'seen' && item.status !== 'snoozed') continue
+      const taskState: TaskState = question.state === 'open' ? 'waiting-human' : snapshot.running ? 'running' : 'unknown'
+      if (item?.questionState === question.state) {
+        if (item.taskState !== taskState) { item.taskState = taskState; changed = true }
+        continue
+      }
+      const signal = signalFromAuthoritativeHumanWait({ id: sessionId }, 'question', snapshot.lastEventSeq, now)
+      signal.id += `:${hashedKey}:${question.state}`
+      signal.dedupeKey = `${bundleKey}:${question.state}`
+      signal.bundleKey = bundleKey
+      signal.data = { questionState: question.state }
+      signal.severityHint = question.state === 'open' ? 3 : 1
+      if (item === undefined) item = await this.ingest(signal)
+      else {
+        const verdict = this.applyPolicy(judgeSignal(signal), now)
+        // A timeout is a real authority-backed downgrade, unlike ordinary
+        // bundle enrichment, which deliberately never lowers attention.
+        item.level = verdict.level
+        item.action = verdict.action
+        item.messageKey = verdict.messageKey
+        item.why = verdict.why
+        if (verdict.decisionTrace === undefined) delete item.decisionTrace
+        else item.decisionTrace = verdict.decisionTrace
+      }
+      if (item === undefined) continue
+      item.questionState = question.state
+      item.taskState = taskState
       changed = true
     }
     if (changed) {
@@ -1567,10 +1653,10 @@ export class DeepCanaryService {
   private applySettings(value: unknown): void {
     if (value === null || typeof value !== 'object') return
     const next = normalizeConfig(value as Partial<DeepCanaryConfig>)
-    if (next.stateDir !== this.config.stateDir) {
+    if (next.stateDir && next.stateDir !== this.config.stateDir) {
       this.logger.warn?.(`${PLUGIN_NAME}: stateDir changes take effect after restart`)
-      next.stateDir = this.config.stateDir
     }
+    next.stateDir = this.config.stateDir
     const changed = JSON.stringify(next) !== JSON.stringify(this.config)
     this.config = next
     this.dedupe.setWindowMs(next.dedupeWindowMinutes * 60 * 1000)
@@ -1671,6 +1757,7 @@ export class DeepCanaryService {
       ...(item.mutedUntil ? { mutedUntil: item.mutedUntil } : {}),
       ...(item.targetAvailable === undefined ? {} : { targetAvailable: item.targetAvailable }),
       ...(item.taskState === undefined ? {} : { taskState: item.taskState }),
+      ...(item.questionState === undefined ? {} : { questionState: item.questionState }),
       ...(item.feedback ? { feedback: { useful: item.feedback.useful, ...(item.feedback.value === undefined ? {} : { value: item.feedback.value }), at: item.feedback.at } } : {}),
       bundleCount: item.bundleCount,
       reasonCodes: [...item.reasonCodes],
@@ -1779,6 +1866,7 @@ export class DeepCanaryService {
 
   private queueSave(): void {
     this.saveChain = this.saveChain
+      .then(() => this.ready)
       .then(() => this.store.save(this.items))
       .catch(error => this.logger.warn?.(`${PLUGIN_NAME}: metadata state could not be saved`, error))
   }

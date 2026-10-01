@@ -1,7 +1,9 @@
 import type { Context } from '@deepseek-ai/cordis'
-import { isMeaningfulSessionEvent, toolCallIdOf, toolClassForName } from '../providers.js'
+import { isMeaningfulSessionEvent, toolCallIdOf, toolClassForName, toolClassForActiveTools } from '../providers.js'
 import type { SessionEventLike, SessionLike, ToolClass, TurnState } from '../providers.js'
 import type { ReconciliationStatus } from '../types.js'
+import { readUserQuestionFacts } from './user-questions.js'
+import type { UserQuestionFacts } from './user-questions.js'
 
 export interface Disposable {
   dispose(): void
@@ -34,6 +36,8 @@ export interface SessionSnapshot {
   toolClass?: ToolClass
   humanNeededReason?: 'approval' | 'question'
   humanNeededSeq?: number
+  /** Watermark-checked public timed-question projection, metadata only. */
+  userQuestions?: UserQuestionFacts
   toolFailures?: number
   sameToolFailures?: number
   contextCompactions?: number
@@ -62,6 +66,7 @@ interface ContextLike {
   on?: (event: string, listener: (...args: any[]) => any) => unknown
   sessions?: SessionStoreLike
   get?: (name: string) => unknown
+  sessionProjections?: unknown
 }
 
 interface DshAdapterOptions {
@@ -180,8 +185,22 @@ export class ContextDshAdapter implements DshAdapter {
 
   private publishLive(event: DeepCanaryEvent): void {
     const snapshot = applyEventToSnapshot(this.snapshots, event)
+    if (snapshot !== undefined && event.type !== 'session/disposed') this.attachQuestionFacts(event.session, snapshot)
     const delivered: DeepCanaryEvent = snapshot === undefined ? event : { ...event, snapshot }
     for (const listener of this.listeners) listener(delivered)
+  }
+
+  private attachQuestionFacts(session: unknown, snapshot: SessionSnapshot): void {
+    delete snapshot.userQuestions
+    let registry: unknown
+    try { registry = this.ctx.get?.('sessionProjections') ?? this.ctx.sessionProjections } catch { return }
+    const facts = readUserQuestionFacts(registry, session, snapshot.lastEventSeq)
+    if (facts === undefined) return
+    snapshot.userQuestions = facts
+    if (facts.active.some(question => question.state === 'open')) {
+      snapshot.waitingForHuman = true
+      if (snapshot.humanNeededReason === undefined) snapshot.humanNeededReason = 'question'
+    }
   }
 
   private async performReconcile(): Promise<ReconciliationStatus> {
@@ -213,6 +232,7 @@ export class ContextDshAdapter implements DshAdapter {
         if (snapshot === undefined || snapshot.eventCount === undefined) {
           throw new TypeError('A listed session has no readable, contiguous public snapshotEvents() history.')
         }
+        this.attachQuestionFacts(session, snapshot)
         authoritative.set(snapshot.sessionId, { session, snapshot })
         baseline.set(snapshot.sessionId, snapshot.eventCount)
       }
@@ -453,6 +473,7 @@ function snapshotFromSession(value: unknown, active: boolean): SessionSnapshot |
       }
       if (activeToolCount === 0) toolClass = 'unknown'
     }
+    if (activeToolCount === activeTools.size) toolClass = toolClassForActiveTools(activeTools.values())
     if (type === 'compaction/start') contextCompactions += 1
     if (type === 'turn/end') {
       running = false

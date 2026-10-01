@@ -47,6 +47,42 @@ function signal(kind: ReasonCode, id: string, dedupeKey: string, options: Partia
 }
 
 describe('runtime dogfood recorder', () => {
+  it('requires scoped attribution for natural work and keeps live controlled intent separate', () => {
+    setDogfoodEnvironment({ [DOGFOOD_ENVIRONMENT.taskOrigin]: 'natural' })
+    expect(dogfoodRunFromEnvironment('0.1.3-rc.1', '0.2.0-rc.2')).toBeUndefined()
+    setDogfoodEnvironment({ [DOGFOOD_ENVIRONMENT.taskRef]: hashMetadata('session-runtime-test') })
+    expect(dogfoodRunFromEnvironment('0.1.3-rc.1', '0.2.0-rc.2')).toMatchObject({ provenance: 'real', taskOrigin: 'natural', taskRef: hashMetadata('session-runtime-test') })
+    setDogfoodEnvironment({ [DOGFOOD_ENVIRONMENT.taskOrigin]: 'controlled' })
+    expect(dogfoodRunFromEnvironment('0.1.3-rc.1', '0.2.0-rc.2')).toMatchObject({ provenance: 'real', taskOrigin: 'controlled' })
+    setDogfoodEnvironment({ [DOGFOOD_ENVIRONMENT.taskOrigin]: 'invented' })
+    expect(dogfoodRunFromEnvironment('0.1.3-rc.1', '0.2.0-rc.2')).toBeUndefined()
+  })
+
+  it('excludes unrelated sessions and binds outcomes to the live recorded task through reload', async () => {
+    const taskRef = hashMetadata('session-runtime-test')
+    setDogfoodEnvironment({ [DOGFOOD_ENVIRONMENT.taskOrigin]: 'natural', [DOGFOOD_ENVIRONMENT.taskRef]: taskRef })
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-task-scope-'))
+    const service = new DeepCanaryService({ logger: {} } as never, { stateDir: directory })
+    try {
+      await service.ready
+      const other = await service.ingest(signal('TASK_FAILED', 'other-task', 'other-task', { sessionId: 'historical-controlled' }))
+      const item = await service.ingest(signal('TASK_COMPLETED', 'natural-task', 'natural-task'))
+      const receipt = await service.recordOutcome(item!.id, { source: 'real', trialId: 'runtime-recorder-trial' })
+      expect(receipt).toMatchObject({ taskOrigin: 'natural', taskRef, feedback: 'unrated' })
+      await expect(service.recordOutcome(other!.id, { source: 'real', trialId: 'runtime-recorder-trial' })).rejects.toThrow('does not belong')
+      await expect(service.recordOutcome(item!.id, { source: 'real', trialId: 'runtime-recorder-trial', taskOrigin: 'controlled' })).rejects.toThrow('conflicts')
+    } finally { await service.dispose() }
+    try {
+      const file = (await readdir(directory)).find(value => /^dogfood-[a-f0-9]{16}\.json$/.test(value))!
+      const bundle = JSON.parse(await readFile(path.join(directory, file), 'utf8'))
+      expect(bundle.observations).toHaveLength(1)
+      expect(bundle.observations[0]).toMatchObject({ eventSubtype: 'completed', deliveryVisibility: { status: 'unknown' } })
+      expect(bundle.receipts).toHaveLength(1)
+      const run = dogfoodRunFromEnvironment('0.1.3-rc.1', '0.2.0-rc.2')!
+      const recorder = new DogfoodRuntimeRecorder(directory, { ...run, taskRef: 'fedcba9876543210' })
+      await expect(recorder.load()).rejects.toThrow('different run or trial')
+    } finally { await rm(directory, { recursive: true, force: true }) }
+  })
   it('is disabled without an explicit complete run contract', () => {
     expect(dogfoodRunFromEnvironment('0.1.1-rc.1', 'dsh-v0.1.2-alpha.5')).toBeUndefined()
     setDogfoodEnvironment({})

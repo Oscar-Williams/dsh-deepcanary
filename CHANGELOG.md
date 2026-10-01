@@ -1,6 +1,48 @@
 # Changelog
 
+## 0.1.4-rc.1
+
+- Protect all HTTP contributions through DSH's public authenticated Connection API; remove the legacy direct routes. Bound streaming JSON writes at 32,000 bytes and sanitize error responses.
+- Read in-process Host facts for self-checks and remove local paths from public runtime status.
+- Preserve revision-fenced settings, authoritative question lifecycle, parallel long-tool progress and completion recovery from the local 0.2 migration.
+- Unify source ownership, feedback aggregation and independent policy evaluation; preserve unknown data and explicit adoption/rollback identity. Live thresholds remain unchanged.
+- Refine opaque light/dark Inbox presentation, clean conflicting styles and document the current installation/profile workflow.
+- Return completion summaries to retained history using exact public session-catalog membership; refuse absent or unready targets.
+- Pin DSH 0.2.0-rc.2 contracts and retain RC limits for OS delivery, hidden-window wake-up, Supervisor and selective Judge.
+
+## 0.1.3-rc.1 — local development, unpublished
+
+- Preserve capture provenance independently of task origin; bind natural live recording, feedback and export to hashed task ownership. Legacy unknown records stay unknown. Aggregate separate natural, controlled, replay and unknown cohorts.
+- Repair candidate evaluation: independent task holdout, bound code/package/settings identity, scope-aware passing and explicit adoption/rollback records. Evaluation does not adopt policy.
+- Add a sanitized source-hashed case audit, failure taxonomy, negative-opportunity review and Judge feasibility screening. No qualifying model case exists yet; no model or Desktop private bridge is added.
+- Redesign Inbox with opaque light/dark surfaces, clearer cards, blue primary actions, compact policy details and less repeated text. Preserve navigation, evidence, recovery and existing deterministic safety boundaries.
+- Retain the 0.1.2-rc.2 parallel-tool fix and all historical frozen packages. No publication is authorized.
+
+## 0.1.2-rc.2 — local development, unpublished
+
+- Fix parallel-tool liveness: classify the tools still executing in both live events and restored Session snapshots. A short call no longer removes a running long tool's bounded grace, and a finished long tool no longer delays checking an ordinary call.
+- Preserve the existing notification policy, metadata boundaries and UI. No new Inbox/history interface or storage is introduced.
+- Frozen 0.1.2-rc.1 bytes and its device receipts remain historical evidence; rc.2 has independent checks and is not yet installed or frozen.
+
+
 User-visible changes and notable compatibility updates. The current default release is `0.1.1-rc.6` (prerelease); npm `latest` and `next` both point to it. A default channel does not certify Stable readiness.
+
+## 0.1.2-rc.1 — 2026-10-01, local candidate, not published
+
+- Bind a dirty settings draft to its original Host revision. Mirror refreshes, conflicts and communication failures retain that draft; discard or an accepted save starts a new baseline. Inheritance reset uses the same revision fence and repeated submission is disabled while saving.
+- Cap count-only subagent pressure at C2, including authoritative counts. C3 requires a distinct blocking or failure fact. Current gold expectations reflect this policy; historical release artifacts and reports retain their identities.
+- Parameterize local freezing by exact candidate version and installed-file verification by its immutable receipt, manifest and hash. No GitHub or npm publication is authorized.
+
+## 0.1.1-rc.7 — frozen failed local candidate, not published
+
+Real Web acceptance found a stale-draft overwrite after a remote mirror refresh. Its frozen bytes are preserved; the corrected development line starts at 0.1.2-rc.1.
+
+- Prefer the optional `uiWorkspace.openSession()` navigation owner, resolving it at click time, while retaining the alpha.5 `sessions.open()` path. A native rejection does not fall back to a guessed URL.
+- Track timed questions separately using the watermark-checked public `userQuestions` projection: timeout downgrades to C1 Inbox; turn completion does not imply an answer; an admitted reply or removal from the authoritative active set resolves the reminder.
+- Persist only an optional lifecycle enum and the hashed question bundle join, never question text, answers, tool arguments, or results. Missing/stale projections do not resolve managed questions.
+- Require DSH `0.2.0-rc.2` or later; migrate settings to `deepcanary` ConfigForms / `settings.plugins.tab`, revision-fenced Host writes, and live volatile fields. Failed writes retain drafts, and HTTP writes never silently fall back to memory.
+- Import recognized legacy settings once, preserving explicit target fields and source files; isolate metadata by profile/instance and refuse cross-profile custom state sharing. Legacy shared Inbox adoption is Desktop-only, with navigation disabled until Host reconciliation.
+- Add real pinned Host settings/session checks and schema-v4 notification evidence that distinguishes Edge from Electron. Web and Desktop package/device acceptance are independent; no Stable or full dual-host claim follows from unit tests.
 
 ## 0.1.1-rc.6 — 2026-09-06
 

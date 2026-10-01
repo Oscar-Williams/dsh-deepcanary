@@ -57,6 +57,8 @@ const report = {
   reportSchemaVersion: 1,
   status: source === 'real' ? 'dogfood' : source === 'controlled' ? 'controlled' : source === 'replay' ? 'replay' : 'empty',
   source,
+  byTaskOrigin: countBy(receipts, receipt => receipt.taskOrigin ?? 'unknown'),
+  attributedNaturalReceiptCount: receipts.filter(receipt => receipt.source === 'real' && receipt.taskOrigin === 'natural' && /^[a-f0-9]{16}$/.test(receipt.taskRef ?? '')).length,
   pluginVersion: packageJson.version,
   policyVersions: [...new Set(receipts.map(receipt => receipt.policyVersion))].sort(),
   trialCount: new Set(receipts.map(receipt => receipt.trialId)).size,

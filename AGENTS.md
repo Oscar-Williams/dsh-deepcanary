@@ -2,6 +2,8 @@
 
 ## Scope
 
+0.1.4-rc.1 local development targets DSH `0.2.0-rc.2` at `639ed015397290b3745d163aafe02ffee4aa3f84`, with Cordis 4.0.4 and Schemastery 3.18.4. Use `typecheck:dsh020`, `adapter:dsh020`, and `settings:dsh020`; Web/Desktop installs consume the same frozen candidate but require independent device evidence. The alpha.5 build instructions below are historical RC6 lane instructions, not 0.1.4-rc.1 installation approval.
+
 dsh-deepcanary is a standalone DeepSeek Harness external bundle. Keep its DSH package conventions separate from Codex plugin manifests: this repository intentionally does not add .codex-plugin/plugin.json.
 
 The implementation must preserve these boundaries:
@@ -27,11 +29,11 @@ The implementation must preserve these boundaries:
     npm run benchmark:attention
     npm pack --dry-run
 
-For current development end-to-end checks, use the official alpha.5 checkout documented in `docs/compatibility.md`, verify `dsh --version` is `0.1.2-alpha.5`, install the current built package into the isolated web profile, run `dsh web`, and check HTTP 200 on the DeepCanary health route. Run `npm run compatibility:alpha13` only for the separate local alpha.13 compatibility canary after binding its exact runtime, profile, package, and sanitized UI evidence. Use the alpha.2 checkout only when reproducing the historical RC.2 receipt.
+For historical RC6 end-to-end reproduction, use the official alpha.5 checkout documented in `docs/compatibility.md`, verify `dsh --version` is `0.1.2-alpha.5`, install the current built package into the isolated web profile, run `dsh web`, and check HTTP 200 on the DeepCanary health route. Run `npm run compatibility:alpha13` only for the separate local alpha.13 compatibility canary after binding its exact runtime, profile, package, and sanitized UI evidence. Use the alpha.2 checkout only when reproducing the historical RC.2 receipt.
 
 The repository tracks the built `lib/` output because DSH installs a public Git tag without running this repository's TypeScript toolchain. Every source change must therefore be followed by `npm run build`, and CI must fail if the committed `lib/` output is stale.
 
-The WSL2 verification lane uses the isolated Conda environment named `dsh-deepcanary`. Keep its DSH profile home separate from the environment directory when running end-to-end checks.
+The paused historical WSL2 verification lane uses the isolated Conda environment named `dsh-deepcanary`. Keep its DSH profile home separate from the environment directory when running end-to-end checks.
 
 ## Documentation
 

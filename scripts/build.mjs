@@ -6,15 +6,18 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { version as esbuildVersion } from 'esbuild'
-import { loadRuntimeCheckout, runtimeTypePaths } from './runtime-checkout.mjs'
+import { loadRuntimeCheckout, runtimeTypePaths, rc020 } from './runtime-checkout.mjs'
 import { verifyEnvironment } from './verify-environment.mjs'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 await verifyEnvironment(root)
 const run = promisify(execFile)
 const runtimeMode = process.argv.includes('--alpha13')
+const rc020Mode = process.argv.includes('--dsh020')
+if (runtimeMode && rc020Mode) throw new Error('Select only one explicit runtime lane.')
 const checkOnly = process.argv.includes('--typecheck')
-const runtime = runtimeMode ? await loadRuntimeCheckout(process.env.DSH_ALPHA13_RUNTIME) : undefined
+const runtime = rc020Mode ? await loadRuntimeCheckout(process.env.DSH_020_RUNTIME, rc020)
+  : runtimeMode ? await loadRuntimeCheckout(process.env.DSH_ALPHA13_RUNTIME) : undefined
 const packageJson = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'))
 const lockfile = JSON.parse(await readFile(path.join(root, 'package-lock.json'), 'utf8'))
 const buildTools = { typescript: ts.version, esbuild: esbuildVersion }

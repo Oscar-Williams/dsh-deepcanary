@@ -44,6 +44,7 @@ interface PersistedItem {
   mutedUntil?: string
   targetAvailable?: boolean
   taskState?: TaskState
+  questionState?: 'open' | 'continued'
   feedback?: { useful: boolean; value?: FeedbackValue; note?: string; at: string }
   bundleKey?: string
   bundleCount?: number
@@ -99,6 +100,7 @@ function toPersisted(item: InboxItem): PersistedItem {
     ...(item.mutedUntil ? { mutedUntil: item.mutedUntil } : {}),
     ...(item.targetAvailable === undefined ? {} : { targetAvailable: item.targetAvailable }),
     ...(item.taskState === undefined ? {} : { taskState: item.taskState }),
+    ...(item.questionState === undefined ? {} : { questionState: item.questionState }),
     ...(item.feedback ? { feedback: { ...item.feedback, ...(item.feedback.note ? { note: item.feedback.note.slice(0, 200) } : {}) } } : {}),
     ...(item.bundleKey ? { bundleKey: item.bundleKey } : {}),
     bundleCount: item.bundleCount,
@@ -145,6 +147,7 @@ function fromPersisted(item: PersistedItem): InboxItem {
     ...(item.mutedUntil ? { mutedUntil: item.mutedUntil } : {}),
     ...(item.targetAvailable === undefined ? {} : { targetAvailable: item.targetAvailable }),
     ...(item.taskState === undefined ? {} : { taskState: item.taskState }),
+    ...(item.questionState === undefined ? {} : { questionState: item.questionState }),
     ...(feedback === undefined ? {} : { feedback }),
     ...(item.bundleKey ? { bundleKey: item.bundleKey } : {}),
     bundleCount: typeof item.bundleCount === 'number' && Number.isSafeInteger(item.bundleCount) && item.bundleCount > 0 ? item.bundleCount : 1,
@@ -239,6 +242,7 @@ function isPersistedItem(value: unknown): value is PersistedItem {
     && isInboxStatus(item.status)
     && (item.targetAvailable === undefined || typeof item.targetAvailable === 'boolean')
     && (item.taskState === undefined || isTaskState(item.taskState))
+    && (item.questionState === undefined || item.questionState === 'open' || item.questionState === 'continued')
 }
 
 function isSafeOpaqueId(value: unknown): value is string {

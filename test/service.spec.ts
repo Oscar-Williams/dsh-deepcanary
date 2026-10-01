@@ -28,6 +28,43 @@ afterEach(async () => {
 })
 
 describe('DeepCanaryService', () => {
+  it.each([true, false])('uses remaining parallel tools for live stall decisions: long remains %s', async (longRemains) => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-parallel-stall-'))
+    const listeners = new Map<string, (...args: any[]) => void>()
+    let now = 1_000_000
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => now)
+    const service = new DeepCanaryService({ logger: {}, on: (name: string, listener: (...args: any[]) => void) => { listeners.set(name, listener) } } as never,
+      { stateDir: directory, longRunThresholdMinutes: 1, maxInboxItems: 50 })
+    services.push(service)
+    try {
+      await service.ready
+      service.start()
+      const session = { id: 'parallel-live', header: {} }
+      listeners.get('session/created')?.(session)
+      const emit = (type: string, data: Record<string, unknown>): void => { listeners.get('session/event')?.(session, { type, data }) }
+      emit('turn/start', {})
+      const calls = [{ name: 'bash', callId: 'long' }, { name: 'read_file', callId: 'short' }]
+      if (!longRemains) calls.reverse()
+      for (const call of calls) emit('tool/call', call)
+      emit('tool/result', { message: { source: { kind: 'tool', callId: longRemains ? 'short' : 'long' } } })
+      now += 90_000
+      ;(service as unknown as { checkStalls(): void }).checkStalls()
+      await Promise.resolve()
+      await Promise.resolve()
+      expect(service.inbox(50).some(item => item.reasonCode === 'HOST_SUSPECTED_STALL')).toBe(!longRemains)
+      if (longRemains) {
+        now += 31_000
+        ;(service as unknown as { checkStalls(): void }).checkStalls()
+        await Promise.resolve()
+        await Promise.resolve()
+        expect(service.inbox(50).find(item => item.reasonCode === 'HOST_SUSPECTED_STALL')).toMatchObject({ level: 'C2' })
+      }
+    } finally {
+      clock.mockRestore()
+      await service.dispose()
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
   it('closes the liveness projection on a terminal agent error without relabeling it as an abort', async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-agent-error-terminal-'))
     let agentError: ((payload: unknown) => void) | undefined
@@ -549,12 +586,9 @@ describe('DeepCanaryService', () => {
     await service.dispose()
   })
 
-  it('probes the public health route and serializes failure recovery', async () => {
+  it('uses mounted Host facts without network authentication probes', async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-host-probe-flow-'))
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce({ ok: false, status: 503 })
-      .mockResolvedValueOnce({ ok: false, status: 503 })
-      .mockResolvedValueOnce({ ok: true, status: 200 })
+    const fetchMock = vi.fn(() => { throw new Error('network probe forbidden') })
     vi.stubGlobal('fetch', fetchMock)
     let injectWebServer: ((value: unknown) => void) | undefined
     const service = new DeepCanaryService({
@@ -562,28 +596,21 @@ describe('DeepCanaryService', () => {
       inject: (_services: string[], callback: (value: unknown) => unknown) => { injectWebServer = callback },
     } as never, { stateDir: directory, maxInboxItems: 50 })
     services.push(service)
-    await service.ready
-    service.start()
-    injectWebServer?.({ webServer: { port: 43131 } })
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
-
-    const probe = (service as unknown as { probeHost: () => Promise<void> }).probeHost.bind(service)
-    await probe()
-    expect(service.status().delivery.hostProbe).toMatchObject({ port: 43131, healthy: false, consecutiveFailures: 2 })
-    expect(service.inbox(20).some(item => item.reasonCode === 'HOST_UNREACHABLE')).toBe(true)
-
-    await probe()
-    expect(fetchMock.mock.calls.map(call => call[0])).toEqual([
-      'http://127.0.0.1:43131/dsh-deepcanary/health',
-      'http://127.0.0.1:43131/dsh-deepcanary/health',
-      'http://127.0.0.1:43131/dsh-deepcanary/health',
-    ])
-    expect(service.status().delivery.hostProbe).toMatchObject({ port: 43131, healthy: true, consecutiveFailures: 0 })
-    expect(service.inbox(20).some(item => item.status === 'recovered')).toBe(true)
-
-    await service.dispose()
-    vi.unstubAllGlobals()
-    await rm(directory, { recursive: true, force: true })
+    try {
+      await service.ready
+      service.start()
+      injectWebServer?.({ webServer: { port: 43131 } })
+      const probe = (service as unknown as { probeHost: () => Promise<void> }).probeHost.bind(service)
+      await probe()
+      await probe()
+      expect(fetchMock).not.toHaveBeenCalled()
+      expect(service.status().delivery.hostProbe).toMatchObject({ port: 43131, healthy: true, consecutiveFailures: 0 })
+      expect(service.inbox(20).some(item => item.reasonCode === 'HOST_UNREACHABLE')).toBe(false)
+    } finally {
+      await service.dispose()
+      vi.unstubAllGlobals()
+      await rm(directory, { recursive: true, force: true })
+    }
   })
 
   it('keeps lifecycle transitions explicit and closes a recovered root cause without a new alert', async () => {

@@ -2,17 +2,123 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "DeepCanary Attention candidate promotion report",
   "type": "object",
-  "required": ["schemaVersion", "reportId", "pluginVersion", "candidate", "separation", "promotionGates", "supervisorSupplement", "status", "decision", "evidenceDigests", "identity", "privacy", "generatedAt", "conclusion"],
+  "required": ["schemaVersion", "reportId", "pluginVersion", "candidate", "separation", "promotionGates", "identityBinding", "supervisorSupplement", "status", "decision", "localAdoption", "evidenceDigests", "identity", "privacy", "generatedAt", "conclusion"],
   "properties": {
     "schemaVersion": { "const": 1 },
     "reportId": { "type": "string", "minLength": 1 },
     "pluginVersion": { "type": "string", "minLength": 1 },
-    "candidate": { "type": "object", "required": ["sourceClass", "pluginVersion", "sourceCommit", "packageSha256", "settingsSha256"], "properties": { "sourceClass": { "type": "string" }, "pluginVersion": { "type": "string" }, "sourceCommit": { "type": "string" }, "packageSha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" }, "settingsSha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" } }, "additionalProperties": false },
-    "separation": { "type": "object", "required": ["discoveryRunId", "holdoutRunId", "independent", "frozenGold"], "properties": { "discoveryRunId": { "type": ["string", "null"] }, "holdoutRunId": { "type": ["string", "null"] }, "independent": { "type": "boolean" }, "frozenGold": { "type": ["string", "null"] } }, "additionalProperties": false },
-    "promotionGates": { "type": "object", "required": ["P1TargetFix", "P2SafetyNoRegression", "P3AttentionBudgetNoRegression", "P4ResourceNoRegression"], "additionalProperties": true },
+    "candidate": {
+      "type": "object",
+      "required": ["sourceClass", "pluginVersion", "sourceCommit", "codeHash", "packageSha256", "settingsSha256", "identityComplete", "versionMatchesEvaluatedCheckout", "sourceCommitMatchesEvaluatedCheckout"],
+      "properties": {
+        "sourceClass": { "type": "string" },
+        "pluginVersion": { "type": ["string", "null"] },
+        "sourceCommit": { "type": ["string", "null"], "pattern": "^[a-f0-9]{7,64}$" },
+        "codeHash": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+        "packageSha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+        "settingsSha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+        "identityComplete": { "type": "boolean" },
+        "versionMatchesEvaluatedCheckout": { "type": "boolean" },
+        "sourceCommitMatchesEvaluatedCheckout": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "separation": {
+      "type": "object",
+      "required": ["discoveryRunId", "holdoutRunId", "discoveryTaskRef", "holdoutTaskRef", "taskRefsDistinct", "independent", "frozenGold"],
+      "properties": {
+        "discoveryRunId": { "type": ["string", "null"] },
+        "holdoutRunId": { "type": ["string", "null"] },
+        "discoveryTaskRef": { "type": ["string", "null"], "pattern": "^[a-f0-9]{16}$" },
+        "holdoutTaskRef": { "type": ["string", "null"], "pattern": "^[a-f0-9]{16}$" },
+        "taskRefsDistinct": { "type": "boolean" },
+        "independent": { "type": "boolean" },
+        "frozenGold": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "identityBinding": {
+      "type": "object",
+      "required": ["status", "candidate", "complete", "sources", "reasons"],
+      "properties": {
+        "status": { "enum": ["pass", "insufficient-evidence"] },
+        "candidate": {
+          "type": "object",
+          "required": ["pluginVersion", "sourceCommit", "codeHash", "packageSha256", "settingsSha256"],
+          "properties": {
+            "pluginVersion": { "type": ["string", "null"] },
+            "sourceCommit": { "type": ["string", "null"], "pattern": "^[a-f0-9]{7,64}$" },
+            "codeHash": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+            "packageSha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+            "settingsSha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" }
+          },
+          "additionalProperties": false
+        },
+        "complete": {
+          "type": "object",
+          "required": ["pluginVersion", "code", "packageOrSettings"],
+          "properties": {
+            "pluginVersion": { "type": "boolean" },
+            "code": { "type": "boolean" },
+            "packageOrSettings": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        "sources": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["declaredFields", "fields"],
+            "properties": {
+              "declaredFields": { "type": "array", "items": { "type": "string" } },
+              "fields": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "required": ["declared", "status"],
+                  "properties": {
+                    "declared": {},
+                    "status": { "enum": ["match", "mismatch", "unbound", "conflicting"] }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "reasons": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "promotionGates": {
+      "type": "object",
+      "required": ["P1TargetFix", "P2SafetyNoRegression", "P3AttentionBudgetNoRegression", "P4ResourceNoRegression"],
+      "properties": {
+        "P1TargetFix": { "type": "object", "required": ["status", "checks"], "properties": { "status": { "enum": ["pass-with-scope", "pending"] } }, "additionalProperties": true },
+        "P2SafetyNoRegression": { "type": "object", "required": ["status", "checks"], "properties": { "status": { "enum": ["pass", "pending"] } }, "additionalProperties": true },
+        "P3AttentionBudgetNoRegression": { "type": "object", "required": ["status", "checks"], "properties": { "status": { "enum": ["pass", "pending"] } }, "additionalProperties": true },
+        "P4ResourceNoRegression": { "type": "object", "required": ["status", "checks"], "properties": { "status": { "enum": ["pass", "pending"] } }, "additionalProperties": true }
+      },
+      "additionalProperties": true
+    },
     "supervisorSupplement": { "type": "object", "required": ["processIntegration", "realElapsedSoak"], "properties": { "processIntegration": { "enum": ["not-evaluated", "pending", "pass"] }, "realElapsedSoak": { "enum": ["not-evaluated", "pending", "pass"] } }, "additionalProperties": false },
-    "status": { "enum": ["promoted-after-manual-adoption", "not-promoted"] },
-    "decision": { "enum": ["promote", "hold-for-missing-gates"] },
+    "status": { "enum": ["insufficient-evidence", "evaluation-passed", "locally-adopted", "rolled-back"] },
+    "decision": { "enum": ["hold-for-missing-gates", "ready-for-local-adoption", "local-adoption-recorded", "local-rollback-recorded"] },
+    "localAdoption": {
+      "type": "object",
+      "required": ["input", "supplied", "status", "action", "recordedAt", "applied", "reasons"],
+      "properties": {
+        "input": { "type": ["string", "null"] },
+        "supplied": { "type": "boolean" },
+        "status": { "enum": ["not-supplied", "invalid", "conflicting", "verified"] },
+        "action": { "enum": ["adopt", "rollback", null] },
+        "recordedAt": { "type": ["string", "null"] },
+        "applied": { "type": "boolean" },
+        "reasons": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
     "evidenceDigests": { "type": "object", "additionalProperties": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" } },
     "identity": { "type": "object", "required": ["sourceCommit", "worktreeDirty", "pluginVersion", "evaluatorVersion"], "properties": { "sourceCommit": { "type": "string" }, "worktreeDirty": { "type": "boolean" }, "pluginVersion": { "type": "string" }, "evaluatorVersion": { "type": "string" } }, "additionalProperties": false },
     "privacy": { "type": "object", "required": ["rawContentPersisted", "promptTranscriptModelOutputToolArgsCredentialsAndCompletePathsIncluded"], "properties": { "rawContentPersisted": { "const": false }, "promptTranscriptModelOutputToolArgsCredentialsAndCompletePathsIncluded": { "const": false } }, "additionalProperties": false },

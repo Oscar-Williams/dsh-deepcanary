@@ -14,6 +14,7 @@ export declare const DOGFOOD_ENVIRONMENT: {
     readonly scenario: "DSH_DEEPCANARY_DOGFOOD_SCENARIO";
     readonly runtimeTag: "DSH_DEEPCANARY_DOGFOOD_RUNTIME_TAG";
     readonly taskOrigin: "DSH_DEEPCANARY_DOGFOOD_TASK_ORIGIN";
+    readonly taskRef: "DSH_DEEPCANARY_DOGFOOD_TASK_REF";
 };
 export declare function dogfoodRunFromEnvironment(pluginVersion: string, defaultRuntimeTag: string, startedAt?: string): DogfoodRun | undefined;
 export interface DogfoodRuntimeRecord {

@@ -26,6 +26,7 @@ export const DOGFOOD_ENVIRONMENT = {
   scenario: 'DSH_DEEPCANARY_DOGFOOD_SCENARIO',
   runtimeTag: 'DSH_DEEPCANARY_DOGFOOD_RUNTIME_TAG',
   taskOrigin: 'DSH_DEEPCANARY_DOGFOOD_TASK_ORIGIN',
+  taskRef: 'DSH_DEEPCANARY_DOGFOOD_TASK_REF',
 } as const
 
 const taskFamilies = new Set<DogfoodRun['taskFamily']>(['coding', 'build-test', 'research', 'multi-stage', 'subagent'])
@@ -51,6 +52,10 @@ export function dogfoodRunFromEnvironment(pluginVersion: string, defaultRuntimeT
   const taskFamily = value(DOGFOOD_ENVIRONMENT.taskFamily) as DogfoodRun['taskFamily'] | undefined
   const scenario = value(DOGFOOD_ENVIRONMENT.scenario) as DogfoodRun['scenario'] | undefined
   const taskOrigin = value(DOGFOOD_ENVIRONMENT.taskOrigin) as NonNullable<DogfoodRun['taskOrigin']> | undefined
+  const taskRef = value(DOGFOOD_ENVIRONMENT.taskRef)
+  if (taskRef !== undefined && !/^[a-f0-9]{16}$/.test(taskRef)) return undefined
+  if (taskOrigin !== undefined && !taskOrigins.has(taskOrigin)) return undefined
+  if (taskOrigin === 'natural' && taskRef === undefined) return undefined
   if (runId === undefined || !runIdPattern.test(runId) || trialId === undefined || !runIdPattern.test(trialId)) return undefined
   if (taskFamily === undefined || !taskFamilies.has(taskFamily) || scenario === undefined || !scenarios.has(scenario)) return undefined
   return {
@@ -59,6 +64,7 @@ export function dogfoodRunFromEnvironment(pluginVersion: string, defaultRuntimeT
     trialId,
     provenance: 'real',
     ...(taskOrigin === undefined || !taskOrigins.has(taskOrigin) ? {} : { taskOrigin }),
+    ...(taskRef === undefined ? {} : { taskRef }),
     taskFamily,
     scenario,
     pluginVersion,
@@ -151,6 +157,9 @@ export class DogfoodRuntimeRecorder {
   }
 
   record(input: DogfoodRuntimeRecord): void {
+    // A scoped task must not inherit old controlled sessions or global Host opportunities.
+    if (this.run.taskRef !== undefined && (input.signal.sessionId === undefined
+      || hashMetadata(input.signal.sessionId) !== this.run.taskRef)) return
     const sequence = this.sequence++
     const observation: DogfoodObservation = {
       schemaVersion: 1,
@@ -176,6 +185,7 @@ export class DogfoodRuntimeRecorder {
 
   /** Record a quiet, healthy checkpoint for a long-running session. */
   recordHealthyHeartbeat(sessionId: string, occurredAt = new Date().toISOString()): void {
+    if (this.run.taskRef !== undefined && hashMetadata(sessionId) !== this.run.taskRef) return
     const sequence = this.sequence++
     const observation: DogfoodObservation = {
       schemaVersion: 1,
@@ -204,7 +214,9 @@ export class DogfoodRuntimeRecorder {
 
   setReceipts(receipts: readonly OutcomeReceipt[]): void {
     try {
-      this.ledger.setReceipts(receipts.filter(receipt => receipt.source === this.run.provenance && receipt.trialId === this.run.trialId))
+      this.ledger.setReceipts(receipts.filter(receipt => receipt.source === this.run.provenance && receipt.trialId === this.run.trialId
+        && (this.run.taskRef === undefined || receipt.taskRef === this.run.taskRef)
+        && (this.run.taskOrigin === undefined || receipt.taskOrigin === this.run.taskOrigin)))
       this.queueSave()
     } catch {
       // A malformed receipt remains outside the dogfood ledger; service state

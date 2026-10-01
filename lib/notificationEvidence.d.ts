@@ -1,11 +1,17 @@
 import type { DogfoodBundle } from './dogfood.js';
-export declare const NOTIFICATION_EVIDENCE_SCHEMA_VERSION: 3;
+export declare const NOTIFICATION_EVIDENCE_SCHEMA_VERSION: 4;
 export type NotificationPermission = 'granted' | 'denied' | 'default' | 'unsupported';
-export type NotificationPageVisibility = 'foreground' | 'background' | 'minimized' | 'unknown';
+export type NotificationPageVisibility = 'foreground' | 'background' | 'minimized' | 'hidden' | 'unknown';
 export type NotificationEvidenceSource = 'manual-windows-observation';
 export type NotificationObservationStatus = 'observed' | 'not-observed' | 'not-tested';
 export interface NotificationEvidence {
-    schemaVersion: typeof NOTIFICATION_EVIDENCE_SCHEMA_VERSION;
+    schemaVersion: 3 | typeof NOTIFICATION_EVIDENCE_SCHEMA_VERSION;
+    deployment?: {
+        surface: 'web' | 'desktop';
+        profile: string;
+        artifactSha256: string;
+        lifecycle: 'foreground' | 'minimized' | 'hidden' | 'reshown' | 'host-restarted' | 'fully-exited';
+    };
     evidenceId: string;
     source: NotificationEvidenceSource;
     runId: string;
@@ -35,7 +41,7 @@ export interface NotificationEvidence {
         minimalContentOnly: boolean;
     };
     browser: {
-        name: 'edge';
+        name: 'edge' | 'electron';
         version: string;
         notificationApi: 'supported' | 'unsupported';
         permission: NotificationPermission;
@@ -48,12 +54,14 @@ export interface NotificationEvidence {
         name: 'windows';
         build: string;
         notificationsEnabled: NotificationObservationStatus;
-        edgeNotificationsEnabled: NotificationObservationStatus;
+        edgeNotificationsEnabled?: NotificationObservationStatus;
+        applicationNotificationsEnabled?: NotificationObservationStatus;
         focusAssistOff: NotificationObservationStatus;
         toastObserved: NotificationObservationStatus;
         notificationCenterObserved: NotificationObservationStatus;
         toastClicked: NotificationObservationStatus;
-        edgeFocusedAfterClick: NotificationObservationStatus;
+        edgeFocusedAfterClick?: NotificationObservationStatus;
+        applicationFocusedAfterClick?: NotificationObservationStatus;
         returnedToDsh: NotificationObservationStatus;
         targetVisibleInDsh: NotificationObservationStatus;
     };
