@@ -6,13 +6,13 @@
 
 DeepCanary 为 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 提供本地任务收件箱，将提问、审批、异常和完成摘要集中呈现，并通过通知预算、合并与去重减少打扰。
 
-**当前开发候选为 0.1.5-rc.1，以本地 tgz 提供。** Web 开发基线为 DSH 0.2.1-rc.1；Windows Desktop 使用当前官方可用的 0.2.0-rc.2。npm 已发布版本仍为 0.1.4-rc.1，其宿主基线为 DSH 0.2.0-rc.2。
+**当前开发候选为 0.1.5-rc.2，以本地 tgz 提供。** Web 开发基线为 DSH 0.2.1-rc.1；Windows Desktop 使用当前官方可用的 0.2.0-rc.2。npm 已发布版本仍为 0.1.4-rc.1，其宿主基线为 DSH 0.2.0-rc.2。
 
 ![DeepCanary 收件箱](assets/deepcanary-panel-zh.png)
 
 ## 安装本地候选
 
-准备构建好的 `dsh-deepcanary-0.1.5-rc.1.tgz`，保留随包提供的校验值。
+准备构建好的 `dsh-deepcanary-0.1.5-rc.2.tgz`，保留随包提供的校验值。
 
 ### Desktop
 
@@ -24,7 +24,7 @@ DeepCanary 为 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harnes
 
 ```sh
 dsh --version
-dsh plugin --profile web add ./dsh-deepcanary-0.1.5-rc.1.tgz --registry=https://registry.npmjs.org/
+dsh plugin --profile web add ./dsh-deepcanary-0.1.5-rc.2.tgz --registry=https://registry.npmjs.org/
 dsh web
 ```
 
@@ -51,7 +51,7 @@ dsh plugin --profile web remove dsh-deepcanary
 ## 使用
 
 1. 从 DSH 侧栏打开 **DeepCanary**。
-2. 在 DSH 设置中选择 DeepCanary：Web 0.2.1 的入口为“内置插件”，Desktop 0.2.0 为“插件”。在这里调整提醒级别、每小时打断预算和静默时段。
+2. 在 DSH“设置 → 内置插件 → DeepCanary”中调整提醒级别、每小时打断预算和静默时段。
 3. 按需启用浏览器通知，然后正常运行任务。
 4. 从收件箱返回对应会话、查看依据、稍后处理或提供明确反馈。
 

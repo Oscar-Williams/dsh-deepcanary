@@ -1,6 +1,6 @@
 # Public DSH surfaces
 
-DeepCanary 0.1.5-rc.1 uses published DSH 0.2.1-rc.1 packages for WebUI. The official Windows Desktop update feed still supplies 0.2.0-rc.2, source `639ed015397290b3745d163aafe02ffee4aa3f84`. The generic Host contracts resolve the selected installation through `DSH_RUNTIME`.
+DeepCanary 0.1.5-rc.2 uses published DSH 0.2.1-rc.1 packages for WebUI. The official Windows Desktop update feed still supplies 0.2.0-rc.2, source `639ed015397290b3745d163aafe02ffee4aa3f84`. The generic Host contracts resolve the selected installation through `DSH_RUNTIME`.
 
 | Public surface | Use and degradation |
 | --- | --- |

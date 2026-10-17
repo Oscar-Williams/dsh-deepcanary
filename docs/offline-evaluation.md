@@ -1,4 +1,4 @@
-# Offline evaluation for 0.1.5-rc.1
+# Offline evaluation for 0.1.5-rc.2
 
 The current candidate improves Host lifecycle reliability while retaining the deterministic policy baseline. All **214 tests** pass, including actual Cordis unload and task-outcome regressions. The frozen replay suite passes **12 of 12 cases**, with **zero policy differences**. Local candidate receipts record the final package identity and device observations.
 

@@ -2,7 +2,7 @@
 
 ## Scope
 
-0.1.5-rc.1 local development uses published DSH `0.2.1-rc.1` packages, with Cordis 4.0.5 and Schemastery 3.18.5. The current official Windows Desktop build is DSH `0.2.0-rc.2` at `639ed015397290b3745d163aafe02ffee4aa3f84`. Select the actual installation with `DSH_RUNTIME`; use `typecheck:host`, `adapter:host`, `settings:host` and `connection:host`. Web/Desktop consume the same frozen candidate and record the behavior of each actual Host. Publication and remote CI require explicit user authorization.
+0.1.5-rc.2 local development uses published DSH `0.2.1-rc.1` packages, with Cordis 4.0.5 and Schemastery 3.18.5. The current official Windows Desktop build is DSH `0.2.0-rc.2` at `639ed015397290b3745d163aafe02ffee4aa3f84`. Select the actual installation with `DSH_RUNTIME`; use `typecheck:host`, `adapter:host`, `settings:host` and `connection:host`. Web/Desktop consume the same frozen candidate and record the behavior of each actual Host. Publication and remote CI require explicit user authorization.
 
 dsh-deepcanary is a standalone DeepSeek Harness external bundle. Keep its DSH package conventions separate from Codex plugin manifests: this repository intentionally does not add .codex-plugin/plugin.json.
 

@@ -1,6 +1,6 @@
 # Web and Desktop verification
 
-DeepCanary 0.1.5-rc.1 uses released DSH 0.2.1-rc.1 for WebUI and the current official Windows Desktop build, 0.2.0-rc.2 (source `639ed015397290b3745d163aafe02ffee4aa3f84`). Both surfaces use authenticated Connection Fetch routes, Host settings and the deterministic attention core. Each profile owns its state.
+DeepCanary 0.1.5-rc.2 uses released DSH 0.2.1-rc.1 for WebUI and the current official Windows Desktop build, 0.2.0-rc.2 (source `639ed015397290b3745d163aafe02ffee4aa3f84`). Both surfaces use authenticated Connection Fetch routes, Host settings and the deterministic attention core. Each profile owns its state.
 
 ## Development checks
 

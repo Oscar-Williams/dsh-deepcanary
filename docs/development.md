@@ -2,7 +2,7 @@
 
 ## Current lane
 
-DeepCanary 0.1.5-rc.1 uses released DSH 0.2.1-rc.1 packages for Web development and the current official Windows Desktop build, 0.2.0-rc.2. Direct development packages are pinned, with the npm lockfile owning the toolchain. Use Node 22.19+ in the 22.x line or Node 24+. DSH checkouts use their own pinned pnpm workflow.
+DeepCanary 0.1.5-rc.2 uses released DSH 0.2.1-rc.1 packages for Web development and the current official Windows Desktop build, 0.2.0-rc.2. Direct development packages are pinned, with the npm lockfile owning the toolchain. Use Node 22.19+ in the 22.x line or Node 24+. DSH checkouts use their own pinned pnpm workflow.
 
 ```sh
 npm ci
@@ -39,8 +39,8 @@ Follow [feedback calibration](feedback-calibration.md) for necessary sequential 
 Commit the reviewed source and generated output first. With a clean tracked snapshot, freeze once:
 
 ```sh
-node scripts/freeze-local-candidate.mjs 0.1.5-rc.1
-node scripts/verify-installed-candidate.mjs output/releases/0.1.5-rc.1/local-candidate.json <isolated-home> web <local-receipt.json>
+node scripts/freeze-local-candidate.mjs 0.1.5-rc.2
+node scripts/verify-installed-candidate.mjs output/releases/0.1.5-rc.2/local-candidate.json <isolated-home> web <local-receipt.json>
 ```
 
 The freezer binds the committed source and refuses an existing artifact. Installation verification checks the manifest, archive identity and every installed file. Repeat for the separate Desktop profile and observe actual loading.

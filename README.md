@@ -10,13 +10,13 @@ English · [简体中文](README.zh-CN.md) · [Documentation](docs/README.md) ·
 
 DeepCanary adds a local task inbox to [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). It brings questions, approvals, failures and completion summaries together, applies quiet notification policies, and returns you to the relevant session.
 
-**Current development candidate: 0.1.5-rc.1.** Web development uses DSH 0.2.1-rc.1. Windows Desktop uses its latest available official build, currently 0.2.0-rc.2. This candidate is distributed locally as a tgz. The published npm version remains 0.1.4-rc.1, with its DSH 0.2.0-rc.2 baseline.
+**Current development candidate: 0.1.5-rc.2.** Web development uses DSH 0.2.1-rc.1. Windows Desktop uses its latest available official build, currently 0.2.0-rc.2. This candidate is distributed locally as a tgz. The published npm version remains 0.1.4-rc.1, with its DSH 0.2.0-rc.2 baseline.
 
 ![DeepCanary Inbox](assets/deepcanary-panel-en.png)
 
 ## Install the local candidate
 
-Obtain the built file `dsh-deepcanary-0.1.5-rc.1.tgz` and keep its supplied checksum with it.
+Obtain the built file `dsh-deepcanary-0.1.5-rc.2.tgz` and keep its supplied checksum with it.
 
 ### Desktop
 
@@ -28,7 +28,7 @@ Use DSH 0.2.1-rc.1 and an explicit Web profile:
 
 ```sh
 dsh --version
-dsh plugin --profile web add ./dsh-deepcanary-0.1.5-rc.1.tgz --registry=https://registry.npmjs.org/
+dsh plugin --profile web add ./dsh-deepcanary-0.1.5-rc.2.tgz --registry=https://registry.npmjs.org/
 dsh web
 ```
 
@@ -55,7 +55,7 @@ DSH profiles own their sessions and configuration. Save active work before chang
 ## Use
 
 1. Open **DeepCanary** from the DSH sidebar.
-2. In DSH Settings, select **Built-in plugins → DeepCanary** on Web 0.2.1, or **Plugins → DeepCanary** on Desktop 0.2.0, to set the notification level, hourly budget and quiet hours.
+2. In DSH Settings, select **Built-in plugins → DeepCanary** to set the notification level, hourly budget and quiet hours.
 3. Enable browser notifications when you want them, then run your tasks normally.
 4. Use an Inbox item's session action to return, inspect its evidence, snooze it or provide explicit feedback.
 

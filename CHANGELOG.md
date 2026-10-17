@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.5-rc.2 — local candidate, not published
+
+- Correct the Desktop settings instructions after device use confirmed the **Built-in plugins** page on both supported hosts.
+- Retain the RC1 runtime adaptation and awaited unload repair. RC1's frozen bytes remain available as the first local candidate.
+
 ## 0.1.5-rc.1 — local candidate, unpublished
 
 - Target released DSH 0.2.1-rc.1 for Web and the current official Windows Desktop build, 0.2.0-rc.2; declare supported hosts with engines.dsh.

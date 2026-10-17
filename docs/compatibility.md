@@ -2,7 +2,7 @@
 
 ## Current baseline
 
-DeepCanary **0.1.5-rc.1** is a local candidate. Web development uses published DSH **0.2.1-rc.1** packages. The official Windows Desktop update feed supplies **0.2.0-rc.2**, whose source is `639ed015397290b3745d163aafe02ffee4aa3f84`. `engines.dsh` declares these two versions. Runtime checks resolve the explicitly selected installation through `DSH_RUNTIME`.
+DeepCanary **0.1.5-rc.2** is a local candidate. Web development uses published DSH **0.2.1-rc.1** packages. The official Windows Desktop update feed supplies **0.2.0-rc.2**, whose source is `639ed015397290b3745d163aafe02ffee4aa3f84`. `engines.dsh` declares these two versions. Runtime checks resolve the explicitly selected installation through `DSH_RUNTIME`.
 
 | Surface | Coverage and scope |
 | --- | --- |
@@ -21,7 +21,7 @@ This is an RC. Default npm installation channels and automated checks do not est
 
 Use the official manager on Desktop and an explicit **web** profile with the CLI. Follow the [README](../README.md) commands. A successful installation can require a Host restart before the new module loads. Save active work first; confirm the runtime version and package identity after restart. Installation-file matching and active-module matching are separate checks.
 
-In DSH Settings, select **Built-in plugins → DeepCanary** on Web 0.2.1 or **Plugins → DeepCanary** on Desktop 0.2.0. Host configuration owns persistence. A revision conflict preserves the draft and the newer saved value. Discarding the draft reads a fresh basis for editing. Missing persistence capability or a communication failure is shown explicitly.
+In DSH Settings, select **Built-in plugins → DeepCanary**. Host configuration owns persistence. A revision conflict preserves the draft and the newer saved value. Discarding the draft reads a fresh basis for editing. Missing persistence capability or a communication failure is shown explicitly.
 
 ## Troubleshooting
 

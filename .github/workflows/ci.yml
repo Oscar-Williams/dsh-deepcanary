@@ -147,7 +147,7 @@ jobs:
             }
 
             const health = await page.request.get(new URL('/api/dsh-deepcanary/health', page.url()).href)
-            if (health.status() !== 200 || (await health.json()).plugin.version !== '0.1.5-rc.1') throw new Error('authenticated runtime identity mismatch')
+            if (health.status() !== 200 || (await health.json()).plugin.version !== '0.1.5-rc.2') throw new Error('authenticated runtime identity mismatch')
             const outcomes = await page.request.get(new URL('/api/dsh-deepcanary/outcomes', page.url()).href)
             if (outcomes.status() !== 200 || (await outcomes.json()).outcomeSchemaVersion !== 1) throw new Error('authenticated outcome route failed')
             const legacy = await page.request.get(new URL('/dsh-deepcanary/health', page.url()).href)
