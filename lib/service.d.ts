@@ -6,7 +6,7 @@ import { OutcomeStore } from './outcome.js';
 import { PersistentSupervisor } from './supervisor.js';
 import type { CanarySignal, DeepCanaryConfig, DryRunRequest, DryRunResult, FeedbackValue, InboxItem, PublicInboxItem, PublicSettings, PublicSnapshot, OutcomeReceipt, OutcomeDeleteFilter, OutcomeReceiptInput, RuntimeStatus, SuppressibleReasonCode } from './types.js';
 declare const PLUGIN_NAME = "dsh-deepcanary";
-declare const PLUGIN_VERSION = "0.1.4-rc.1";
+declare const PLUGIN_VERSION = "0.1.5-rc.1";
 interface ActionReceipt {
     status: number;
     body: Record<string, unknown>;
@@ -45,6 +45,7 @@ export declare class DeepCanaryService {
     private questionChain;
     private hydrated;
     private disposed;
+    private disposePromise;
     private started;
     private revision;
     private policyRestored;
@@ -112,6 +113,7 @@ export declare class DeepCanaryService {
     private hostProbeStatus;
     private refreshSupervisorHealth;
     dispose(): Promise<void>;
+    private finishDispose;
     private hydrate;
     private onSessionCreated;
     private onSessionDisposed;

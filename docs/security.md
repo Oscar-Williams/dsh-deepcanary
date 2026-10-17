@@ -28,6 +28,10 @@ C3 requires Host/runtime authority. Heuristic and model suggestions cannot indep
 
 The model-Judge gate permits only categorical facts, authority, counts, time buckets and rule results. Future offline use additionally requires bounded attempts, timeout/cancellation and enum-only output. Current release uses deterministic live policy.
 
+## Upgrade lifecycle
+
+Plugin unload uses a public Cordis effect that awaits pending profile-state and receipt writes. The replacement service reads committed state before reconciling current Host facts. Write failure retains its existing error reporting and cannot become a successful persistence claim.
+
 ## Deployment and reporting
 
 DSH owns the authentication and trust boundary. Deployments should preserve its admission checks and use protected transport where needed. Credentials remain with the Host's credential service. Desktop uses public renderer transport; signed application resources and private Electron APIs are outside plugin implementation.

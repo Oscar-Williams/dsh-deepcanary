@@ -2,9 +2,9 @@ import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readFile, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { loadRuntimeCheckout, rc020 } from './runtime-checkout.mjs'
+import { loadRuntime } from './runtime-checkout.mjs'
 
-const runtime = await loadRuntimeCheckout(process.env.DSH_020_RUNTIME, rc020)
+const runtime = await loadRuntime(process.env.DSH_RUNTIME)
 const { boot, initProfile, readProfilePatches } = await runtime.importPackage('@deepseek-ai/dsh-app-boot')
 const { default: ConfigEditor } = await runtime.importPackage('@deepseek-ai/dsh-config-editor')
 const { default: Settings } = await runtime.importPackage('@deepseek-ai/dsh-settings')

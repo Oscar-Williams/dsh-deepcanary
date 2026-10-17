@@ -60,7 +60,7 @@ import type {
 import { ATTENTION_POLICY_VERSION, ATTENTION_PROTOCOL_VERSION as PROTOCOL_VERSION, SUPPRESSIBLE_REASON_CODES } from './types.js'
 
 const PLUGIN_NAME = 'dsh-deepcanary'
-const PLUGIN_VERSION = '0.1.4-rc.1'
+const PLUGIN_VERSION = '0.1.5-rc.1'
 const SETTINGS_NAMESPACE = 'deepcanary'
 const DEFAULT_MUTE_MINUTES = 60
 const ORPHAN_GRACE_MS = 30_000
@@ -98,6 +98,7 @@ interface ContextLike {
   fiber?: { entry?: { options?: { id?: string } } }
   profileContext?: { name: string; dir: string; home: string }
   on?: (event: string, listener: (...args: any[]) => any) => unknown
+  effect?: (setup: () => () => Promise<void>, label?: string) => unknown
   inject?: (services: string[], callback: (ctx: any) => any) => unknown
   logger?: LoggerLike
 }
@@ -218,6 +219,7 @@ export class DeepCanaryService {
   private questionChain = Promise.resolve()
   private hydrated = false
   private disposed = false
+  private disposePromise: Promise<void> | undefined
   private started = false
   private revision = 0
   private policyRestored = false
@@ -270,7 +272,7 @@ export class DeepCanaryService {
       if (this.hostProbeInterval) clearInterval(this.hostProbeInterval)
       this.logger.error?.(`${PLUGIN_NAME}: state ownership validation failed; writes refused`)
     })
-    this.ctx.on?.call(this.ctx, 'dispose', () => { void this.dispose() })
+    this.ctx.effect?.(() => () => this.dispose(), 'deepcanary: pending state and timers')
 
     this.ctx.inject?.(['agents'], (agentCtx: any) => {
       agentCtx.on?.('agent/error', (payload: unknown) => {
@@ -1059,9 +1061,14 @@ export class DeepCanaryService {
     }
   }
 
-  async dispose(): Promise<void> {
-    if (this.disposed) return
+  dispose(): Promise<void> {
+    if (this.disposePromise !== undefined) return this.disposePromise
     this.disposed = true
+    this.disposePromise = this.finishDispose()
+    return this.disposePromise
+  }
+
+  private async finishDispose(): Promise<void> {
     this.adapterSubscription?.dispose()
     this.settingsSubscription?.()
     if (this.interval !== undefined) clearInterval(this.interval)

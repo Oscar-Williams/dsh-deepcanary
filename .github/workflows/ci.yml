@@ -41,11 +41,11 @@ jobs:
       - run: npm pack --dry-run
 
   host-contracts:
-    name: pinned DSH 0.2.0-rc.2 contracts
+    name: released DSH 0.2.1-rc.1 contracts
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      DSH_020_RUNTIME: ${{ github.workspace }}/.ci-dsh-source
+      DSH_RUNTIME: ${{ github.workspace }}/.ci-dsh-runtime
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v6
@@ -53,19 +53,14 @@ jobs:
           node-version: 24.19.0
           cache: npm
       - run: npm ci
-      - run: npm install --global pnpm@11.7.0
-      - run: git clone --depth 1 --branch dsh-v0.2.0-rc.2 https://github.com/deepseek-ai/deepseek-harness.git .ci-dsh-source
-      - run: pnpm install --frozen-lockfile
-        working-directory: .ci-dsh-source
-      - run: pnpm run build:lib
-        working-directory: .ci-dsh-source
-      - run: npm run typecheck:dsh020
-      - run: npm run adapter:dsh020
-      - run: npm run settings:dsh020
-      - run: npm run connection:dsh020
+      - run: npm install --prefix .ci-dsh-runtime --ignore-scripts --no-audit --no-fund @deepseek-ai/dsh@0.2.1-rc.1
+      - run: npm run typecheck:host
+      - run: npm run adapter:host
+      - run: npm run settings:host
+      - run: npm run connection:host
 
   browser-smoke:
-    name: DSH 0.2.0-rc.2 WebUI smoke
+    name: DSH 0.2.1-rc.1 WebUI smoke
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -78,12 +73,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - name: Install the pinned DSH 0.2.0-rc.2 runtime
+      - name: Install the released DSH 0.2.1-rc.1 runtime
         shell: bash
         run: |
           set -euo pipefail
-          npm install --global --no-audit --no-fund pnpm@11.7.0
-          npm install --global --prefix "$RUNNER_TEMP/dsh" --ignore-scripts --no-audit --no-fund @deepseek-ai/dsh@0.2.0-rc.2
+          npm install --global --no-audit --no-fund pnpm@11.28.5
+          npm install --global --prefix "$RUNNER_TEMP/dsh" --ignore-scripts --no-audit --no-fund @deepseek-ai/dsh@0.2.1-rc.1
           echo "$RUNNER_TEMP/dsh/bin" >> "$GITHUB_PATH"
           export PATH="$RUNNER_TEMP/dsh/bin:$PATH"
           dsh --version
@@ -103,7 +98,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          dsh --profile web --no-open --port 43135 > "$RUNNER_TEMP/dsh-web.log" 2>&1 &
+          dsh web --no-open --port 43135 > "$RUNNER_TEMP/dsh-web.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/dsh-web.pid"
           for _ in $(seq 1 60); do
             if grep -q '^dsh web: http' "$RUNNER_TEMP/dsh-web.log"; then
@@ -140,13 +135,19 @@ jobs:
             await welcome.getByRole('button', { name: /^(继续|continue)$/i }).click()
             await welcome.waitFor({ state: 'hidden', timeout: 15000 })
 
-            const credential = page.getByRole('dialog', { name: /Add an API key to get started|添加一个 API key 开始使用/i })
+            const credential = page.getByRole('dialog', { name: /Get started|开始使用/i })
             await credential.waitFor({ state: 'visible', timeout: 15000 })
-            await credential.getByRole('button', { name: /Configure later|稍后配置|later|skip|not now/i }).click()
+            await credential.getByRole('button', { name: /^(Close|关闭)$/i }).click()
             await credential.waitFor({ state: 'hidden', timeout: 15000 })
 
+            const apiKey = page.getByRole('dialog', { name: /Add an API key to get started|添加一个 API key 开始使用/i })
+            if (await apiKey.isVisible()) {
+              await apiKey.getByRole('button', { name: /Configure later|稍后配置/i }).click()
+              await apiKey.waitFor({ state: 'hidden', timeout: 15000 })
+            }
+
             const health = await page.request.get(new URL('/api/dsh-deepcanary/health', page.url()).href)
-            if (health.status() !== 200 || (await health.json()).plugin.version !== '0.1.4-rc.1') throw new Error('authenticated runtime identity mismatch')
+            if (health.status() !== 200 || (await health.json()).plugin.version !== '0.1.5-rc.1') throw new Error('authenticated runtime identity mismatch')
             const outcomes = await page.request.get(new URL('/api/dsh-deepcanary/outcomes', page.url()).href)
             if (outcomes.status() !== 200 || (await outcomes.json()).outcomeSchemaVersion !== 1) throw new Error('authenticated outcome route failed')
             const legacy = await page.request.get(new URL('/dsh-deepcanary/health', page.url()).href)
@@ -205,7 +206,7 @@ jobs:
             if (await panel.getByRole('status').count() !== 1) throw new Error('status live region missing')
             const triggerLabel = await trigger.getAttribute('aria-label')
             if (!triggerLabel || !/DeepCanary|注意力提醒/i.test(triggerLabel)) throw new Error('bilingual trigger label missing')
-            await page.screenshot({ path: 'output/playwright/ci-dsh020-forced-colors.png', animations: 'disabled' })
+            await page.screenshot({ path: 'output/playwright/ci-host-forced-colors.png', animations: 'disabled' })
             return { narrow, forcedColors: true, triggerLabel }
           }
           EOF
@@ -230,8 +231,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: dsh020-web-smoke-log
+          name: host-web-smoke-log
           path: |
             ${{ github.workspace }}/.ci-dsh-web-redacted.log
-            output/playwright/ci-dsh020-forced-colors.png
+            output/playwright/ci-host-forced-colors.png
           if-no-files-found: ignore

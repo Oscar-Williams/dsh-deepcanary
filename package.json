@@ -1,6 +1,6 @@
 {
   "name": "dsh-deepcanary",
-  "version": "0.1.4-rc.1",
+  "version": "0.1.5-rc.1",
   "description": "Know when your DeepSeek Harness tasks need you. Local alerts, quiet notifications, and a task inbox.",
   "type": "module",
   "repository": {
@@ -82,9 +82,6 @@
     "build": "node ./scripts/build.mjs",
     "build:alpha13": "node ./scripts/build.mjs --alpha13",
     "typecheck:alpha13": "node ./scripts/build.mjs --alpha13 --typecheck",
-    "typecheck:dsh020": "node ./scripts/build.mjs --dsh020 --typecheck",
-    "adapter:dsh020": "npm run build && node ./scripts/adapter-020-contract.mjs",
-    "settings:dsh020": "npm run build && node ./scripts/settings-020-contract.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "typecheck:tests": "tsc -p tsconfig.test.json --noEmit",
     "test": "vitest run",
@@ -113,7 +110,10 @@
     "gate:stable": "npm run build && node ./scripts/replay-attention-policy.mjs && node ./scripts/supervisor-smoke.mjs && node ./scripts/evaluate-stable-gates.mjs",
     "gates:report": "npm run gate:stable",
     "clean": "node ./scripts/clean.mjs",
-    "connection:dsh020": "npm run build && node ./scripts/connection-020-contract.mjs"
+    "typecheck:host": "node ./scripts/build.mjs --host --typecheck",
+    "adapter:host": "npm run build && node ./scripts/adapter-contract.mjs",
+    "settings:host": "npm run build && node ./scripts/settings-contract.mjs",
+    "connection:host": "npm run build && node ./scripts/connection-contract.mjs"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "*",
@@ -143,33 +143,35 @@
     }
   },
   "dependencies": {
-    "@deepseek-ai/schemastery": "3.18.4",
+    "@deepseek-ai/schemastery": "3.18.5",
     "js-yaml": "4.1.1"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "4.0.4",
-    "@deepseek-ai/dsh-agent": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-api-session-controller": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-client-connection": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-client-ui-session": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-client-ui-settings": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-client-ui-settings-plugins": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-client-ui-slots": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-host-webserver": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-session": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-settings": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-subagent": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-tools": "0.2.0-rc.2",
+    "@deepseek-ai/cordis": "4.0.5",
+    "@deepseek-ai/dsh-agent": "0.2.1-rc.1",
+    "@deepseek-ai/dsh-api-session-controller": "0.2.1-rc.1",
+    "@deepseek-ai/dsh-client-connection": "0.2.1-rc.1",
+    "@deepseek-ai/dsh-client-ui-session": "0.2.1-rc.1",
+    "@deepseek-ai/dsh-client-ui-settings": "0.2.1-rc.1",
+    "@deepseek-ai/dsh-client-ui-settings-plugins": "0.2.1-rc.1",
+    "@deepseek-ai/dsh-client-ui-slots": "0.2.1-rc.1",
+    "@deepseek-ai/dsh-host-webserver": "0.2.1-rc.1",
+    "@deepseek-ai/dsh-session": "0.2.1-rc.1",
+    "@deepseek-ai/dsh-settings": "0.2.1-rc.1",
+    "@deepseek-ai/dsh-subagent": "0.2.1-rc.1",
+    "@deepseek-ai/dsh-tools": "0.2.1-rc.1",
     "@types/js-yaml": "4.0.9",
     "@types/node": "^22.0.0",
     "@types/react": "^18.3.12",
     "esbuild": "^0.21.5",
     "react": "^18.3.1",
     "typescript": "^5.6.0",
-    "vitest": "^2.1.0"
+    "vitest": "^2.1.0",
+    "@deepseek-ai/schemastery": "3.18.5"
   },
   "engines": {
-    "node": ">=22.19.0"
+    "node": "^22.19.0 || >=24.0.0",
+    "dsh": "0.2.0-rc.2 || 0.2.1-rc.1"
   },
   "publishConfig": {
     "access": "public"

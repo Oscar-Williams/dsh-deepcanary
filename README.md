@@ -8,91 +8,84 @@
 
 English · [简体中文](README.zh-CN.md) · [Documentation](docs/README.md) · [Changelog](CHANGELOG.md)
 
-DeepCanary adds a local task inbox to [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). It brings questions, approvals, failures and completion summaries together, with quiet notification policies and a direct return to the relevant session.
+DeepCanary adds a local task inbox to [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). It brings questions, approvals, failures and completion summaries together, applies quiet notification policies, and returns you to the relevant session.
 
-**Version: 0.1.4-rc.1 · Host baseline: DSH 0.2.0-rc.2.** This is a release candidate. The npm `latest` and `next` channels both select this RC; their channel names describe installation defaults. See [compatibility and device coverage](docs/compatibility.md) for the supported scope.
+**Current development candidate: 0.1.5-rc.1.** Web development uses DSH 0.2.1-rc.1. Windows Desktop uses its latest available official build, currently 0.2.0-rc.2. This candidate is distributed locally as a tgz. The published npm version remains 0.1.4-rc.1, with its DSH 0.2.0-rc.2 baseline.
 
 ![DeepCanary Inbox](assets/deepcanary-panel-en.png)
 
-## Install
+## Install the local candidate
+
+Obtain the built file `dsh-deepcanary-0.1.5-rc.1.tgz` and keep its supplied checksum with it.
 
 ### Desktop
 
-Open DSH **Plugins**, use its official package installation control, and enter:
+Open DSH **Plugins → Add plugin**, select the local tgz through the official package manager, and follow the manager's activation instructions. Save active work before a requested restart. Desktop owns its profile and manages its packages through the application.
 
-```text
-dsh-deepcanary@0.1.4-rc.1
-```
+### WebUI
 
-Apply the change using the manager's enable/restart instructions. Save active work before restarting. Desktop manages its own reserved profile; use the application's manager for installation, update and removal.
-
-### WebUI with the DSH CLI
-
-Check that your installed host is DSH `0.2.0-rc.2`, then install into the **web** profile:
+Use DSH 0.2.1-rc.1 and an explicit Web profile:
 
 ```sh
 dsh --version
-dsh plugin --profile web add dsh-deepcanary@0.1.4-rc.1
-dsh --profile web
+dsh plugin --profile web add ./dsh-deepcanary-0.1.5-rc.1.tgz --registry=https://registry.npmjs.org/
+dsh web
 ```
 
-Open the authenticated URL printed by DSH. The fixed package version makes installation reproducible. You can also pass the downloaded `.tgz` from [GitHub Releases](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.4-rc.1) to `plugin add`. Use the official npm registry if a mirror has not synchronized the release.
-
-### Existing DSH source checkout
-
-From a built checkout at `dsh-v0.2.0-rc.2` (commit `639ed015397290b3745d163aafe02ffee4aa3f84`), run the checkout's CLI script:
+To run the host through npm, prefix each command with `npx --yes --package=@deepseek-ai/dsh@0.2.1-rc.1`. For example:
 
 ```sh
-npx --yes pnpm@11.7.0 run dsh plugin --profile web add dsh-deepcanary@0.1.4-rc.1
-npx --yes pnpm@11.7.0 run dsh --profile web
+npx --yes --package=@deepseek-ai/dsh@0.2.1-rc.1 dsh web
 ```
 
-Follow DSH's [source setup instructions](https://github.com/deepseek-ai/deepseek-harness/tree/dsh-v0.2.0-rc.2) to prepare that checkout. The plugin repository uses its own npm lockfile; its development commands are in [development](docs/development.md).
+Open the authenticated URL printed by DSH. A built source checkout can use its documented `pnpm dsh` entry. Use that checkout's own package manager version.
 
 ### Update and remove
 
-To update the Web profile, rerun the fixed-version installation command and follow DSH's reload instructions. To remove it:
+Use the official manager's update control when it offers one. An installation request for an already installed bundle can be refused by the current manager; remove that bundle through the manager before adding its replacement. Follow its applied/restart status and confirm the loaded version.
+
+The Web CLI forwards package operations to pnpm. To replace a local archive, run the fixed archive installation command and follow DSH's activation instructions. To remove the Web installation:
 
 ```sh
 dsh plugin --profile web remove dsh-deepcanary
 ```
 
-In a source checkout, use `npx --yes pnpm@11.7.0 run dsh plugin --profile web remove dsh-deepcanary`. Removal preserves the host profile, sessions and saved reminder data.
+DSH profiles own their sessions and configuration. Save active work before changing the owning host process.
 
 ## Use
 
 1. Open **DeepCanary** from the DSH sidebar.
-2. Configure it under **Settings → Plugins → DeepCanary**. Choose the notification level, hourly budget and quiet hours.
-3. Enable browser notifications if you want them, then run your tasks normally.
-4. Open an Inbox item to return to its session, inspect its evidence, snooze it or give explicit feedback.
+2. In DSH Settings, select **Built-in plugins → DeepCanary** on Web 0.2.1, or **Plugins → DeepCanary** on Desktop 0.2.0, to set the notification level, hourly budget and quiet hours.
+3. Enable browser notifications when you want them, then run your tasks normally.
+4. Use an Inbox item's session action to return, inspect its evidence, snooze it or provide explicit feedback.
 
 | Level | Meaning | Behavior |
 | --- | --- | --- |
-| C1 | Suggested check | Routine outcomes and completion summaries remain available in Inbox. |
-| C2 | Needs attention | Failures and possible stalls are evaluated against your notification policy. |
-| C3 | Immediate human attention | Requires authoritative Host/runtime evidence, including open human questions and approval boundaries. |
+| C1 | Suggested check | Routine outcomes and completion summaries remain in Inbox. |
+| C2 | Needs attention | Failures and possible stalls follow your notification policy. |
+| C3 | Immediate human attention | Requires authoritative evidence of an active question, approval or blocking condition. |
 
-Related events are grouped and deduplicated. Healthy long tools keep bounded progress grace; parallel tool completion updates that grace. Timed questions remain answerable after timeout, and accepted replies close their reminder. Completion summaries survive recovery and reload.
+Related events are grouped and deduplicated. Healthy long tools retain bounded progress grace. Timed questions remain answerable after timeout, and accepted replies close their reminder. Completion summaries survive recovery and reload. Stopped tasks retain their stopped state; fork history stays quiet.
 
-The resizable Inbox has opaque light/dark surfaces, keyboard controls and expandable evidence. Navigation uses DSH's public session-opening capability. When a target is unavailable, the item explains its availability and preserves the summary.
+The resizable Inbox has opaque light/dark surfaces, keyboard controls and expandable evidence. Navigation verifies the target in DSH's public session catalog. An unavailable target keeps its summary and explains its availability.
 
-Settings use DSH's revision-aware configuration service. A concurrent change produces a conflict while retaining your draft; discard and reread before editing against the current snapshot.
+Settings use the Host's revision-aware configuration service. A concurrent write produces a conflict and preserves the draft. Discarding the draft reads the current Host snapshot. Plugin replacement waits for pending reminder writes before the replacement starts reading state.
 
 ## Privacy
 
-Reminder state stays in the local profile. Stored fields are bounded metadata, hashed references, explicit feedback and the local session handle used for navigation. Conversation text, prompts, model output, tool arguments and API credentials remain outside captured reminder state.
+Reminder state stays in the local profile. Stored fields are bounded metadata, hashed references, explicit feedback and the local session handle needed for navigation. Conversation text, prompts, model output, tool arguments and credentials remain in their owning Host services.
 
-Plugin HTTP endpoints use DSH's authenticated shared API, with Host/Origin checks, bounded JSON input and sanitized errors. Feedback collection is optional. Open and acknowledge actions describe interaction; usefulness is supplied by explicit feedback. See [security](docs/security.md) and [feedback calibration](docs/feedback-calibration.md).
+HTTP endpoints use DSH's authenticated shared API, Host/Origin checks, bounded JSON input and sanitized errors. Feedback is optional. Usefulness comes from explicit feedback. See [security](docs/security.md) and [feedback calibration](docs/feedback-calibration.md).
 
-## Limits
+## Compatibility and limits
 
-- Notifications require the Host and renderer to remain running, browser permission and suitable OS settings. Operating-system delivery remains unknown until observed.
-- Desktop shares the deterministic core, settings and Inbox. Hidden-window notification wake-up and Toast click return require public Host support and device evidence; this RC provides the renderer notification path.
-- Windows WebUI is the current development and device-validation entry. Other operating systems have automated source coverage where CI runs; native delivery coverage is documented separately.
-- Supervisor remains experimental and disabled by default. Its local projection lasts while its owning Host process runs.
-- Natural feedback currently supports specific defect investigation. Cross-workday policy calibration and model Judge adoption retain their evidence gates; current live policy is deterministic.
+- Notifications require a running Host and renderer, browser permission and suitable OS settings. Device observations establish actual delivery and click behavior.
+- Desktop shares the core, settings and Inbox. Public third-party window wake and background notification capabilities remain unavailable in the current official Desktop baseline.
+- Windows WebUI and Desktop are the device targets. CI configuration also covers source checks on its named operating systems.
+- Supervisor is experimental and disabled by default. Its local projection lasts while the owning Host runs.
+- Natural feedback guides defect investigation. Policy calibration and selective Judge retain their evidence requirements; live decisions use deterministic rules.
 
-See [compatibility](docs/compatibility.md) for coverage and troubleshooting, [architecture](docs/architecture.md) for the implementation, and [contributing](CONTRIBUTING.md) to help improve it.
+See [compatibility](docs/compatibility.md), [development](docs/development.md), [architecture](docs/architecture.md) and [contributing](CONTRIBUTING.md).
 
 ## License
 

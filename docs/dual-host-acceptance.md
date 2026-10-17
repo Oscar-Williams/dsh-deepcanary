@@ -1,12 +1,13 @@
 # Web and Desktop verification
 
-DeepCanary 0.1.4-rc.1 targets official DSH 0.2.0-rc.2 at commit `639ed015397290b3745d163aafe02ffee4aa3f84`. Both surfaces use authenticated Connection Fetch routes, Host settings and the deterministic attention core. Each profile owns its state.
+DeepCanary 0.1.5-rc.1 uses released DSH 0.2.1-rc.1 for WebUI and the current official Windows Desktop build, 0.2.0-rc.2 (source `639ed015397290b3745d163aafe02ffee4aa3f84`). Both surfaces use authenticated Connection Fetch routes, Host settings and the deterministic attention core. Each profile owns its state.
 
 ## Development checks
 
 - Public Connection integration verifies authentication, trusted Host/Origin, bounded bodies, route disposal and removal of legacy endpoints.
 - Public Settings integration verifies revision conflicts, preserved drafts, discard, inherited values and reload. Only an accepted Host transaction counts as a save.
 - Session integration verifies authoritative questions, timeout degradation, answer closure and parallel long-tool progress.
+- A real Cordis plugin unload verifies pending state writes finish before replacement; cancellation, interruption and forked-history regressions preserve their distinct semantics.
 - Desktop official-manager installation and a cold restart load the new routes and synchronize the retained Inbox.
 - Completed-session navigation checks exact membership in the public client catalog before returning to retained history. Missing targets show an unavailable notice.
 - Web development uses an independent profile and port. Frozen-package installation and runtime observations are recorded separately in the release receipt.

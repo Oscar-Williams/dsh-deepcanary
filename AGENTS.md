@@ -2,7 +2,7 @@
 
 ## Scope
 
-0.1.4-rc.1 local development targets DSH `0.2.0-rc.2` at `639ed015397290b3745d163aafe02ffee4aa3f84`, with Cordis 4.0.4 and Schemastery 3.18.4. Use `typecheck:dsh020`, `adapter:dsh020`, and `settings:dsh020`; Web/Desktop installs consume the same frozen candidate but require independent device evidence. The alpha.5 build instructions below are historical RC6 lane instructions, not 0.1.4-rc.1 installation approval.
+0.1.5-rc.1 local development uses published DSH `0.2.1-rc.1` packages, with Cordis 4.0.5 and Schemastery 3.18.5. The current official Windows Desktop build is DSH `0.2.0-rc.2` at `639ed015397290b3745d163aafe02ffee4aa3f84`. Select the actual installation with `DSH_RUNTIME`; use `typecheck:host`, `adapter:host`, `settings:host` and `connection:host`. Web/Desktop consume the same frozen candidate and record the behavior of each actual Host. Publication and remote CI require explicit user authorization.
 
 dsh-deepcanary is a standalone DeepSeek Harness external bundle. Keep its DSH package conventions separate from Codex plugin manifests: this repository intentionally does not add .codex-plugin/plugin.json.
 
@@ -12,7 +12,7 @@ The implementation must preserve these boundaries:
 - A provider may summarize facts, but it must not copy prompts, model output, tool arguments, credentials, or transcript content into local state.
 - C3 requires authoritative Host or Runtime evidence.
 - User actions are limited to local metadata and navigation hints. Never add an automatic terminate, restart, approval, rejection, shell, or destructive tool.
-- Keep explicit runtime lanes: the historical RC.2 receipt uses official alpha.2 at its pinned commit; the current RC6 release line and published RC4/RC5 use official alpha.5 at tag `dsh-v0.1.2-alpha.5`, commit `db6bdc3576c2d4e7c965e8e3ed0c2a731eed87f5`; the independent compatibility canary uses official alpha.13 (`dsh-v0.1.3-alpha.1`) at commit `d347e703908d0406b7a7ef80e3a0e594d86b2215` from a local checkout. Never relabel one lane's evidence as another.
+- Historical receipts retain their exact plugin and Host identities. Current checks use the latest released runtime available for the affected surface.
 - Dogfood task intent is separate from capture provenance. User-facing review coverage counts only unique final delivery units with explicit visible-delivery evidence; review source/basis/confidence and unknown visibility remain explicit and never imply usefulness automatically.
 
 ## Commands
@@ -29,7 +29,7 @@ The implementation must preserve these boundaries:
     npm run benchmark:attention
     npm pack --dry-run
 
-For historical RC6 end-to-end reproduction, use the official alpha.5 checkout documented in `docs/compatibility.md`, verify `dsh --version` is `0.1.2-alpha.5`, install the current built package into the isolated web profile, run `dsh web`, and check HTTP 200 on the DeepCanary health route. Run `npm run compatibility:alpha13` only for the separate local alpha.13 compatibility canary after binding its exact runtime, profile, package, and sanitized UI evidence. Use the alpha.2 checkout only when reproducing the historical RC.2 receipt.
+For current device work, use the released runtime and commands in README and docs/development.md. The `/api/dsh-deepcanary/*` routes require Host authentication. Historical alpha scripts remain available for reproducing their original receipts.
 
 The repository tracks the built `lib/` output because DSH installs a public Git tag without running this repository's TypeScript toolchain. Every source change must therefore be followed by `npm run build`, and CI must fail if the committed `lib/` output is stale.
 

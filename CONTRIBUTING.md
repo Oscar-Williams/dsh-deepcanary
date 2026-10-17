@@ -4,7 +4,7 @@ Bug reports, focused pull requests, and translations are welcome. For a substant
 
 ## Development
 
-Use Node.js `22.19+` within the 22.x line, or `24+`, matching DSH's supported range. Dependencies are locked to the DSH `0.2.0-rc.2` compatibility baseline.
+Use Node.js `22.19+` within the 22.x line, or `24+`, matching DSH's supported range. Development dependencies are locked to published DSH `0.2.1-rc.1` packages. The current official Windows Desktop runtime is `0.2.0-rc.2`.
 
 ```sh
 npm ci

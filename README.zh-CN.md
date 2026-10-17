@@ -1,95 +1,88 @@
 # DeepCanary
 
-**任务正常时保持安静，需要你时及时提醒，返回后直达正确会话。**
+**任务安心运行，需要处理时及时提醒，回来后直接找到正确会话。**
 
 [English](README.md) · 简体中文 · [文档](docs/README.md) · [更新记录](CHANGELOG.md)
 
-DeepCanary 为 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 提供本地任务收件箱，将提问、审批、故障与完成摘要集中呈现，并通过提醒策略控制打扰频率。
+DeepCanary 为 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 提供本地任务收件箱，将提问、审批、异常和完成摘要集中呈现，并通过通知预算、合并与去重减少打扰。
 
-**版本：0.1.4-rc.1 · 宿主基线：DSH 0.2.0-rc.2。** 当前为候选版本。npm 的 `latest` 与 `next` 均选择本 RC，渠道名称表示默认安装入口。实际适用范围见[兼容性与设备覆盖](docs/compatibility.md)。
+**当前开发候选为 0.1.5-rc.1，以本地 tgz 提供。** Web 开发基线为 DSH 0.2.1-rc.1；Windows Desktop 使用当前官方可用的 0.2.0-rc.2。npm 已发布版本仍为 0.1.4-rc.1，其宿主基线为 DSH 0.2.0-rc.2。
 
 ![DeepCanary 收件箱](assets/deepcanary-panel-zh.png)
 
-## 安装
+## 安装本地候选
 
-### 桌面应用
+准备构建好的 `dsh-deepcanary-0.1.5-rc.1.tgz`，保留随包提供的校验值。
 
-打开 DSH **插件**，使用官方包安装控件，输入：
+### Desktop
 
-```text
-dsh-deepcanary@0.1.4-rc.1
-```
+在 DSH 的“插件 → 添加插件”中通过官方管理器选择本地 tgz，按界面提示启用。需要重启时先保存进行中的工作。桌面版通过应用管理自己的 profile 与插件。
 
-按照管理器提示启用或重启；重启前保存正在进行的工作。桌面应用维护自己的专用 profile，安装、更新和卸载均优先使用应用内管理器。
+### WebUI
 
-### 使用 DSH CLI 的 WebUI
-
-核对已安装的宿主为 `0.2.0-rc.2`，然后安装到 **web** profile：
+使用 DSH 0.2.1-rc.1，在明确的 Web profile 中安装：
 
 ```sh
 dsh --version
-dsh plugin --profile web add dsh-deepcanary@0.1.4-rc.1
-dsh --profile web
+dsh plugin --profile web add ./dsh-deepcanary-0.1.5-rc.1.tgz --registry=https://registry.npmjs.org/
+dsh web
 ```
 
-打开 DSH 打印的认证地址。固定版本便于复现安装；也可将 [GitHub Releases](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.4-rc.1) 下载的 `.tgz` 路径传给 `plugin add`。镜像尚未同步时使用官方 npm registry。
-
-### 已构建的 DSH 源码检出
-
-在 `dsh-v0.2.0-rc.2`、提交 `639ed015397290b3745d163aafe02ffee4aa3f84` 的已构建检出中运行：
+通过 npm 运行宿主时，可以在每条命令前加 `npx --yes --package=@deepseek-ai/dsh@0.2.1-rc.1`。例如：
 
 ```sh
-npx --yes pnpm@11.7.0 run dsh plugin --profile web add dsh-deepcanary@0.1.4-rc.1
-npx --yes pnpm@11.7.0 run dsh --profile web
+npx --yes --package=@deepseek-ai/dsh@0.2.1-rc.1 dsh web
 ```
 
-源码环境准备遵循 [DSH 官方说明](https://github.com/deepseek-ai/deepseek-harness/tree/dsh-v0.2.0-rc.2)。插件仓库使用独立 npm 锁文件，维护命令见[开发文档](docs/development.md)。
+打开 DSH 输出的认证地址。已构建的源码检出可使用其文档规定的 `pnpm dsh` 入口，并遵循该检出的包管理器版本。
 
 ### 更新与卸载
 
-更新 Web profile 时重新执行固定版本安装命令，并遵循宿主加载提示。卸载命令为：
+优先使用官方管理器提供的更新操作。当前管理器可能拒绝重复安装已存在的组合包；此时先在管理器中移除该包，再安装替换包。按实际生效或重启提示处理，并确认加载版本。
+
+Web CLI 将包操作转交 pnpm。更换本地压缩包时重新执行对应安装命令，并按 DSH 的生效提示处理。卸载 Web profile 中的插件：
 
 ```sh
 dsh plugin --profile web remove dsh-deepcanary
 ```
 
-源码检出使用 `npx --yes pnpm@11.7.0 run dsh plugin --profile web remove dsh-deepcanary`。卸载保留宿主 profile、会话和已有提醒数据。
+会话和配置由 DSH profile 管理。改变宿主进程前先保存当前工作。
 
 ## 使用
 
-1. 在侧边栏打开 **DeepCanary**。
-2. 在 **设置 → 插件 → DeepCanary** 配置提醒等级、每小时预算和静默时段。
-3. 按需开启浏览器通知，然后正常执行任务。
-4. 从收件箱返回相关会话，查看证据、稍后提醒或提交明确反馈。
+1. 从 DSH 侧栏打开 **DeepCanary**。
+2. 在 DSH 设置中选择 DeepCanary：Web 0.2.1 的入口为“内置插件”，Desktop 0.2.0 为“插件”。在这里调整提醒级别、每小时打断预算和静默时段。
+3. 按需启用浏览器通知，然后正常运行任务。
+4. 从收件箱返回对应会话、查看依据、稍后处理或提供明确反馈。
 
-| 等级 | 含义 | 行为 |
+| 级别 | 含义 | 行为 |
 | --- | --- | --- |
-| C1 | 建议查看 | 常规结果与完成摘要保留在收件箱。 |
-| C2 | 需要处理 | 故障与可能停滞按通知策略判断。 |
-| C3 | 立即处理 | 需要 Host/runtime 权威事实，包括开放的人类问题与审批边界。 |
+| C1 | 建议查看 | 正常结果和完成摘要保留在收件箱 |
+| C2 | 需要关注 | 异常和可能的停滞按策略提醒 |
+| C3 | 需要及时处理 | 活跃提问、审批或阻塞须有宿主权威事实 |
 
-相关事件合并并去重；健康长工具获得有界进展宽限，并行工具完成后及时重算。异步问题超时后仍可回答，接纳答案后提醒闭合。完成摘要在恢复和重载后保留。
+相关事件会合并并去重。健康长工具享有有界进展宽限；异步问题超时后仍可回答，宿主正式接纳答案后闭合。完成摘要在恢复和重载后保留。停止任务保留其状态，分叉历史保持安静。
 
-收件箱支持不透明亮暗主题、尺寸调整、键盘操作和展开证据。返回功能使用 DSH 公开会话接口；目标失效时明确显示可用性并保留摘要。
+面板使用不透明的深浅色表面，支持缩放、键盘及展开依据。返回操作通过 DSH 的公开会话目录确认目标。目标失效时保留摘要并说明当前可用性。
 
-设置通过宿主 revision 保护并发修改。发生冲突时保留草稿；放弃修改并重新读取后，可基于当前快照继续编辑。
+设置通过宿主配置服务持久化。并发修改产生冲突时保留草稿，放弃草稿后读取当前宿主值。插件替换会等待提醒状态写入结束，随后再读取新实例状态。
 
 ## 隐私
 
-提醒状态保留在本地 profile，仅保存有界元数据、哈希引用、明确反馈和导航所需的本地会话句柄。会话原文、提示词、模型输出、工具参数和 API 凭据不进入采集的提醒状态。
+提醒状态保存在本地 profile，仅包含有界元数据、哈希引用、明确反馈和必要的本地会话导航句柄。会话原文、提示词、模型输出、工具参数和凭据由原有宿主服务管理。
 
-插件 HTTP 接口继承宿主共享 API 的认证、Host/Origin 防护，限制 JSON 大小并使用脱敏错误响应。反馈采集可选；打开和确认记录交互，提醒有用性由明确反馈提供。详见[安全](docs/security.md)与[反馈校准](docs/feedback-calibration.md)。
+HTTP 接口继承宿主认证及 Host/Origin 检查，限制 JSON 大小并使用脱敏错误。反馈按需提供，提醒是否有用由明确反馈表达。详见[安全说明](docs/security.md)和[反馈校准](docs/feedback-calibration.md)。
 
-## 适用范围
+## 兼容性与限制
 
-- 通知依赖 Host 与渲染页面运行、浏览器授权及系统设置。操作系统投递结果在实际观察前保持未知。
-- Desktop 共用确定性核心、设置及收件箱。隐藏窗口通知唤回与 Toast 点击返回依赖公开宿主能力和设备证据；本 RC 提供渲染器通知路径。
-- 当前开发与设备验证入口为 Windows WebUI。CI 所在平台具有自动化源码覆盖，原生通知覆盖独立说明。
-- Supervisor 保持实验状态、默认关闭，其本地投影随所属 Host 进程运行。
-- 自然反馈用于具体缺陷调查；跨工作日策略校准与模型 Judge 继续遵循证据门槛，当前实时策略保持确定性。
+- 通知依赖持续运行的宿主和渲染页面、浏览器权限及操作系统设置；实际送达和点击结果需要设备观察。
+- 桌面端共用核心、设置和收件箱。当前官方桌面基线尚未提供第三方插件可调用的窗口唤回与后台通知能力。
+- 本轮设备目标为 Windows WebUI 与 Desktop；CI 配置同时覆盖其列出的系统源码检查。
+- Supervisor 为实验能力，默认关闭，其本地投影随所属宿主进程运行。
+- 自然反馈用于具体缺陷调查；策略校准和选择性 Judge 按证据条件推进，实时判断采用确定性规则。
 
-[兼容性](docs/compatibility.md)说明覆盖范围与排查方式，[架构](docs/architecture.md)说明实现，[贡献指南](CONTRIBUTING.md)说明维护流程。
+更多信息见[兼容说明](docs/compatibility.md)、[开发](docs/development.md)、[架构](docs/architecture.md)和[参与贡献](CONTRIBUTING.md)。
 
 ## 许可证
 
-[MIT](LICENSE)。基于 DeepSeek Harness 公开插件接口构建。
+[MIT](LICENSE)。通过 DeepSeek Harness 的公开插件接口构建。

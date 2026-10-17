@@ -6,17 +6,17 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { version as esbuildVersion } from 'esbuild'
-import { loadRuntimeCheckout, runtimeTypePaths, rc020 } from './runtime-checkout.mjs'
+import { loadRuntime, loadRuntimeCheckout, runtimeTypePaths } from './runtime-checkout.mjs'
 import { verifyEnvironment } from './verify-environment.mjs'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 await verifyEnvironment(root)
 const run = promisify(execFile)
 const runtimeMode = process.argv.includes('--alpha13')
-const rc020Mode = process.argv.includes('--dsh020')
+const rc020Mode = process.argv.includes('--host')
 if (runtimeMode && rc020Mode) throw new Error('Select only one explicit runtime lane.')
 const checkOnly = process.argv.includes('--typecheck')
-const runtime = rc020Mode ? await loadRuntimeCheckout(process.env.DSH_020_RUNTIME, rc020)
+const runtime = rc020Mode ? await loadRuntime(process.env.DSH_RUNTIME)
   : runtimeMode ? await loadRuntimeCheckout(process.env.DSH_ALPHA13_RUNTIME) : undefined
 const packageJson = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'))
 const lockfile = JSON.parse(await readFile(path.join(root, 'package-lock.json'), 'utf8'))
@@ -47,7 +47,7 @@ async function digestTree(directory) {
 
 const input = createHash('sha256').update(await digestTree(path.join(root, 'src')))
 for (const file of ['tsconfig.json', 'package-lock.json', 'scripts/build.mjs', 'scripts/build-client.mjs', 'scripts/runtime-checkout.mjs', 'scripts/verify-environment.mjs']) input.update(await readFile(path.join(root, file)))
-input.update(JSON.stringify({ version: packageJson.version, dependencies: packageJson.dependencies, devDependencies: packageJson.devDependencies, buildTools, runtime: runtime?.commit ?? 'npm-type-floor' }))
+input.update(JSON.stringify({ version: packageJson.version, dependencies: packageJson.dependencies, devDependencies: packageJson.devDependencies, buildTools, runtime: runtime?.version ?? 'npm-type-floor' }))
 const inputHash = input.digest('hex')
 const stampPath = path.join(root, 'output/build/stamp.json')
 const stamp = await readFile(stampPath, 'utf8').then(JSON.parse).catch(() => undefined)

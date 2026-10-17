@@ -17,7 +17,9 @@ C3 requires authoritative Host/runtime evidence. Child-agent count alone reaches
 
 ## Host contracts
 
-The release baseline is DSH 0.2.0-rc.2 at `639ed015397290b3745d163aafe02ffee4aa3f84`. Session startup subscribes before reconciliation, buffers events, merges sequence-aware duplicates and tracks authoritative active-set convergence. Missing authority remains degraded rather than closing pending work speculatively.
+Web development uses released DSH 0.2.1-rc.1; current official Windows Desktop uses 0.2.0-rc.2. Session startup subscribes before reconciliation, buffers events, merges sequence-aware duplicates and tracks authoritative active-set convergence. Missing authority leaves pending work open until a public fact resolves it.
+
+The service registers cleanup through the public Cordis `ctx.effect()` contract. Unloading removes subscriptions and timers, then awaits pending metadata, outcome and capture writes. Repeated disposal awaits the same completion. A replacement instance reads the committed state before reconciliation. Completed sessions retain their summaries; aborted and interrupted sessions retain explicit outcome semantics, and forked history stays quiet until it represents new work.
 
 Configuration uses Host ConfigForm mutation with the original draft revision, volatile snapshots and profile-isolated state. Dirty drafts retain their revision across remote refresh. Conflicts preserve the draft; discard and successful save reread Host state. Legacy settings migration uses the same Host service and preserves the original source on failure.
 

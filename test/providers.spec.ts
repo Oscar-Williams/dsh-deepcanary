@@ -5,6 +5,18 @@ const session = { id: 'session-1', header: { cwd: 'C:\\work' } }
 const facts = { toolFailures: 3, activeSubagents: 0, lastEventAt: 1_000, startedAt: 1_000 }
 
 describe('runtime providers', () => {
+  it.each(['aborted', 'interrupted'])('retains %s as a stopped task rather than a completion', reason => {
+    expect(signalsFromSessionEvent(session, {
+      type: 'turn/end', seq: 5, time: 2_000, data: { reason: { kind: reason } },
+    }, facts)).toMatchObject([{ kind: 'TASK_ABORTED', severityHint: 2 }])
+  })
+
+  it('keeps a fork-history closer quiet', () => {
+    expect(signalsFromSessionEvent(session, {
+      type: 'turn/end', seq: 5, time: 2_000, data: { reason: { kind: 'forked' } },
+    }, facts)).toEqual([])
+  })
+
   it('converts DSH turn and tool facts into stable signals', () => {
     expect(signalsFromSessionEvent(session, { type: 'turn/end', seq: 4, time: 2_000, data: { reason: 'blocked' } }, facts)[0]).toMatchObject({ kind: 'HUMAN_QUESTION_PENDING', source: 'session' })
     expect(signalsFromSessionEvent(session, { type: 'tool/result', seq: 5, time: 2_100, data: { error: { code: 'EFAIL' } } }, facts)[0]).toMatchObject({ kind: 'TOOL_FAILURE_LOOP', source: 'tool' })

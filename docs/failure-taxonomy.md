@@ -100,7 +100,7 @@ These conditions yield `requires-feasibility-review`, not permission to call a m
 
 Delivery-plane failures (`sink-error`, `dropped-event`) and task-plane outcomes (`TASK_FAILED`, `TASK_ABORTED`, `provider-error`) are recorded but are not Judge candidates. When no case qualifies, the entry is `not-entered` with the reason `no-natural-qualified-run-with-a-confirmed-rule-hard-case`. No empty Judge module, placeholder rule, or stub file is written.
 
-## Current corpus status
+## Historical corpus snapshot
 
 An audit of the sanitized bundles already stored under `output/dogfood` (top level only) produced, at the time of writing:
 
@@ -110,7 +110,7 @@ An audit of the sanitized bundles already stored under `output/dogfood` (top lev
 - 3 observations with review material (1 review label and 2 explicit user feedback values), 0 of them qualified because no `reviewSource`/`reviewBasis` was stored;
 - `judgeEntry: "not-entered"`.
 
-These numbers describe local sanitized evidence only. They are not a claim that natural samples are sufficient, that the metric cohort is representative, or that independent real user feedback exists. The repository has no verified natural-run cohort and no qualified review coverage at this point.
+These numbers describe the original local sanitized-source audit. The later source-attribution audit in [current offline evaluation](offline-evaluation.md) has one qualified natural run, which remains insufficient for calibration.
 
 ## Usage
 

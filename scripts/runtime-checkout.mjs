@@ -3,10 +3,40 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { createRequire } from 'node:module'
 
 export const alpha13 = { version: '0.1.3-alpha.1', tag: 'dsh-v0.1.3-alpha.1', commit: 'd347e703908d0406b7a7ef80e3a0e594d86b2215' }
 export const rc020 = { version: '0.2.0-rc.2', tag: 'dsh-v0.2.0-rc.2', commit: '639ed015397290b3745d163aafe02ffee4aa3f84' }
 const run = promisify(execFile)
+
+/** Load the selected released runtime, from an npm installation or a source checkout. */
+export async function loadRuntime(root) {
+  if (!root) throw new Error('Set DSH_RUNTIME to the selected installed runtime or built source checkout.')
+  root = path.resolve(root)
+  const manifest = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'))
+  if (manifest.name === '@deepseek-ai/dsh-root') {
+    if (manifest.version !== rc020.version) throw new Error('Select a published runtime installation for this host version.')
+    return loadRuntimeCheckout(root, rc020)
+  }
+  const require = createRequire(path.join(root, 'package.json'))
+  const anchor = require.resolve('@deepseek-ai/dsh/package.json')
+  const host = JSON.parse(await readFile(anchor, 'utf8'))
+  if (!['0.2.0-rc.2', '0.2.1-rc.1'].includes(host.version)) throw new Error('Unsupported runtime version; update the declared host contract first.')
+  const hostRequire = createRequire(anchor)
+  const packages = new Map()
+  const scoped = await readdir(path.join(root, 'node_modules', '@deepseek-ai'), { withFileTypes: true })
+    .catch(() => [])
+  for (const name of new Set(['@deepseek-ai/dsh', ...Object.keys(host.dependencies ?? {}), ...scoped.map(row => `@deepseek-ai/${row.name}`)])) {
+    try {
+      const file = hostRequire.resolve(`${name}/package.json`)
+      packages.set(name, { directory: path.dirname(file), manifest: JSON.parse(await readFile(file, 'utf8')) })
+    } catch { /* Not all transitive packages publish metadata subpaths. */ }
+  }
+  return {
+    root, version: host.version, packages,
+    importPackage: async name => import(pathToFileURL(hostRequire.resolve(name)).href),
+  }
+}
 
 export async function loadRuntimeCheckout(root, pin = alpha13) {
   if (!root) throw new Error(`Set the runtime path to the built official ${pin.version} checkout.`)

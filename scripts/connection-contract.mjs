@@ -3,11 +3,11 @@ import assert from 'node:assert/strict'
 import { mkdtemp, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { loadRuntimeCheckout, rc020 } from './runtime-checkout.mjs'
+import { loadRuntime } from './runtime-checkout.mjs'
 import { installWebRoutes } from '../lib/web.js'
 import { DeepCanaryService } from '../lib/service.js'
 
-const runtime = await loadRuntimeCheckout(process.env.DSH_020_RUNTIME, rc020)
+const runtime = await loadRuntime(process.env.DSH_RUNTIME)
 const { Context } = await runtime.importPackage('@deepseek-ai/cordis')
 const { CredentialProvider } = await runtime.importPackage('@deepseek-ai/dsh-credentials')
 const { default: WebServer } = await runtime.importPackage('@deepseek-ai/dsh-host-webserver')
@@ -48,7 +48,7 @@ try {
   const headers = { cookie }
   const response = await fetch(health, { headers })
   assert.equal(response.status, 200)
-  assert.equal((await response.json()).plugin.version, '0.1.4-rc.1')
+  assert.equal((await response.json()).plugin.version, JSON.parse(await (await import('node:fs/promises')).readFile(new URL('../package.json', import.meta.url), 'utf8')).version)
   checks.authenticatedVersion = true
   assert.equal((await fetch(health, { headers: { ...headers, origin: 'https://untrusted.example' } })).status, 403)
   const untrustedHost = await new Promise((resolve, reject) => {

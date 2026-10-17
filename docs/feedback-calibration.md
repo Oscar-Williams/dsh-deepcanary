@@ -1,6 +1,6 @@
-# Feedback and offline calibration — 0.1.4-rc.1
+# Feedback and offline calibration — 0.1.5-rc.1
 
-The product goal is timely help when a task needs a person, quiet healthy work and return to the correct session. This iteration repairs the existing evidence chain instead of adding new product entry points.
+The product goal is timely help when a task needs a person, quiet healthy work and return to the correct session. The evidence chain supports factual repairs, lifecycle recovery and deliberate policy changes. The current lifecycle case is documented in [offline evaluation](offline-evaluation.md).
 
 ## Source and ownership
 
@@ -24,6 +24,6 @@ A confirmed rule-hard natural case is only screening evidence (`requires-feasibi
 
 If entry later becomes justified, use the public DSH LLM service: at most 20 attempts, concurrency 1, 256 output tokens and an eight-second end-to-end deadline including cancellation. Input permits event categories, authority, counts, time buckets and rule results only. Accept enum/unknown output only. Judge cannot create C3, weaken Human Needed or change live policy. Benefits must survive independent comparison; otherwise leave it offline.
 
-Pinned DSH 0.2.0-rc.2 has no published third-party Desktop notification/window-wake/background bridge. Existing renderer notifications and `uiWorkspace.openSession()` remain. Hidden-window Toast return and fully exited background notifications are not guaranteed. Revisit only a released public interface and an actual need; do not patch Electron, EXE/asar or build a second desktop process/inbox.
+The current official Windows Desktop, DSH 0.2.0-rc.2, has no published third-party notification/window-wake/background bridge. Existing renderer notifications and `uiWorkspace.openSession()` support the documented running-renderer lifecycle. Revisit bridging when a released public interface serves an actual need.
 
 Windows WebUI in the existing default Edge is the development entry. Desktop device validation is required only for public bridge adoption or relevant common-code changes. Publishing uses explicit authorization and the CI/frozen-byte checks in the release checklist.

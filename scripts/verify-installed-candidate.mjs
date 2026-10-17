@@ -3,6 +3,7 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import path from 'node:path'
 import { tarEntries } from './release-artifact.mjs'
+import { loadRuntime } from './runtime-checkout.mjs'
 const [candidateReceipt, home, profile, output] = process.argv.slice(2)
 if (!candidateReceipt || !home || !['web', 'desktop'].includes(profile)) throw new Error('Usage: node verify-installed-candidate.mjs <local-candidate.json> <home> <web|desktop> [receipt]')
 const frozen = JSON.parse(await readFile(candidateReceipt, 'utf8'))
@@ -19,6 +20,7 @@ const manifest = JSON.parse(entries.get('package.json').toString('utf8'))
 assert.equal(manifest.name, 'dsh-deepcanary')
 assert.equal(manifest.version, frozen.pluginVersion)
 for (const [file, expected] of entries) assert.ok((await readFile(path.join(install, file))).equals(expected), `Installed file differs: ${file}`)
-const receipt = { schemaVersion: 1, observedAt: new Date().toISOString(), surface: profile, home: path.resolve(home), profile, hostVersion: frozen.hostVersion, hostCommit: frozen.hostCommit, pluginVersion: manifest.version, artifact, sha256, installedFilesMatched: entries.size, packageInstallation: 'verified-byte-for-byte', deviceBehavior: 'not-implied-by-installation', publication: 'not-performed' }
+const runtime = process.env.DSH_RUNTIME ? await loadRuntime(process.env.DSH_RUNTIME) : undefined
+const receipt = { schemaVersion: 1, observedAt: new Date().toISOString(), surface: profile, home: path.resolve(home), profile, hostVersion: runtime?.version ?? null, hostCommit: runtime?.commit ?? null, buildHostVersion: frozen.hostVersion, buildHostCommit: frozen.hostCommit ?? null, pluginVersion: manifest.version, artifact, sha256, installedFilesMatched: entries.size, packageInstallation: 'verified-byte-for-byte', deviceBehavior: 'not-implied-by-installation', publication: 'not-performed' }
 if (output) await writeFile(output, JSON.stringify(receipt, null, 2) + '\n')
 console.log(JSON.stringify(receipt, null, 2))

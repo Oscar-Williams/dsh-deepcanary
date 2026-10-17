@@ -2,12 +2,12 @@
 
 ## Current baseline
 
-DeepCanary **0.1.4-rc.1** targets the published DSH **0.2.0-rc.2**, tag `dsh-v0.2.0-rc.2`, commit `639ed015397290b3745d163aafe02ffee4aa3f84`. Runtime contracts and dependencies are checked against this pin. Future host versions require their own compatibility evidence.
+DeepCanary **0.1.5-rc.1** is a local candidate. Web development uses published DSH **0.2.1-rc.1** packages. The official Windows Desktop update feed supplies **0.2.0-rc.2**, whose source is `639ed015397290b3745d163aafe02ffee4aa3f84`. `engines.dsh` declares these two versions. Runtime checks resolve the explicitly selected installation through `DSH_RUNTIME`.
 
 | Surface | Coverage and scope |
 | --- | --- |
 | Deterministic core | Human Needed authority, C3 boundaries, parallel long tools, recovery, deduplication, completion summaries and notification arbitration have regression coverage. |
-| Host integration | Public Session/question projection, revision-aware Settings and authenticated Connection Fetch contracts use the pinned source. |
+| Host integration | Public Session/question projection, revision-aware Settings and authenticated Connection Fetch contracts use the selected released runtime. Public Cordis effects await state writes during plugin replacement. |
 | Windows WebUI / Edge | Current development entry; authenticated communication, loading, settings and Inbox presentation receive device checks for this release. |
 | Windows Desktop | Shared core and public same-origin renderer communication; targeted loading/settings/navigation checks accompany common-code changes. |
 | Native Windows notifications | Permission, OS settings and Host/renderer lifecycle affect delivery. Toast visibility, Notification Center retention and real click return require device observations for the exact package. |
@@ -21,7 +21,7 @@ This is an RC. Default npm installation channels and automated checks do not est
 
 Use the official manager on Desktop and an explicit **web** profile with the CLI. Follow the [README](../README.md) commands. A successful installation can require a Host restart before the new module loads. Save active work first; confirm the runtime version and package identity after restart. Installation-file matching and active-module matching are separate checks.
 
-Settings live under **Settings → Plugins → DeepCanary**. Host configuration owns persistence. A revision conflict preserves the draft and the newer saved value. Discarding the draft reads a fresh basis for editing. Missing persistence capability or a communication failure is shown explicitly.
+In DSH Settings, select **Built-in plugins → DeepCanary** on Web 0.2.1 or **Plugins → DeepCanary** on Desktop 0.2.0. Host configuration owns persistence. A revision conflict preserves the draft and the newer saved value. Discarding the draft reads a fresh basis for editing. Missing persistence capability or a communication failure is shown explicitly.
 
 ## Troubleshooting
 
@@ -42,4 +42,4 @@ Historical receipts retain their original package and host identities. They prov
 | 0.1.2-rc.1 / rc.2 | Local DSH 0.2 migration, revision-fenced settings and parallel-tool repair. |
 | 0.1.3-rc.1 | Local feedback/source-chain, evaluation and opaque Inbox iteration. |
 
-Historical alpha.13 script names refer to DSH `0.1.3-alpha.1`, commit `d347e703908d0406b7a7ef80e3a0e594d86b2215`. Current release commands use the 0.2 lane.
+Historical alpha.13 script names refer to DSH `0.1.3-alpha.1`, commit `d347e703908d0406b7a7ef80e3a0e594d86b2215`. Current development commands use the released runtime selected through `DSH_RUNTIME`.

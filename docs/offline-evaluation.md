@@ -1,8 +1,17 @@
-# Offline evaluation for 0.1.4-rc.1
+# Offline evaluation for 0.1.5-rc.1
 
-The current release improves factual and lifecycle behavior while retaining the deterministic policy baseline. The frozen replay suite passes **12 of 12 cases**, with **zero policy differences**. Source and regression checks pass **210 tests**.
+The current candidate improves Host lifecycle reliability while retaining the deterministic policy baseline. All **214 tests** pass, including actual Cordis unload and task-outcome regressions. The frozen replay suite passes **12 of 12 cases**, with **zero policy differences**. Local candidate receipts record the final package identity and device observations.
 
-## Evidence scope
+## Current case and repair
+
+| Case | Observation and cause | Repair and reproduction |
+| --- | --- | --- |
+| Pending reminder state during plugin replacement | A real Cordis fiber unload completed while a gated metadata write was still pending. The service used an obsolete public-event assumption for teardown. A replacement could read stale reminder state. | A public `ctx.effect()` disposer now returns and awaits the complete cleanup promise. `test/lifecycle.spec.ts` blocks the real store write, proves unload remains pending, releases it and verifies the replacement restores the completion summary. |
+| Stopped and forked session semantics | Published session outcomes distinguish aborted/interrupted work from completed work and forked history. Existing providers already follow those facts. | `test/providers.spec.ts` protects C2 stopped outcomes and quiet fork history. These checks preserve existing policy. |
+
+The replacement failure is an engineering-confirmed persistence and recovery defect. It supplies a reproducible lifecycle case. It adds no natural task or user-usefulness count. Its repair changes lifecycle correctness; policy calibration remains subject to the evidence conditions below.
+
+## Retained evidence scope
 
 The local sanitized-source audit inspected 27 inputs: 16 valid capture records and 11 other reports. Deduplication produced 15 runs and 132 observations, including one source-qualified natural run. Eight duplicate records were excluded and no identity conflict remained. One task-failure case awaits review; no confirmed reminder-failure case establishes a threshold change.
 

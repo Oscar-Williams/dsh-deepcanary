@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.5-rc.1 — local candidate, unpublished
+
+- Target released DSH 0.2.1-rc.1 for Web and the current official Windows Desktop build, 0.2.0-rc.2; declare supported hosts with engines.dsh.
+- Await pending reminder persistence during plugin teardown using the public Cordis effect lifecycle. Repeated disposal shares its completion, so replacement reads settled state.
+- Exercise stopped and forked turn semantics, settings revisions, question recovery and authenticated transport against the selected runtime.
+- Refresh local-candidate installation, manager update guidance, development checks and workspace entry points.
+
+
 ## 0.1.4-rc.1
 
 - Protect all HTTP contributions through DSH's public authenticated Connection API; remove the legacy direct routes. Bound streaming JSON writes at 32,000 bytes and sanitize error responses.

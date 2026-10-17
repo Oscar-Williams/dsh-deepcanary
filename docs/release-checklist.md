@@ -14,16 +14,16 @@ npm run verify:environment
 npm run typecheck
 npm run typecheck:tests
 npm test
-npm run typecheck:dsh020
-npm run adapter:dsh020
-npm run settings:dsh020
-npm run connection:dsh020
+npm run typecheck:host
+npm run adapter:host
+npm run settings:host
+npm run connection:host
 npm run build
 npm run verify:distribution
 npm run pack:check
 ```
 
-Supply the pinned, clean `DSH_020_RUNTIME` for source contracts. Run relevant policy replay and necessary device checks. Preserve C3/Human Needed boundaries, health/progress grace, recovery, completion summaries, budget, navigation, settings conflicts and source attribution. Missing native delivery evidence stays explicit.
+Supply `DSH_RUNTIME` for the selected released runtime installation or clean built source checkout. Run relevant policy replay and necessary device checks. Preserve C3/Human Needed boundaries, health/progress grace, recovery, completion summaries, budget, navigation, settings conflicts and source attribution. Missing native delivery evidence stays explicit.
 
 ## Commit and freeze
 
@@ -42,7 +42,7 @@ After explicit publication authorization:
 5. Update `latest` to the intended RC, then query both `latest` and `next` again.
 6. Write a publication receipt binding source commit, CI, tag/assets, npm integrity and final tag targets. Keep the RC designation and measured device scope visible.
 
-For 0.1.4-rc.1, the authorized final `latest` and `next` targets are both `0.1.4-rc.1`. Query ambiguous remote outcomes before retrying. Interactive authentication and 2FA belong to the user in their existing browser; credentials remain in their owning service.
+0.1.5-rc.1 is a local development candidate. Publication and remote CI require fresh user authorization. Query ambiguous remote outcomes before retrying. Interactive authentication and 2FA belong to the user in their existing browser; credentials remain in their owning service.
 
 ## Post-release evidence
 

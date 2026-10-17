@@ -3,11 +3,11 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
-import { loadRuntimeCheckout, rc020 } from './runtime-checkout.mjs'
+import { loadRuntime } from './runtime-checkout.mjs'
 
 // Controlled real public Session/projection objects; no model run, browser,
 // answerer attachment, native notification, or release-level compatibility claim.
-const runtime = await loadRuntimeCheckout(process.env.DSH_020_RUNTIME, rc020)
+const runtime = await loadRuntime(process.env.DSH_RUNTIME)
 const { Context } = await runtime.importPackage('@deepseek-ai/cordis')
 const { SessionStore } = await runtime.importPackage('@deepseek-ai/dsh-session')
 const { SessionProjectionRegistry } = await runtime.importPackage('@deepseek-ai/dsh-session-projection')
@@ -82,7 +82,7 @@ try {
   }
   console.log(JSON.stringify({ runtimeVersion: runtime.version, runtimeCommit: runtime.commit,
     provenance: 'controlled-public-session-v4-and-host-question-projection',
-    artifact: 'local-unreleased-build-not-published-RC6', checks, passed: true,
+    artifact: 'current-local-build', checks, passed: true,
     notValidated: ['latest-client-settings', 'web-ui', 'OS-notification', 'long-duration-soak'],
   }, null, 2))
 } finally {

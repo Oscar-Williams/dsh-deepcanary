@@ -3,8 +3,10 @@ import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { guardPack } from './guard-pack.mjs'
+import { loadRuntime } from './runtime-checkout.mjs'
 const root = process.cwd()
 const manifest = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'))
+const runtime = await loadRuntime(process.env.DSH_RUNTIME)
 const [candidateVersion] = process.argv.slice(2)
 if (!candidateVersion || manifest.version !== candidateVersion) throw new Error('Usage: node freeze-local-candidate.mjs <exact-current-version> (must match package.json)')
 const dirty = execFileSync('git', ['status', '--porcelain', '--untracked-files=no'], { cwd: root, encoding: 'utf8', windowsHide: true }).trim()
@@ -27,6 +29,6 @@ for (const file of sourceFiles.sort()) {
 }
 const codeHash = codeDigest.digest('hex')
 await writeFile(path.join(directory, 'local-candidate.json'), JSON.stringify({ schemaVersion: 1, status: 'frozen-local-unpublished-candidate', frozenAt: new Date().toISOString(), pluginVersion: manifest.version, artifact, sha256, bytes: bytes.length,
-  sourceCommit: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8', windowsHide: true }).trim(), codeHash, codeHashScope: 'sorted-length-framed-path-and-bytes:package-manifests-src-scripts-test-benchmark', source: 'clean-tracked-source-commit', hostVersion: '0.2.0-rc.2', hostCommit: '639ed015397290b3745d163aafe02ffee4aa3f84',
+  sourceCommit: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8', windowsHide: true }).trim(), codeHash, codeHashScope: 'sorted-length-framed-path-and-bytes:package-manifests-src-scripts-test-benchmark', source: 'clean-tracked-source-commit', hostVersion: runtime.version, hostCommit: runtime.commit,
   publication: 'not-performed', deviceAcceptance: 'pending-independent-web-and-desktop', packageResult: result.slice(result.lastIndexOf('\n[') + 1) }, null, 2) + '\n', { flag: 'wx' })
 console.log(JSON.stringify({ artifact, sha256, bytes: bytes.length, status: 'frozen-local-unpublished-candidate' }, null, 2))
