@@ -6,15 +6,15 @@ DeepCanary helps people leave tasks running with confidence, notice when their h
 
 WebUI and official Windows Desktop use released DSH 0.2.1-rc.2. The current release candidate adds:
 
-- Owned background work tracking through public registration, output-count and settlement events. Running tasks stay quiet; uncollected completion reaches C1 and producer failure reaches C2.
-- Bounded persistent watches and original-owner reconciliation. Replacement collects missed outcomes once and shows uncertainty when authority is unavailable.
-- Pending Inbox prioritization, accessible additional pages and direct handling through already-resolved feedback.
+- Track background work through public registration, output counts and completion events. Running tasks stay quiet; an uncollected result reaches C1 on completion or C2 on failure.
+- Retain bounded tracking records and reconcile each job with its original owner. Plugin replacement collects missed outcomes once and shows uncertainty when authority is unavailable.
+- Place urgent Inbox work first, provide additional pages and complete a reminder when the user chooses **Already resolved**.
 - Public tool failure normalization shared by live events and startup recovery.
-- Scheduled follow-up within Inbox, with due times, rescheduling and restore-to-pending actions. Current authority and delivery policy govern rearming.
+- Keep scheduled work in Inbox with due times and controls to reschedule it or restore it to pending. Current authority and delivery policy govern each reminder.
 - Persistence during ordinary operation of dedupe, rolling budget and claims for each delivery generation. Fair bounded client passes continue beyond completed deliveries.
 - Capacity retention that protects active human waits and deliberately scheduled work from routine update bursts.
 
-These capabilities extend the existing question/approval lifecycle, progress grace, revision-aware settings, authenticated communication and exact session return.
+These capabilities build on the existing question and approval lifecycle, progress grace, settings revision checks, authenticated communication and return to the correct session.
 
 ## Next product outcomes
 
@@ -23,9 +23,9 @@ These capabilities extend the existing question/approval lifecycle, progress gra
 | More dependable sustained work | Improve background/child task reconciliation and interruption recovery from observed use. Extend the public fact adapter when another released lifecycle exposes a material gap. | An actual task demonstrates the missing behavior; the fix preserves original ownership, bounded state and quiet healthy work. |
 | Better reminder quality | Convert confirmed missed, false, late or duplicate reminders into sanitized reproducible cases and targeted fixes. | A concrete failure has enough facts to reproduce; its fix resolves that case and preserves the safety suite. |
 | Outcome calibration | Compare a versioned candidate against the current policy on independent tasks, with explicit local adoption and rollback. | Natural coverage spans independent tasks and workdays; benefit and interruption cost can be assessed together. |
-| Continuous supervision | Complete authority reconciliation, restart continuity and competing-observer takeover for actual sustained-use requirements. | The required lifecycle works on the affected Host; ownership, shutdown and resource bounds hold. Supervisor remains experimental until its own evidence supports promotion. |
-| Native Desktop continuity | Use a released public notification/window-reveal/background capability and verify click return and failure handling. | A published third-party interface meets an actual need. Current renderer notifications retain their documented lifecycle scope. |
-| Selective model assistance | Compare offline enum suggestions on difficult cases whose allowlisted metadata distinguishes the outcome. | Deterministic rules have a demonstrated gap. Limit each round to 20 attempts, concurrency one, 256 output tokens and an eight-second deadline including cancellation. Retain independent benefit before integration. |
+| Continuous supervision | Complete authority reconciliation, restart continuity and takeover between observers for actual continuous use. | The required lifecycle works on the affected Host; ownership, shutdown and resource bounds hold. Supervisor remains experimental until its own evidence supports promotion. |
+| Native Desktop continuity | Use released public capabilities for notifications, window reveal and background operation; verify click return and failure handling. | A public interface available to plugins meets an actual need. Current renderer notifications retain their documented lifecycle scope. |
+| Selective model assistance | Compare offline enum suggestions on difficult cases whose allowlisted metadata distinguishes the outcome. | Deterministic rules have a demonstrated gap. Limit each round to 20 attempts, concurrency one, 256 output tokens and a deadline of eight seconds including cancellation. Independent evaluation must establish a benefit before integration. |
 | Additional Harness and active assistance | Add a second real adapter and explainable recommendations. Design permissions for any consequential action. | The DSH experience is dependable, a second sustained need exists and maintenance cost is justified. |
 
 ## Decisions and progress
