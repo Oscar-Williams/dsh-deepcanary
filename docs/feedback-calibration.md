@@ -1,4 +1,4 @@
-# Feedback and offline calibration — 0.1.5-rc.2
+# Feedback and offline calibration — 0.1.6-rc.1
 
 The product goal is timely help when a task needs a person, quiet healthy work and return to the correct session. The evidence chain supports factual repairs, lifecycle recovery and deliberate policy changes. The current lifecycle case is documented in [offline evaluation](offline-evaluation.md).
 
@@ -14,7 +14,7 @@ Receipts retain the trial, task origin and task reference. Existing fields canno
 
 Run `node scripts/audit-attention-cases.mjs --input <sanitized-bundle> --out <report>` or explicitly name a sanitized top-level JSON directory. Source hashes, duplicate identities, conflicts, unknown delivery and negative opportunities are retained. See [failure taxonomy](failure-taxonomy.md). Task failures are distinct from reminder failures; unknown root causes remain unknown.
 
-Current and candidate policies use `scripts/replay-attention-policy.mjs`. Use genuinely different owned tasks for discovery and holdout, and retain frozen safety cases. `scripts/evaluate-attention-candidate.mjs` rejects missing identity, reused task references and conflicting evidence. Its output distinguishes insufficient evidence, evaluation passed, explicitly locally adopted and explicitly rolled back. Passing never writes policy or an adoption record. A human engineering decision supplies the version-bound adoption/rollback record through `--adoption`; the evaluator only checks it. Cross-workday natural evidence thresholds remain in force. Controlled repetitions cannot fill them.
+Current and candidate policies use `scripts/replay-attention-policy.mjs`. Use independent owned tasks for discovery and holdout, and retain frozen safety cases. `scripts/evaluate-attention-candidate.mjs` rejects missing identity, reused task references and conflicting evidence. Its output distinguishes insufficient evidence, evaluation passed, explicitly locally adopted and explicitly rolled back. An explicit engineering decision supplies the version-bound adoption/rollback record through `--adoption`; the evaluator checks it. Cross-workday natural evidence thresholds remain in force.
 
 No policy threshold changed in this iteration: factual/lifecycle defects take precedence, and historical evidence does not justify calibration by reducing overall sensitivity. The local workflow is implemented; sample-driven policy adoption remains gated by confirmed cases and independent evidence. Aggregate summaries expose the classified `taskOrigin` and original `declaredTaskOrigin` separately; a legacy natural declaration without ownership remains readable in the unknown cohort. Missing-origin receipts cannot enter an explicitly natural run.
 
@@ -24,6 +24,6 @@ A confirmed rule-hard natural case is only screening evidence (`requires-feasibi
 
 If entry later becomes justified, use the public DSH LLM service: at most 20 attempts, concurrency 1, 256 output tokens and an eight-second end-to-end deadline including cancellation. Input permits event categories, authority, counts, time buckets and rule results only. Accept enum/unknown output only. Judge cannot create C3, weaken Human Needed or change live policy. Benefits must survive independent comparison; otherwise leave it offline.
 
-The current official Windows Desktop, DSH 0.2.0-rc.2, has no published third-party notification/window-wake/background bridge. Existing renderer notifications and `uiWorkspace.openSession()` support the documented running-renderer lifecycle. Revisit bridging when a released public interface serves an actual need.
+Official Windows Desktop 0.2.1-rc.2 provides the shared public Job Registry and authenticated renderer transport. Third-party native notification and hidden-window wake remain a bridge gap. Renderer notifications and `uiWorkspace.openSession()` support the documented running-renderer lifecycle. Revisit native bridging when a released public interface serves an actual need.
 
 Windows WebUI in the existing default Edge is the development entry. Desktop device validation is required only for public bridge adoption or relevant common-code changes. Publishing uses explicit authorization and the CI/frozen-byte checks in the release checklist.

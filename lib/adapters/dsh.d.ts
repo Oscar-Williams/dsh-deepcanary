@@ -35,6 +35,7 @@ export interface SessionSnapshot {
     userQuestions?: UserQuestionFacts;
     toolFailures?: number;
     sameToolFailures?: number;
+    lastFailedToolName?: string;
     contextCompactions?: number;
     lastToolName?: string;
 }

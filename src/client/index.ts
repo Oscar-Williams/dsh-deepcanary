@@ -76,6 +76,7 @@ type ClientSnapshot = {
     indicator: 'gray' | 'yellow' | 'orange' | 'red'
     openInbox: number
     sessions: number
+    background?: { available: boolean; running: number; unknown: number; limited: boolean }
     plugin: { state: string; version: string }
     revision?: number
     capabilities: { browserNotification: boolean; nativeToast: boolean; windowsInterop: string }
@@ -185,6 +186,10 @@ const zh = {
   'panel.empty': '目前没有待处理提醒',
   'panel.emptyHint': '需要你关注的任务动态会显示在这里。',
   'panel.sessions': '{count} 个活动会话',
+  'panel.background': '后台任务：{count} 个运行中',
+  'panel.backgroundUnknown': '{count} 个后台任务待确认',
+  'panel.backgroundLimited': '后台跟踪已达容量上限，当前统计为部分任务。',
+  'panel.moreItems': '再显示 {count} 条动态',
   'panel.notification.enable': '启用浏览器通知',
   'panel.notification.enabled': '浏览器通知已启用',
   'panel.notification.denied': '浏览器通知已被阻止，请在地址栏的站点权限中允许后重试',
@@ -265,6 +270,11 @@ const zh = {
   'item.reason.COMPACTION_OCCURRED': 'DSH 已完成第 {contextCompactions} 次上下文压缩。',
   'item.reason.TASK_COMPLETED': '会话报告了一次正常完成。',
   'item.reason.SUBTASK_COMPLETED': '子任务已完成，可在父会话查看汇总。',
+  'item.reason.BACKGROUND_TASK_COMPLETED': '后台任务已完成，可返回所属会话查看结果。',
+  'item.reason.BACKGROUND_TASK_FAILED': '后台任务运行失败，需要查看所属会话。',
+  'item.reason.BACKGROUND_TASK_COMPLETED_CATCHUP': '恢复跟踪时发现后台任务已完成，可返回所属会话查看结果。',
+  'item.reason.BACKGROUND_TASK_FAILED_CATCHUP': '恢复跟踪时发现后台任务已失败，需要查看所属会话。',
+  'item.reason.TURN_COMPLETED_BACKGROUND': '本轮回复已结束，仍有 {backgroundJobs} 个后台任务继续运行。',
   'item.reason.TASK_FAILED': '会话报告执行失败。',
   'item.reason.TASK_ABORTED': '会话被中止，可能需要确认是否继续。',
   'item.reason.COMPLETION_SUSPICIOUS': '任务看似完成，但最终证据仍值得检查。',
@@ -341,7 +351,7 @@ const zh = {
   'item.notice.jumpUnavailable': '当前条目没有可用的 DSH 线程入口',
   'item.mutedUntil': '已静音至 {time}',
   'item.feedbackWrongLevel': '已记录“级别不合适”反馈',
-  'item.feedbackAlreadyResolved': '已记录“问题已解决”反馈',
+  'item.feedbackAlreadyResolved': '反馈已记录，此提醒已标记为已处理',
   'item.suppressedTypes': '不再提醒：{types}',
   'item.noSessionLink': '该历史提醒未保存可用的 DSH 会话入口',
   'item.sessionEnded': '任务已结束，当前 DSH 会话入口不可用；提醒摘要仍会保留。',
@@ -384,6 +394,10 @@ const en = {
   'panel.empty': 'There are no pending alerts',
   'panel.emptyHint': 'Task updates that need your attention will appear here.',
   'panel.sessions': 'Active sessions: {count}',
+  'panel.background': 'Background tasks running: {count}',
+  'panel.backgroundUnknown': 'Background tasks awaiting confirmation: {count}',
+  'panel.backgroundLimited': 'Background tracking is at capacity; counts cover the tracked tasks.',
+  'panel.moreItems': 'Show {count} more updates',
   'panel.notification.enable': 'Enable browser notifications',
   'panel.notification.enabled': 'Browser notifications enabled',
   'panel.notification.denied': 'Browser notifications are blocked; allow them in site permissions and try again',
@@ -464,6 +478,11 @@ const en = {
   'item.reason.COMPACTION_OCCURRED': 'DSH completed context compaction number {contextCompactions}.',
   'item.reason.TASK_COMPLETED': 'The session reported a normal completion.',
   'item.reason.SUBTASK_COMPLETED': 'A subtask completed; review the summary in its parent session.',
+  'item.reason.BACKGROUND_TASK_COMPLETED': 'A background task completed. Return to its session to review the result.',
+  'item.reason.BACKGROUND_TASK_FAILED': 'A background task failed. Review its owning session.',
+  'item.reason.BACKGROUND_TASK_COMPLETED_CATCHUP': 'Tracking resumed: a background task completed. Review its owning session.',
+  'item.reason.BACKGROUND_TASK_FAILED_CATCHUP': 'Tracking resumed: a background task failed. Review its owning session.',
+  'item.reason.TURN_COMPLETED_BACKGROUND': 'This reply ended; {backgroundJobs} background tasks are still running.',
   'item.reason.TASK_FAILED': 'The session reported a failure.',
   'item.reason.TASK_ABORTED': 'The session was aborted and may need a follow-up decision.',
   'item.reason.COMPLETION_SUSPICIOUS': 'The task looks complete, but its final evidence is worth checking.',
@@ -540,7 +559,7 @@ const en = {
   'item.notice.jumpUnavailable': 'This item has no available DSH session link',
   'item.mutedUntil': 'Muted until {time}',
   'item.feedbackWrongLevel': '“Wrong level” feedback recorded',
-  'item.feedbackAlreadyResolved': '“Already resolved” feedback recorded',
+  'item.feedbackAlreadyResolved': 'Feedback recorded; this reminder is marked handled',
   'item.suppressedTypes': 'Silenced: {types}',
   'item.noSessionLink': 'This historical alert has no saved DSH session link',
   'item.sessionEnded': 'The task has ended and its DSH session is unavailable; the alert summary is retained.',
@@ -1849,6 +1868,11 @@ function itemCard(item: ClientItem, state: ControllerState, t: Translate, contro
 
 function DeepCanaryOverlay(props: { t: Translate; controller: Controller }): ReactNode {
   const state = useController(props.controller)
+  const [visibleItems, setVisibleItems] = useState(50)
+  const selectedIndex = state.snapshot?.inbox.findIndex(item => item.id === state.selectedId) ?? -1
+  useLayoutEffect(() => {
+    if (selectedIndex >= visibleItems) setVisibleItems(Math.ceil((selectedIndex + 1) / 50) * 50)
+  }, [selectedIndex, visibleItems])
   const panelRef = useRef<HTMLElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
   const positionedId = useRef<string | undefined>(undefined)
@@ -1863,7 +1887,7 @@ function DeepCanaryOverlay(props: { t: Translate; controller: Controller }): Rea
     if (positionedId.current === state.selectedId) return
     const elements = panelRef.current?.querySelectorAll<HTMLElement>('[data-deepcanary-item]') ?? []
     if (positionSelectedAttention(elements, state.selectedId)) positionedId.current = state.selectedId
-  }, [state.open, state.selectedId, state.snapshot])
+  }, [state.open, state.selectedId, state.snapshot, visibleItems])
   useEffect(() => {
     if (!state.open) return
     const onKeyDown = (event: globalThis.KeyboardEvent): void => {
@@ -1908,6 +1932,13 @@ function DeepCanaryOverlay(props: { t: Translate; controller: Controller }): Rea
   const body: ReactNode[] = []
   if (snapshot !== undefined) {
     const policy: ReactNode[] = []
+    const background = snapshot.status.background
+    if (background !== undefined && (background.running > 0 || background.unknown > 0 || background.limited)) {
+      body.push(createElement('p', { className: 'dsc-note', key: 'background' },
+        [background.running > 0 && translate(props.t, 'panel.background', { count: background.running }),
+          background.unknown > 0 && translate(props.t, 'panel.backgroundUnknown', { count: background.unknown }),
+          background.limited && translate(props.t, 'panel.backgroundLimited')].filter(Boolean).join(' · ')))
+    }
     policy.push(createElement('p', { className: 'dsc-settings-hint', key: 'settings-location' }, translate(props.t, 'panel.settingsLocation')))
     policy.push(createElement('p', { className: 'dsc-policy-summary', key: 'policy-hint' }, translate(props.t, 'panel.policyHint')))
     if (snapshot.status.delivery !== undefined) {
@@ -1950,9 +1981,12 @@ function DeepCanaryOverlay(props: { t: Translate; controller: Controller }): Rea
   } else {
     body.push(createElement('h3', { className: 'dsc-group-title', key: 'group' },
       translate(props.t, 'panel.inbox')))
-    for (const item of items.slice(0, 50)) {
+    for (const item of items.slice(0, visibleItems)) {
       body.push(itemCard(item, state, props.t, props.controller, state.selectedId === item.id))
     }
+    if (items.length > visibleItems) body.push(createElement('button', {
+      key: 'more-items', type: 'button', className: 'dsc-toolbar-button', onClick: () => { setVisibleItems(value => value + 50) },
+    }, translate(props.t, 'panel.moreItems', { count: Math.min(50, items.length - visibleItems) })))
   }
   const notificationSupported = 'Notification' in globalThis
   const notificationPermission = notificationSupported ? Notification.permission : 'unsupported'

@@ -2,7 +2,7 @@
 
 ## Scope
 
-0.1.5-rc.2 local development uses published DSH `0.2.1-rc.1` packages, with Cordis 4.0.5 and Schemastery 3.18.5. The current official Windows Desktop build is DSH `0.2.0-rc.2` at `639ed015397290b3745d163aafe02ffee4aa3f84`. Select the actual installation with `DSH_RUNTIME`; use `typecheck:host`, `adapter:host`, `settings:host` and `connection:host`. Web/Desktop consume the same frozen candidate and record the behavior of each actual Host. Publication and remote CI require explicit user authorization.
+0.1.6-rc.1 development uses published DSH `0.2.1-rc.2` for WebUI and official Windows Desktop, release tag commit `687f282e8625c6b8d11ff58211a90524be2e4317`, with Cordis 4.0.5 and Schemastery 3.18.5. Record actual artifact/build identity separately from the tag. Select the actual installation with `DSH_RUNTIME`; use `typecheck:host`, `adapter:host`, `background:host`, `settings:host` and `connection:host`. Web/Desktop consume the same frozen candidate and record the behavior of each actual Host. Publication and remote CI require explicit user authorization.
 
 dsh-deepcanary is a standalone DeepSeek Harness external bundle. Keep its DSH package conventions separate from Codex plugin manifests: this repository intentionally does not add .codex-plugin/plugin.json.
 
@@ -11,6 +11,7 @@ The implementation must preserve these boundaries:
 - DSH runtime facts belong in providers; attention interpretation belongs in the deterministic core.
 - A provider may summarize facts, but it must not copy prompts, model output, tool arguments, credentials, or transcript content into local state.
 - C3 requires authoritative Host or Runtime evidence.
+- Background observation reads only public owner/lifecycle/count metadata. Labels, progress text, output and terminal detail remain with DSH. The Job Registry subscription declares both jobs and sessions dependencies.
 - User actions are limited to local metadata and navigation hints. Never add an automatic terminate, restart, approval, rejection, shell, or destructive tool.
 - Historical receipts retain their exact plugin and Host identities. Current checks use the latest released runtime available for the affected surface.
 - Dogfood task intent is separate from capture provenance. User-facing review coverage counts only unique final delivery units with explicit visible-delivery evidence; review source/basis/confidence and unknown visibility remain explicit and never imply usefulness automatically.

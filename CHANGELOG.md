@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.6-rc.1 — background supervision and Inbox follow-up
+
+- Follow owned background jobs through the released Job Registry and durable Session lifecycle. Keep running work quiet, summarize uncollected completions at C1 and surface producer failures at C2 with their exact owning session.
+- Restore background watches after plugin replacement, collect missed outcomes once and retain unknown state when authority is unavailable. Bound watch metadata and recent settlement identities to 256 records with a seven-day observation window.
+- Recognize increasing output byte counts as background activity, distinguish reply completion from ongoing background work and release progress grace when jobs settle.
+- Order pending Inbox items by urgency and make further pages accessible. Explicit already-resolved feedback also marks its reminder handled while preserving later Human Needed generations.
+- Read public tool-result error metadata and keep consecutive failure identity independent of tools being started. Genuine repeated failures are detected; distinct-tool failures retain their own counts.
+- Align WebUI, official Windows Desktop, development dependencies and Host contracts with released DSH 0.2.1-rc.2.
+
 ## 0.1.5-rc.2 — local candidate, not published
 
 - Correct the Desktop settings instructions after device use confirmed the **Built-in plugins** page on both supported hosts.
@@ -38,7 +47,7 @@
 - Frozen 0.1.2-rc.1 bytes and its device receipts remain historical evidence; rc.2 has independent checks and is not yet installed or frozen.
 
 
-User-visible changes and notable compatibility updates. The current default release is `0.1.1-rc.6` (prerelease); npm `latest` and `next` both point to it. A default channel does not certify Stable readiness.
+The entries below retain their historical version and release context.
 
 ## 0.1.2-rc.1 — 2026-10-01, local candidate, not published
 

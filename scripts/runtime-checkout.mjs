@@ -21,7 +21,7 @@ export async function loadRuntime(root) {
   const require = createRequire(path.join(root, 'package.json'))
   const anchor = require.resolve('@deepseek-ai/dsh/package.json')
   const host = JSON.parse(await readFile(anchor, 'utf8'))
-  if (!['0.2.0-rc.2', '0.2.1-rc.1'].includes(host.version)) throw new Error('Unsupported runtime version; update the declared host contract first.')
+  if (!['0.2.0-rc.2', '0.2.1-rc.1', '0.2.1-rc.2'].includes(host.version)) throw new Error('Unsupported runtime version; update the declared host contract first.')
   const hostRequire = createRequire(anchor)
   const packages = new Map()
   const scoped = await readdir(path.join(root, 'node_modules', '@deepseek-ai'), { withFileTypes: true })

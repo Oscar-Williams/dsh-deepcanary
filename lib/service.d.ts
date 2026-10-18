@@ -6,13 +6,18 @@ import { OutcomeStore } from './outcome.js';
 import { PersistentSupervisor } from './supervisor.js';
 import type { CanarySignal, DeepCanaryConfig, DryRunRequest, DryRunResult, FeedbackValue, InboxItem, PublicInboxItem, PublicSettings, PublicSnapshot, OutcomeReceipt, OutcomeDeleteFilter, OutcomeReceiptInput, RuntimeStatus, SuppressibleReasonCode } from './types.js';
 declare const PLUGIN_NAME = "dsh-deepcanary";
-declare const PLUGIN_VERSION = "0.1.5-rc.2";
+declare const PLUGIN_VERSION = "0.1.6-rc.1";
 interface ActionReceipt {
     status: number;
     body: Record<string, unknown>;
     fingerprint: string;
 }
 export declare class DeepCanaryService {
+    private readonly background;
+    private backgroundRegistry;
+    private refreshBackground;
+    private backgroundChain;
+    private readonly backgroundDisposers;
     config: DeepCanaryConfig;
     readonly store: MetadataStore;
     readonly suppressionStore: SuppressionStore;
@@ -158,6 +163,8 @@ export declare class DeepCanaryService {
     private find;
     private bumpRevision;
     private queueSave;
+    private ingestBackground;
+    private onBackgroundProgress;
     private updateExistingOutcome;
     private recordDogfood;
     private syncDogfoodReceipts;

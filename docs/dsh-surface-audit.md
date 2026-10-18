@@ -1,10 +1,11 @@
 # Public DSH surfaces
 
-DeepCanary 0.1.5-rc.2 uses published DSH 0.2.1-rc.1 packages for WebUI. The official Windows Desktop update feed still supplies 0.2.0-rc.2, source `639ed015397290b3745d163aafe02ffee4aa3f84`. The generic Host contracts resolve the selected installation through `DSH_RUNTIME`.
+DeepCanary 0.1.6-rc.1 uses released DSH 0.2.1-rc.2 for WebUI and official Windows Desktop, release tag `687f282e8625c6b8d11ff58211a90524be2e4317`. The generic Host contracts resolve the selected installation through `DSH_RUNTIME`.
 
 | Public surface | Use and degradation |
 | --- | --- |
 | Session store/events and question projection | Subscribe/reconcile at public sequence watermarks; preserve unknown authority and pending question identities. |
+| Public Job Registry and Session job lifecycle | Observe owner-scoped registration/settlement and output byte counts; reconcile durable owner-matched facts after replacement. Waited outcomes, cancellation and teardown remain quiet. |
 | Tools | Bounded metadata reads, explicit reminder actions and read-only dry-run. |
 | Optional Agent/Subagent events | Normalize runtime failures and bounded pressure; missing services leave their providers inactive. |
 | Settings / ConfigForm | Host-owned schema, volatile snapshots and expected-revision transactions. Missing persistence is explicit. |
@@ -21,7 +22,7 @@ Client transport uses relative allowlisted endpoints. The released Desktop shell
 
 ## Desktop capability gap
 
-The pinned release supplies a renderer and Host-backed transport but no third-party public notification/window-wake/background capability for this plugin. Renderer notification and public session return remain the implemented path. Native Toast visibility, real notification click return and closed-hidden window wake-up retain their observation limits.
+The released Job Registry supports background work within the running Host. Renderer notifications and public session return provide the current reminder path. Native notification delivery, hidden-window reveal and execution after full application exit require a released third-party Desktop interface and device observations.
 
 ## Audit rule
 

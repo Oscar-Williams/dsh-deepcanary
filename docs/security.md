@@ -6,6 +6,8 @@ DeepCanary stores bounded reminder metadata in the current Host profile's state 
 
 Conversation text, prompts, model output, tool arguments and API credentials remain outside captured reminder state. Feedback uses bounded enums; optional note content is reduced by the existing privacy-safe handling. Atomic writes replace local state. Retention caps bound Inbox, receipts, delivery claims and action idempotency records.
 
+Background watches share the atomic Inbox file. At most 256 records retain hashed job references, local owner-session handles, kind/state enums and start times. Increasing byte counts and activity times remain in bounded memory. Job labels, progress strings, output, spill paths and terminal detail stay in DSH. Reconciliation requires original-owner matches; missing facts preserve uncertainty. The observer uses list and lifecycle subscriptions, and leaves job execution controls with the Host.
+
 ## Authenticated interfaces
 
 All plugin HTTP routes use the Host's public `connection.fetch.register()` beneath `/api/dsh-deepcanary/*`. DSH applies browser authentication and Host/Origin trust checks before dispatch. The previous direct, unauthenticated WebServer routes are closed. The plugin reads no authentication tokens and supplies no alternative authentication or configuration store.

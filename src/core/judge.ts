@@ -108,7 +108,7 @@ function suggestionKeyFor(reason: ReasonCode): string {
 
 function messageParamsFor(signal: CanarySignal): MessageParams | undefined {
   const params: MessageParams = {}
-  for (const key of ['threshold', 'failureCount', 'activeSubagents', 'idleMs', 'contextCompactions'] as const) {
+  for (const key of ['threshold', 'failureCount', 'activeSubagents', 'idleMs', 'contextCompactions', 'backgroundJobs'] as const) {
     const value = signal.data[key]
     if (typeof value === 'number' && Number.isFinite(value)) params[key] = value
   }
@@ -142,7 +142,8 @@ export function judgeSignal(signal: CanarySignal): AttentionVerdict {
   const level = classification.level
   const suggestedAction = suggestionFor(signal.kind)
   const messageParams = messageParamsFor(signal)
-  const why = signal.kind === 'TASK_COMPLETED'
+  const why = signal.data.backgroundJob === true ? signal.evidence[0]?.summary ?? 'DSH reported a background task outcome.'
+    : signal.kind === 'TASK_COMPLETED'
     ? 'The session reported a normal turn completion.'
     : signal.kind === 'COMPACTION_OCCURRED'
       ? 'DSH reported a context compaction event; this is recorded for status visibility.'
@@ -169,7 +170,11 @@ export function judgeSignal(signal: CanarySignal): AttentionVerdict {
     action,
     confidence: confidenceFor(signal, level),
     reasonCode: signal.kind,
-    messageKey: signal.kind === 'HUMAN_QUESTION_PENDING' && signal.data.questionState === 'continued'
+    messageKey: signal.data.backgroundJob === true && (signal.kind === 'TASK_COMPLETED' || signal.kind === 'TASK_FAILED')
+      ? `item.reason.BACKGROUND_${signal.kind}${signal.data.catchup === true ? '_CATCHUP' : ''}`
+      : signal.kind === 'TASK_COMPLETED' && typeof signal.data.backgroundJobs === 'number' && signal.data.backgroundJobs > 0
+      ? 'item.reason.TURN_COMPLETED_BACKGROUND'
+      : signal.kind === 'HUMAN_QUESTION_PENDING' && signal.data.questionState === 'continued'
       ? 'item.reason.HUMAN_QUESTION_CONTINUED'
       : signal.kind === 'TASK_COMPLETED' && signal.data.childCompletion === true
       ? 'item.reason.SUBTASK_COMPLETED' : messageKeyFor(signal.kind),

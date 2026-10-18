@@ -15,9 +15,20 @@ export interface SessionFacts {
     contextCompactions?: number;
     lastToolName?: string;
     sameToolFailures?: number;
+    lastFailedToolName?: string;
+    backgroundJobs?: number;
 }
 export type ToolClass = 'long-running' | 'ordinary' | 'unknown';
 export type TurnState = 'running' | 'terminal' | 'unknown';
+export interface ToolFailureState {
+    toolFailures: number;
+    sameToolFailures: number;
+    lastFailedToolName?: string | undefined;
+}
+/** Read public outcome metadata without touching tool arguments or result blocks. */
+export declare function toolResultFailed(data: Record<string, unknown>): boolean;
+/** Keep the failure identity independent from tools started in parallel or between failures. */
+export declare function recordToolResult(state: ToolFailureState, data: Record<string, unknown>, name: string | undefined): void;
 export interface SessionLike {
     id: string;
     header?: {

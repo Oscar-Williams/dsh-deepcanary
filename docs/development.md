@@ -2,7 +2,7 @@
 
 ## Current lane
 
-DeepCanary 0.1.5-rc.2 uses released DSH 0.2.1-rc.1 packages for Web development and the current official Windows Desktop build, 0.2.0-rc.2. Direct development packages are pinned, with the npm lockfile owning the toolchain. Use Node 22.19+ in the 22.x line or Node 24+. DSH checkouts use their own pinned pnpm workflow.
+DeepCanary 0.1.6-rc.1 uses released DSH 0.2.1-rc.2 on WebUI and official Windows Desktop. Direct development packages are pinned, with the npm lockfile owning the toolchain. Use Node 22.19+ in the 22.x line or Node 24+. DSH checkouts use their own pinned pnpm workflow.
 
 ```sh
 npm ci
@@ -22,11 +22,12 @@ Set `DSH_RUNTIME` to the selected published runtime installation (a directory wi
 ```sh
 npm run typecheck:host
 npm run adapter:host
+npm run background:host
 npm run settings:host
 npm run connection:host
 ```
 
-The Session contract exercises question timeout, accepted replies and parallel long tools. Settings checks use public revision-aware forms. Connection checks use the actual Host transport with ephemeral test authentication: 401/403 admission, authorized version, legacy-route removal, malformed and chunked request limits, path privacy and scoped registration disposal.
+The Session contract exercises question timeout, accepted replies, parallel long tools and public failure metadata. The background contract uses released Session, Agent and Local Job registries with a controlled owner carrier to exercise healthy silence, waiter semantics, exact ownership and missed-outcome recovery. Settings checks use public revision-aware forms. Connection checks use the actual Host transport with ephemeral test authentication: 401/403 admission, authorized version, legacy-route removal, malformed and chunked request limits, path privacy and scoped registration disposal.
 
 ## Device work
 
@@ -39,8 +40,8 @@ Follow [feedback calibration](feedback-calibration.md) for necessary sequential 
 Commit the reviewed source and generated output first. With a clean tracked snapshot, freeze once:
 
 ```sh
-node scripts/freeze-local-candidate.mjs 0.1.5-rc.2
-node scripts/verify-installed-candidate.mjs output/releases/0.1.5-rc.2/local-candidate.json <isolated-home> web <local-receipt.json>
+node scripts/freeze-local-candidate.mjs 0.1.6-rc.1
+node scripts/verify-installed-candidate.mjs output/releases/0.1.6-rc.1/local-candidate.json <isolated-home> web <local-receipt.json>
 ```
 
 The freezer binds the committed source and refuses an existing artifact. Installation verification checks the manifest, archive identity and every installed file. Repeat for the separate Desktop profile and observe actual loading.

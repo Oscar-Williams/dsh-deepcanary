@@ -3,12 +3,15 @@ import { DedupeLedger, InterruptBudget } from './core/dedupe.js'
 import { DeliveryLedger } from './core/delivery.js'
 import type { DeliveryClaimOutcome } from './core/delivery.js'
 import { judgeSignal } from './core/judge.js'
+import { compareInboxPriority } from './core/inbox-order.js'
 import { applyDeliveryPolicy, mergeBundleTrace, withRecoveryTrace } from './core/policy.js'
 import { normalizeConfig, sanitizeConfigPatch } from './config.js'
 import { resolveStateIdentity, claimStateDirectory, importLegacyInbox } from './state-identity.js'
 import { importLegacySettings } from './settings-migration.js'
 import type { DeepCanaryConfigInput, DeepCanaryRuntimeConfig } from './config.js'
 import { ContextDshAdapter } from './adapters/dsh.js'
+import { BackgroundJobTracker, countRunningBackgroundJobs, selectBackgroundEvent, signalFromBackgroundSettlement } from './adapters/background-jobs.js'
+import type { BackgroundSettlement } from './adapters/background-jobs.js'
 import type { Disposable, SessionSnapshot } from './adapters/dsh.js'
 import { getWorkspaceIdentity } from './adapters/windows.js'
 import { hashMetadata, MetadataStore, SuppressionStore } from './persistence.js'
@@ -30,6 +33,7 @@ import {
   toolClassForName,
   toolClassForActiveTools,
   toolCallIdOf,
+  recordToolResult,
   signalsFromSessionEvent,
 } from './providers.js'
 import type { ToolClass, TurnState } from './providers.js'
@@ -60,7 +64,7 @@ import type {
 import { ATTENTION_POLICY_VERSION, ATTENTION_PROTOCOL_VERSION as PROTOCOL_VERSION, SUPPRESSIBLE_REASON_CODES } from './types.js'
 
 const PLUGIN_NAME = 'dsh-deepcanary'
-const PLUGIN_VERSION = '0.1.5-rc.2'
+const PLUGIN_VERSION = '0.1.6-rc.1'
 const SETTINGS_NAMESPACE = 'deepcanary'
 const DEFAULT_MUTE_MINUTES = 60
 const ORPHAN_GRACE_MS = 30_000
@@ -84,6 +88,7 @@ interface LiveSession {
   contextCompactions: number
   lastToolName?: string
   sameToolFailures: number
+  lastFailedToolName?: string
   lastHealthyObservationAt?: number
 }
 
@@ -186,6 +191,11 @@ function taskStateForReason(reasonCode: ReasonCode): TaskState | undefined {
 }
 
 export class DeepCanaryService {
+  private readonly background = new BackgroundJobTracker()
+  private backgroundRegistry: { list(owner: string): unknown } | undefined
+  private refreshBackground: (() => void) | undefined
+  private backgroundChain: Promise<void> = Promise.resolve()
+  private readonly backgroundDisposers = new Set<() => void>()
   config: DeepCanaryConfig
   readonly store: MetadataStore
   readonly suppressionStore: SuppressionStore
@@ -285,6 +295,70 @@ export class DeepCanaryService {
       subagentCtx.on?.('subagent/start', () => this.onSubagentDelta(1))
       subagentCtx.on?.('subagent/end', () => this.onSubagentDelta(-1))
     })
+    this.ctx.inject?.(['jobs', 'sessions'], (jobCtx: any) => {
+      const registry = jobCtx.jobs
+      if (typeof registry?.list !== 'function' || typeof registry.events?.subscribe !== 'function') return
+      this.backgroundRegistry = registry
+      let attached = true
+      const enqueue = (work: () => Promise<void>): void => {
+        this.backgroundChain = this.backgroundChain.then(() => this.ready).then(async () => {
+          if (this.disposed || !attached) return
+          await work()
+        }).catch(() => { this.logger.warn?.('DeepCanary could not reconcile background task metadata.') })
+      }
+      const reconcile = async (): Promise<void> => {
+        const sessions: unknown = await jobCtx.sessions?.list?.()
+        if (!Array.isArray(sessions)) { this.background.unavailable(); return }
+        for (const settlement of this.background.reconcile(registry, sessions)) await this.ingestBackground(settlement)
+        this.bumpRevision()
+        this.queueSave()
+      }
+      let reconciling = false
+      const refresh = (): void => {
+        if (reconciling || !attached || this.disposed) return
+        reconciling = true
+        enqueue(async () => { try { await reconcile() } finally { reconciling = false } })
+      }
+      this.refreshBackground = refresh
+      refresh()
+      const off = registry.events.subscribe({ owners: 'scope' }, (event: unknown) => {
+        const selected = selectBackgroundEvent(event)
+        if (selected === undefined) return
+        if (selected.type === 'output') {
+          if (!this.disposed && attached) {
+            const owner = selected.owner as string
+            const before = this.background.lastActivityFor(owner)
+            this.background.observe(selected)
+            const after = this.background.lastActivityFor(owner)
+            if (after !== undefined && after > (before ?? 0)) this.onBackgroundProgress(owner, after)
+          }
+          return
+        }
+        enqueue(async () => {
+          const settlement = this.background.observe(selected)
+          if (selected.type === 'registered' || selected.type === 'settled') {
+            const owner = asRecord(selected.job).owner
+            if (typeof owner === 'string') this.onBackgroundProgress(owner, Date.now())
+          }
+          if (settlement !== undefined) await this.ingestBackground(settlement)
+          this.bumpRevision()
+          this.queueSave()
+        })
+      })
+      const detach = (): void => {
+        if (!attached) return
+        attached = false
+        off()
+        if (this.backgroundRegistry === registry) this.backgroundRegistry = undefined
+        if (this.refreshBackground === refresh) this.refreshBackground = undefined
+        this.backgroundDisposers.delete(detach)
+        this.background.unavailable()
+        this.bumpRevision()
+        this.queueSave()
+      }
+      this.backgroundDisposers.add(detach)
+      jobCtx.effect?.(() => detach, 'deepcanary: background task observation')
+    })
     this.ctx.inject?.(['settings'], (settingsCtx: any) => {
       const settings = settingsCtx.settings as SettingsProviderLike | undefined
       if (!settings) return
@@ -312,7 +386,7 @@ export class DeepCanaryService {
 
     this.resetLivenessTimer()
     this.ensureSupervisorStarted()
-    this.logger.info?.(`${PLUGIN_NAME} mounted; evidence-first local attention service enabled (Persistent Supervisor: ${this.config.supervisorMode})`)
+    this.logger.info?.(`${PLUGIN_NAME}@${PLUGIN_VERSION} mounted; local attention service enabled (Persistent Supervisor: ${this.config.supervisorMode})`)
   }
 
   setRegisteredTools(names: readonly string[]): void {
@@ -424,6 +498,7 @@ export class DeepCanaryService {
       settings: this.publicSettings(),
       inbox: this.items
         .filter(item => this.isPending(item, now))
+        .sort(compareInboxPriority)
         .map(item => this.toPublic(item)),
     }
   }
@@ -438,6 +513,7 @@ export class DeepCanaryService {
       process: { platform: process.platform, node: process.version },
       workspace: { platform: this.workspace.platform, windowsInterop: this.workspace.windowsInterop, nativeToast: this.workspace.nativeToast },
       sessions: [...this.sessions.values()].filter(session => session.active).length,
+      background: this.background.summary(),
       tools: [...this.registeredTools],
       openInbox: open.length,
       revision: this.revision,
@@ -662,6 +738,9 @@ export class DeepCanaryService {
       ...(safeNote === undefined ? {} : { note: safeNote }),
       at: nowIso(),
     }
+    // Explicitly handled feedback closes this reminder's work item. Runtime
+    // task state and later authoritative question generations keep their own facts.
+    if (value === 'already-resolved') this.acknowledge(id)
     this.bumpRevision()
     this.queueSave()
     this.syncSupervisor()
@@ -1070,6 +1149,7 @@ export class DeepCanaryService {
 
   private async finishDispose(): Promise<void> {
     this.adapterSubscription?.dispose()
+    for (const detach of [...this.backgroundDisposers]) detach()
     this.settingsSubscription?.()
     if (this.interval !== undefined) clearInterval(this.interval)
     if (this.hostProbeInterval !== undefined) clearInterval(this.hostProbeInterval)
@@ -1077,6 +1157,7 @@ export class DeepCanaryService {
     if (this.supervisorStarted) await this.supervisor.stop()
     await this.ready.catch(() => undefined)
     await this.questionChain
+    await this.backgroundChain
     await this.saveChain
     await this.outcomeSaveChain
     await this.suppressionSaveChain
@@ -1093,8 +1174,9 @@ export class DeepCanaryService {
       this.logger.warn?.(`${PLUGIN_NAME}: dogfood observation state could not be loaded; starting with an empty trial ledger`, error)
     }
     try {
-      const restored = await this.store.load()
-      this.items.splice(0, this.items.length, ...restored.slice(0, this.config.maxInboxItems))
+      const restored = await this.store.loadState()
+      this.items.splice(0, this.items.length, ...restored.items.slice(0, this.config.maxInboxItems))
+      this.background.restore(restored.backgroundWatches)
     } catch (error: unknown) {
       this.logger.warn?.(`${PLUGIN_NAME}: metadata state could not be loaded; starting with an empty inbox`, error)
     }
@@ -1147,6 +1229,7 @@ export class DeepCanaryService {
       waitingForHuman: authoritativeSnapshot?.waitingForHuman ?? false,
       contextCompactions: authoritativeSnapshot?.contextCompactions ?? 0,
       sameToolFailures: authoritativeSnapshot?.sameToolFailures ?? 0,
+      ...(authoritativeSnapshot?.lastFailedToolName === undefined ? {} : { lastFailedToolName: authoritativeSnapshot.lastFailedToolName }),
       ...(authoritativeSnapshot?.lastToolName === undefined ? {} : { lastToolName: authoritativeSnapshot.lastToolName }),
     })
     const sessionRef = hashMetadata(id)
@@ -1265,6 +1348,8 @@ export class DeepCanaryService {
       session.stalled = false
       session.toolFailures = 0
       session.sameToolFailures = 0
+      delete session.lastFailedToolName
+      delete session.lastToolName
       session.contextCompactions = 0
       session.activeToolCount = 0
       session.toolClass = 'unknown'
@@ -1302,15 +1387,7 @@ export class DeepCanaryService {
         // tool-call ids; consume one result conservatively in that case.
         session.activeToolCount = Math.max(0, session.activeToolCount - 1)
       }
-      if (eventData.error !== undefined) {
-        session.toolFailures += 1
-        if (observedToolName !== undefined && observedToolName === session.lastToolName) session.sameToolFailures += 1
-        else session.sameToolFailures = 1
-        if (observedToolName !== undefined) session.lastToolName = observedToolName
-      } else {
-        session.toolFailures = 0
-        session.sameToolFailures = 0
-      }
+      recordToolResult(session, eventData, observedToolName)
       if (session.activeToolCount === 0) session.toolClass = 'unknown'
     }
     if (session.activeToolCount === session.activeToolIds.size) {
@@ -1335,6 +1412,8 @@ export class DeepCanaryService {
       contextCompactions: session.contextCompactions,
       ...(session.lastToolName ? { lastToolName: session.lastToolName } : {}),
       sameToolFailures: session.sameToolFailures,
+      ...(session.lastFailedToolName === undefined ? {} : { lastFailedToolName: session.lastFailedToolName }),
+      backgroundJobs: countRunningBackgroundJobs(this.backgroundRegistry, id) ?? this.background.runningFor(id),
     }
     const signals = wasStalled && meaningful
       ? [signalFromStallRecovery({ id, ...(session.cwd ? { header: { cwd: session.cwd } } : {}) }, now)]
@@ -1364,7 +1443,9 @@ export class DeepCanaryService {
       // events arrive back-to-back during startup.
       const reason = asRecord(eventData.reason).kind ?? eventData.reason
       const state: TaskState = event.type !== 'turn/end' ? 'running'
-        : reason === 'completed' ? 'completed' : reason === 'aborted' ? 'aborted' : 'unknown'
+        : reason === 'completed' ? 'completed'
+        : reason === 'aborted' || reason === 'interrupted' ? 'aborted'
+        : reason === 'error' || reason === 'max-tokens' ? 'failed' : 'unknown'
       void this.ready.then(() => { if (!this.disposed) this.resolveHumanWait(id, now, state) })
     }
     for (const signal of signals) void this.ingest(signal)
@@ -1522,6 +1603,8 @@ export class DeepCanaryService {
 
   private checkStalls(): void {
     const now = Date.now()
+    const background = this.background.summary()
+    if (background.unknown > 0 || background.limited) this.refreshBackground?.()
     // The liveness cadence also advances timestamp-only orphan grace. This
     // keeps a restored item convergent while the host remains otherwise
     // quiet, without synthesizing a runtime observation or notification.
@@ -1537,10 +1620,11 @@ export class DeepCanaryService {
         toolFailures: session.toolFailures,
         activeSubagents: session.activeSubagents,
         lastEventAt: session.lastEventAt,
-        lastMeaningfulAt: session.lastMeaningfulAt,
+        lastMeaningfulAt: Math.max(session.lastMeaningfulAt, this.background.lastActivityFor(session.id) ?? 0),
         startedAt: session.startedAt,
         activeToolCount: session.activeToolCount,
         toolClass: session.toolClass,
+        backgroundJobs: countRunningBackgroundJobs(this.backgroundRegistry, session.id) ?? this.background.runningFor(session.id),
         waitingForHuman: session.waitingForHuman,
         turnState: session.turnState,
       }, thresholdMs)
@@ -1874,8 +1958,24 @@ export class DeepCanaryService {
   private queueSave(): void {
     this.saveChain = this.saveChain
       .then(() => this.ready)
-      .then(() => this.store.save(this.items))
+      .then(() => this.store.save(this.items, this.background.snapshot()))
       .catch(error => this.logger.warn?.(`${PLUGIN_NAME}: metadata state could not be saved`, error))
+  }
+
+  private async ingestBackground(settlement: BackgroundSettlement): Promise<void> {
+    const signal = signalFromBackgroundSettlement(settlement)
+    if (this.items.some(item => item.id === signal.id)) return
+    await this.ingest(signal)
+  }
+
+  private onBackgroundProgress(sessionId: string, now: number): void {
+    const session = this.sessions.get(sessionId)
+    if (session === undefined || !session.running) return
+    session.lastMeaningfulAt = Math.max(session.lastMeaningfulAt, now)
+    if (!session.stalled) return
+    session.stalled = false
+    delete session.lastHealthyObservationAt
+    void this.ingest(signalFromStallRecovery({ id: sessionId }, now))
   }
 
   private updateExistingOutcome(item: InboxItem, patch: Omit<Partial<OutcomeReceiptInput>, 'source' | 'trialId'>): void {

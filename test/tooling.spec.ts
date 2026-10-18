@@ -143,7 +143,7 @@ describe('locked dependency environment', () => {
     await put(root, 'package.json', JSON.stringify(changed))
     await put(root, 'package-lock.json', JSON.stringify({ name: changed.name, version: changed.version, packages: { '': changed, 'node_modules/@deepseek-ai/dsh-session': { version: '0.1.3-alpha.1' } } }))
     await put(root, 'node_modules/@deepseek-ai/dsh-session/package.json', JSON.stringify({ version: '0.1.3-alpha.1' }))
-    await expect(invoke(root, 'verify-environment.mjs', 'await subject.verifyEnvironment(process.cwd())')).rejects.toThrow('DSH 0.2.1-rc.1 development runtime')
+    await expect(invoke(root, 'verify-environment.mjs', 'await subject.verifyEnvironment(process.cwd())')).rejects.toThrow('DSH 0.2.1-rc.2 development runtime')
   })
 
   it.each(['22.18.0', '23.1.0'])('rejects unsupported DSH development Node %s', async version => {

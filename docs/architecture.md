@@ -17,7 +17,13 @@ C3 requires authoritative Host/runtime evidence. Child-agent count alone reaches
 
 ## Host contracts
 
-Web development uses released DSH 0.2.1-rc.1; current official Windows Desktop uses 0.2.0-rc.2. Session startup subscribes before reconciliation, buffers events, merges sequence-aware duplicates and tracks authoritative active-set convergence. Missing authority leaves pending work open until a public fact resolves it.
+WebUI and official Windows Desktop use released DSH 0.2.1-rc.2. Session startup subscribes before reconciliation, buffers events, merges sequence-aware duplicates and tracks authoritative active-set convergence. Missing authority leaves pending work open until a public fact resolves it.
+
+The optional public Job Registry supplies owner-scoped lifecycle and output-count events. Background tracking reads identity, kind, lifecycle, timestamps and increasing byte counts. Running jobs stay out of the reminder queue; unawaited producer outcomes enter the existing deterministic core. Awaited outcomes and intentional cancellation remain quiet. Durable Session job events reconcile watches after replacement, checking the original owner to reject copied fork history.
+
+The atomic Inbox state also retains at most 256 background watches and recent settlement references. Unknown and settled records expire after seven days when reconciled; live authoritative work continues to be tracked. A missing registry/history fact preserves unknown status. Catch-up observes a producer outcome from durable metadata and leaves its prior waiter collection unknown; live waiter suppression uses the explicit public `awaited` flag. Foreground liveness uses increasing background byte counts and bounded grace, closes a prior stall on renewed activity and releases grace at settlement. No output, label, progress text, command or terminal detail enters reminder state.
+
+Pending Inbox items sort by level, then human interaction and recency. Rendering expands in pages of 50 and reveals a selected item when it lies beyond the first page. Explicit already-resolved feedback acknowledges its selected reminder; runtime task state and later Human Needed generations retain their own facts.
 
 The service registers cleanup through the public Cordis `ctx.effect()` contract. Unloading removes subscriptions and timers, then awaits pending metadata, outcome and capture writes. Repeated disposal awaits the same completion. A replacement instance reads the committed state before reconciliation. Completed sessions retain their summaries; aborted and interrupted sessions retain explicit outcome semantics, and forked history stays quiet until it represents new work.
 

@@ -7,6 +7,7 @@ Start with the [English quick start](../README.md) or [简体中文](../README.z
 - [Compatibility and troubleshooting](compatibility.md) — DSH versions, operating systems, notification requirements, and known limits.
 - [Security and privacy](security.md) — local data, allowed actions, and deployment boundaries.
 - [Changelog](../CHANGELOG.md) — changes between versions.
+- [Roadmap](roadmap.md) — delivered capabilities, next product outcomes and the conditions for expansion.
 
 ## Contributing and integration
 

@@ -202,6 +202,12 @@ export interface RuntimeStatus {
     };
     workspace: Pick<WorkspaceIdentity, 'platform' | 'windowsInterop' | 'nativeToast'>;
     sessions: number;
+    background?: {
+        available: boolean;
+        running: number;
+        unknown: number;
+        limited: boolean;
+    };
     tools: string[];
     openInbox: number;
     revision: number;

@@ -28,6 +28,94 @@ afterEach(async () => {
 })
 
 describe('DeepCanaryService', () => {
+  it.each([
+    { reason: 'interrupted', taskState: 'aborted' },
+    { reason: 'error', taskState: 'failed' },
+    { reason: 'max-tokens', taskState: 'failed' },
+  ])('closes an existing human wait with its authoritative terminal state: $reason', async ({ reason, taskState }) => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-terminal-wait-'))
+    const listeners = new Map<string, (...args: any[]) => void>()
+    const service = new DeepCanaryService({ logger: {}, on: (name: string, callback: (...args: any[]) => void) => { listeners.set(name, callback) } } as never, { stateDir: directory })
+    services.push(service)
+    try {
+      await service.ready
+      service.start()
+      const session = { id: 'terminal-wait' }
+      listeners.get('session/created')?.(session)
+      listeners.get('session/event')?.(session, { type: 'approval/asked', seq: 0, data: {} })
+      await vi.waitFor(() => { expect(service.inbox(20).some(item => item.level === 'C3')).toBe(true) })
+      listeners.get('session/event')?.(session, { type: 'turn/end', seq: 1, data: { reason: { kind: reason } } })
+      await vi.waitFor(() => { expect(service.inbox(20).find(item => item.reasonCode === 'HUMAN_APPROVAL_REQUIRED')).toMatchObject({ status: 'recovered', taskState }) })
+    } finally { await service.dispose(); await rm(directory, { recursive: true, force: true }) }
+  })
+
+  it('keeps urgent pending work ahead of more than one page of routine completions', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-priority-'))
+    const service = new DeepCanaryService({ logger: {} } as never, { stateDir: directory, maxInboxItems: 100 })
+    services.push(service)
+    try {
+      await service.ready
+      const human = await service.ingest({ ...testSignal(), id: 'urgent-question', kind: 'HUMAN_QUESTION_PENDING', severityHint: 3 })
+      for (let index = 0; index < 60; index += 1) await service.ingest({ ...testSignal(), id: `routine-${index}`, kind: 'TASK_COMPLETED',
+        occurredAt: new Date(Date.now() + index + 1).toISOString(), dedupeKey: `routine-${index}` })
+      expect(service.snapshot().inbox).toHaveLength(61)
+      expect(service.snapshot().inbox[0]?.id).toBe(human?.id)
+      service.snooze(human!.id, 10)
+      expect(service.snapshot().inbox.some(item => item.id === human?.id)).toBe(false)
+    } finally { await service.dispose(); await rm(directory, { recursive: true, force: true }) }
+  })
+
+  it('uses explicit handled feedback to close one reminder while preserving future Human Needed', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-handled-feedback-'))
+    const service = new DeepCanaryService({ logger: {} } as never, { stateDir: directory })
+    services.push(service)
+    try {
+      await service.ready
+      const first = await service.ingest({ ...testSignal(), id: 'question-first', kind: 'HUMAN_QUESTION_PENDING', severityHint: 3 })
+      expect(service.feedback(first!.id, false, undefined, 'already-resolved')).toBe(true)
+      expect(service.snapshot().inbox).toEqual([])
+      expect(service.explain(first!.id)).toMatchObject({ status: 'acknowledged', taskState: 'waiting-human' })
+      const next = await service.ingest({ ...testSignal(), id: 'question-next', kind: 'HUMAN_QUESTION_PENDING', severityHint: 3, dedupeKey: 'question-next' })
+      expect(service.snapshot().inbox[0]).toMatchObject({ id: next?.id, level: 'C3' })
+    } finally { await service.dispose(); await rm(directory, { recursive: true, force: true }) }
+  })
+
+  it.each([
+    { names: ['read_file', 'read_file', 'read_file'], publicResult: true, expected: true },
+    { names: ['read_file', 'search', 'write_file'], publicResult: false, expected: false },
+  ])('alerts only for an actual repeated-tool failure: $names', async ({ names, publicResult, expected }) => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-tool-failures-'))
+    const listeners = new Map<string, (...args: any[]) => void>()
+    const service = new DeepCanaryService({ logger: {}, on: (name: string, listener: (...args: any[]) => void) => { listeners.set(name, listener) } } as never, { stateDir: directory })
+    services.push(service)
+    try {
+      await service.ready
+      service.start()
+      const session = { id: 'failed-tool-session' }
+      listeners.get('session/created')?.(session)
+      const emit = async (type: string, data: Record<string, unknown>) => {
+        listeners.get('session/event')?.(session, { type, data })
+        await Promise.resolve()
+        await Promise.resolve()
+      }
+      await emit('turn/start', {})
+      for (const [index, name] of names.entries()) {
+        const callId = `failed-${index}`
+        await emit('tool/call', { name, callId })
+        await emit('tool/result', publicResult
+          ? { message: { role: 'tool', source: { kind: 'tool', callId }, isError: true,
+            get content(): never { throw new Error('Private result content') } } }
+          : { callId, error: { code: 'EFAIL' } })
+      }
+      const failure = service.inbox(50).find(item => item.reasonCode === 'TOOL_FAILURE_LOOP')
+      expect(failure !== undefined).toBe(expected)
+      if (expected) expect(failure).toMatchObject({ level: 'C2' })
+    } finally {
+      await service.dispose()
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
   it.each([true, false])('uses remaining parallel tools for live stall decisions: long remains %s', async (longRemains) => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-parallel-stall-'))
     const listeners = new Map<string, (...args: any[]) => void>()

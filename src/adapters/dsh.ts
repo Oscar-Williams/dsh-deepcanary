@@ -1,6 +1,6 @@
 import type { Context } from '@deepseek-ai/cordis'
-import { isMeaningfulSessionEvent, toolCallIdOf, toolClassForName, toolClassForActiveTools } from '../providers.js'
-import type { SessionEventLike, SessionLike, ToolClass, TurnState } from '../providers.js'
+import { isMeaningfulSessionEvent, recordToolResult, toolCallIdOf, toolClassForName, toolClassForActiveTools } from '../providers.js'
+import type { SessionEventLike, SessionLike, ToolClass, ToolFailureState, TurnState } from '../providers.js'
 import type { ReconciliationStatus } from '../types.js'
 import { readUserQuestionFacts } from './user-questions.js'
 import type { UserQuestionFacts } from './user-questions.js'
@@ -40,6 +40,7 @@ export interface SessionSnapshot {
   userQuestions?: UserQuestionFacts
   toolFailures?: number
   sameToolFailures?: number
+  lastFailedToolName?: string
   contextCompactions?: number
   lastToolName?: string
 }
@@ -401,8 +402,7 @@ function snapshotFromSession(value: unknown, active: boolean): SessionSnapshot |
   let waitingForHuman = false
   let humanNeededReason: SessionSnapshot['humanNeededReason']
   let humanNeededSeq: number | undefined
-  let toolFailures = 0
-  let sameToolFailures = 0
+  const failures: ToolFailureState = { toolFailures: 0, sameToolFailures: 0 }
   let contextCompactions = 0
   let lastToolName: string | undefined
   let activeToolCount = 0
@@ -424,8 +424,9 @@ function snapshotFromSession(value: unknown, active: boolean): SessionSnapshot |
       humanNeededReason = undefined
       humanNeededSeq = undefined
       startedAt = time ?? startedAt
-      toolFailures = 0
-      sameToolFailures = 0
+      failures.toolFailures = 0
+      failures.sameToolFailures = 0
+      delete failures.lastFailedToolName
       contextCompactions = 0
       lastToolName = undefined
       activeToolCount = 0
@@ -463,14 +464,7 @@ function snapshotFromSession(value: unknown, active: boolean): SessionSnapshot |
     }
     if (type === 'tool/result') {
       if (callId === undefined || activeTools.delete(callId)) activeToolCount = Math.max(0, activeToolCount - 1)
-      if (data.error !== undefined) {
-        toolFailures += 1
-        sameToolFailures = observedToolName !== undefined && observedToolName === lastToolName ? sameToolFailures + 1 : 1
-        if (observedToolName !== undefined) lastToolName = observedToolName
-      } else {
-        toolFailures = 0
-        sameToolFailures = 0
-      }
+      recordToolResult(failures, data, observedToolName)
       if (activeToolCount === 0) toolClass = 'unknown'
     }
     if (activeToolCount === activeTools.size) toolClass = toolClassForActiveTools(activeTools.values())
@@ -504,8 +498,9 @@ function snapshotFromSession(value: unknown, active: boolean): SessionSnapshot |
     toolClass,
     ...(humanNeededReason === undefined ? {} : { humanNeededReason }),
     ...(humanNeededSeq === undefined ? {} : { humanNeededSeq }),
-    toolFailures,
-    sameToolFailures,
+    toolFailures: failures.toolFailures,
+    sameToolFailures: failures.sameToolFailures,
+    ...(failures.lastFailedToolName === undefined ? {} : { lastFailedToolName: failures.lastFailedToolName }),
     contextCompactions,
     ...(lastToolName === undefined ? {} : { lastToolName }),
   }

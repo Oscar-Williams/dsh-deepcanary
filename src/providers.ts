@@ -17,10 +17,40 @@ export interface SessionFacts {
   contextCompactions?: number
   lastToolName?: string
   sameToolFailures?: number
+  lastFailedToolName?: string
+  backgroundJobs?: number
 }
 
 export type ToolClass = 'long-running' | 'ordinary' | 'unknown'
 export type TurnState = 'running' | 'terminal' | 'unknown'
+
+export interface ToolFailureState {
+  toolFailures: number
+  sameToolFailures: number
+  lastFailedToolName?: string | undefined
+}
+
+/** Read public outcome metadata without touching tool arguments or result blocks. */
+export function toolResultFailed(data: Record<string, unknown>): boolean {
+  const message = data.message
+  if (message !== null && typeof message === 'object' && 'role' in message && message.role === 'tool'
+    && 'isError' in message && typeof message.isError === 'boolean') return message.isError
+  return data.error !== undefined && data.error !== null
+}
+
+/** Keep the failure identity independent from tools started in parallel or between failures. */
+export function recordToolResult(state: ToolFailureState, data: Record<string, unknown>, name: string | undefined): void {
+  if (!toolResultFailed(data)) {
+    state.toolFailures = 0
+    state.sameToolFailures = 0
+    delete state.lastFailedToolName
+    return
+  }
+  state.toolFailures += 1
+  state.sameToolFailures = name !== undefined && name === state.lastFailedToolName ? state.sameToolFailures + 1 : 1
+  if (name === undefined) delete state.lastFailedToolName
+  else state.lastFailedToolName = name
+}
 
 export interface SessionLike {
   id: string
@@ -166,7 +196,8 @@ export function signalsFromSessionEvent(session: SessionLike, event: SessionEven
       if (suspicious) {
         result.push(signal('session', 'COMPLETION_SUSPICIOUS', session, event, facts, evidence('session-event', 'runtime', ref, 'DSH reported completion while a structured acceptance or human-needed condition remained unresolved.'), visibilityData, 2, `${session.id}:completion`))
       } else {
-        const completion = signal('session', 'TASK_COMPLETED', session, event, facts, evidence('session-event', 'runtime', ref, 'DSH reported a normal turn completion.'), visibilityData, 1)
+        const completion = signal('session', 'TASK_COMPLETED', session, event, facts, evidence('session-event', 'runtime', ref, 'DSH reported a normal turn completion.'),
+          { ...visibilityData, backgroundJobs: facts.backgroundJobs ?? 0 }, 1)
         // Keep the child-derived identity for dedupe, but collect ordinary
         // short-lived child results at their parent's navigation target.
         const parentId = session.header?.parentSession
@@ -210,8 +241,8 @@ export function signalsFromSessionEvent(session: SessionLike, event: SessionEven
   }
 
   const failureCount = facts.sameToolFailures ?? facts.toolFailures
-  if (eventType === 'tool/result' && data.error !== undefined && failureCount >= 3) {
-    result.push(signal('tool', 'TOOL_FAILURE_LOOP', session, event, facts, evidence('tool-history', 'derived', ref, 'The same tool has produced repeated structured failures.'), { ...visibilityData, failureCount, toolName: facts.lastToolName ?? toolName }, 2, `${session.id}:tool-failure-loop`))
+  if (eventType === 'tool/result' && toolResultFailed(data) && failureCount >= 3) {
+    result.push(signal('tool', 'TOOL_FAILURE_LOOP', session, event, facts, evidence('tool-history', 'derived', ref, 'The same tool has produced repeated structured failures.'), { ...visibilityData, failureCount, toolName: facts.lastFailedToolName ?? facts.lastToolName ?? toolName }, 2, `${session.id}:tool-failure-loop`))
   }
 
   const contextMarker = `${eventType} ${typeof data.kind === 'string' ? data.kind : ''}`
@@ -276,9 +307,9 @@ export function signalFromStall(session: SessionLike, facts: SessionFacts, thres
   // A known long-running tool gets a scoped grace period. It is not exempt
   // forever: if it remains silent beyond the extended window, emit a C2
   // inspection hint with the same privacy-safe evidence shape.
-  const effectiveThreshold = facts.activeToolCount !== undefined && facts.activeToolCount > 0
-    ? facts.toolClass === 'long-running' ? thresholdMs * 2 : thresholdMs
-    : thresholdMs
+  const effectiveThreshold = (facts.backgroundJobs ?? 0) > 0
+    || (facts.activeToolCount !== undefined && facts.activeToolCount > 0 && facts.toolClass === 'long-running')
+    ? thresholdMs * 2 : thresholdMs
   if (meaningfulIdleMs < effectiveThreshold) return undefined
   const summary = facts.activeToolCount !== undefined && facts.activeToolCount > 0
     ? 'A running DSH turn has not reported meaningful progress within the tool-aware liveness window.'

@@ -4,6 +4,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { ATTENTION_POLICY_VERSION } from './types.js'
 import { SUPPRESSIBLE_REASON_CODES } from './types.js'
+import { copyBackgroundWatch, isBackgroundWatch, MAX_BACKGROUND_WATCHES } from './adapters/background-jobs.js'
+import type { BackgroundWatch } from './adapters/background-jobs.js'
 import type { AttentionAction, AttentionLevel, EvidenceAuthority, EvidenceType, FeedbackValue, InboxItem, InboxStatus, MessageParams, PolicyDecisionTrace, ReasonCode, SuppressibleReasonCode, TaskState } from './types.js'
 
 interface PersistedEvidence {
@@ -54,6 +56,7 @@ interface PersistedItem {
 interface PersistedState {
   schemaVersion: 1
   items: PersistedItem[]
+  backgroundWatches?: BackgroundWatch[]
 }
 
 export function hashMetadata(value: string): string {
@@ -165,18 +168,24 @@ export class MetadataStore {
   }
 
   async load(): Promise<InboxItem[]> {
+    return (await this.loadState()).items
+  }
+
+  async loadState(): Promise<{ items: InboxItem[]; backgroundWatches: BackgroundWatch[] }> {
     try {
       const raw = JSON.parse(await readFile(this.file, 'utf8')) as Partial<PersistedState>
-      if (raw.schemaVersion !== 1 || !Array.isArray(raw.items)) return []
-      return raw.items.filter(isPersistedItem).map(fromPersisted)
+      if (raw.schemaVersion !== 1 || !Array.isArray(raw.items)) return { items: [], backgroundWatches: [] }
+      return { items: raw.items.filter(isPersistedItem).map(fromPersisted), backgroundWatches: Array.isArray(raw.backgroundWatches)
+        ? raw.backgroundWatches.filter(isBackgroundWatch).slice(-MAX_BACKGROUND_WATCHES).map(copyBackgroundWatch) : [] }
     } catch (error: unknown) {
-      if (isNodeError(error, 'ENOENT')) return []
+      if (isNodeError(error, 'ENOENT')) return { items: [], backgroundWatches: [] }
       throw error
     }
   }
 
-  async save(items: readonly InboxItem[]): Promise<void> {
-    const payload: PersistedState = { schemaVersion: 1, items: items.map(toPersisted) }
+  async save(items: readonly InboxItem[], backgroundWatches: readonly BackgroundWatch[] = []): Promise<void> {
+    const payload: PersistedState = { schemaVersion: 1, items: items.map(toPersisted),
+      backgroundWatches: backgroundWatches.filter(isBackgroundWatch).slice(-MAX_BACKGROUND_WATCHES).map(copyBackgroundWatch) }
     await mkdir(this.directory, { recursive: true })
     const temporary = `${this.file}.${process.pid}.tmp`
     await writeFile(temporary, `${JSON.stringify(payload, null, 2)}\n`, 'utf8')

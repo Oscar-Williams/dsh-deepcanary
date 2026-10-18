@@ -1,3 +1,4 @@
+import type { BackgroundWatch } from './adapters/background-jobs.js';
 import type { InboxItem, SuppressibleReasonCode } from './types.js';
 export declare function hashMetadata(value: string): string;
 export declare function resolveStateDir(value: string): string;
@@ -6,7 +7,11 @@ export declare class MetadataStore {
     readonly file: string;
     constructor(stateDir: string);
     load(): Promise<InboxItem[]>;
-    save(items: readonly InboxItem[]): Promise<void>;
+    loadState(): Promise<{
+        items: InboxItem[];
+        backgroundWatches: BackgroundWatch[];
+    }>;
+    save(items: readonly InboxItem[], backgroundWatches?: readonly BackgroundWatch[]): Promise<void>;
 }
 /** Durable, reason-code-only notification preferences. No session or workspace data is stored here. */
 export declare class SuppressionStore {

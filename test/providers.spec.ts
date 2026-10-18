@@ -1,10 +1,25 @@
 import { describe, expect, it } from 'vitest'
-import { signalFromHostProbe, signalFromStall, signalFromStallRecovery, signalsFromSessionEvent, toolCallIdOf } from '../src/providers.js'
+import { recordToolResult, signalFromHostProbe, signalFromStall, signalFromStallRecovery, signalsFromSessionEvent, toolCallIdOf } from '../src/providers.js'
+import type { ToolFailureState } from '../src/providers.js'
 
 const session = { id: 'session-1', header: { cwd: 'C:\\work' } }
 const facts = { toolFailures: 3, activeSubagents: 0, lastEventAt: 1_000, startedAt: 1_000 }
 
 describe('runtime providers', () => {
+  it('recognizes the public tool-result error flag without reading its content', () => {
+    const message = { role: 'tool', isError: true, get content(): never { throw new Error('Result content must stay private') } }
+    expect(signalsFromSessionEvent(session, { type: 'tool/result', data: { message } },
+      { ...facts, sameToolFailures: 3, lastToolName: 'read_file' })).toMatchObject([{ kind: 'TOOL_FAILURE_LOOP' }])
+  })
+
+  it('resets a failure streak on public success and never merges unnamed failures', () => {
+    const state: ToolFailureState = { toolFailures: 2, sameToolFailures: 2, lastFailedToolName: 'read_file' }
+    recordToolResult(state, { message: { role: 'tool', isError: false }, error: { code: 'STALE' } }, 'read_file')
+    expect(state).toEqual({ toolFailures: 0, sameToolFailures: 0 })
+    for (let index = 0; index < 3; index += 1) recordToolResult(state, { message: { role: 'tool', isError: true } }, undefined)
+    expect(state).toEqual({ toolFailures: 3, sameToolFailures: 1 })
+  })
+
   it.each(['aborted', 'interrupted'])('retains %s as a stopped task rather than a completion', reason => {
     expect(signalsFromSessionEvent(session, {
       type: 'turn/end', seq: 5, time: 2_000, data: { reason: { kind: reason } },

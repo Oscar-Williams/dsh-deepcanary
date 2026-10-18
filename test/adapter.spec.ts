@@ -2,6 +2,24 @@ import { describe, expect, it } from 'vitest'
 import { ContextDshAdapter } from '../src/adapters/dsh.js'
 
 describe('DSH adapter boundary', () => {
+  it.each([
+    { names: ['read_file', 'read_file', 'read_file'], publicResult: true, expected: 3 },
+    { names: ['read_file', 'search', 'write_file'], publicResult: false, expected: 1 },
+  ])('reconstructs consecutive failures by failed tool identity: $names', async ({ names, publicResult, expected }) => {
+    const events = [{ type: 'turn/start', seq: 0, time: 1, data: {} as Record<string, unknown> }]
+    for (const [index, name] of names.entries()) {
+      const callId = `failed-${index}`
+      events.push({ type: 'tool/call', seq: events.length, time: events.length + 1, data: { name, callId } })
+      events.push({ type: 'tool/result', seq: events.length, time: events.length + 1, data: publicResult
+        ? { message: { role: 'tool', source: { kind: 'tool', callId }, isError: true } }
+        : { callId, error: { code: 'EFAIL' } } })
+    }
+    const session = { id: 'tool-failure-history', snapshotEvents: () => events }
+    const adapter = new ContextDshAdapter({ sessions: { list: () => [session] } } as never)
+    await adapter.start()
+    expect(await adapter.getSessionSnapshot(session.id)).toMatchObject({ toolFailures: 3, sameToolFailures: expected })
+  })
+
   it.each([true, false])('classifies remaining parallel tools independent of call order: long first %s', async (longFirst) => {
     const calls = [
       { name: 'bash', callId: 'long' },

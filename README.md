@@ -10,13 +10,15 @@ English · [简体中文](README.zh-CN.md) · [Documentation](docs/README.md) ·
 
 DeepCanary adds a local task inbox to [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). It brings questions, approvals, failures and completion summaries together, applies quiet notification policies, and returns you to the relevant session.
 
-**Current development candidate: 0.1.5-rc.2.** Web development uses DSH 0.2.1-rc.1. Windows Desktop uses its latest available official build, currently 0.2.0-rc.2. This candidate is distributed locally as a tgz. The published npm version remains 0.1.4-rc.1, with its DSH 0.2.0-rc.2 baseline.
+**Candidate: 0.1.6-rc.1.** WebUI and official Windows Desktop use released DSH **0.2.1-rc.2**. Install the candidate tgz with the instructions below. Published versions and channels are listed on the [npm package page](https://www.npmjs.com/package/dsh-deepcanary).
+
+This version follows owned background jobs through completion and plugin reload, brings urgent pending work to the top of Inbox, and turns explicit handled feedback into a completed reminder action. Background failures return you to their owning session. Healthy background activity stays quiet.
 
 ![DeepCanary Inbox](assets/deepcanary-panel-en.png)
 
 ## Install the local candidate
 
-Obtain the built file `dsh-deepcanary-0.1.5-rc.2.tgz` and keep its supplied checksum with it.
+Obtain the built file `dsh-deepcanary-0.1.6-rc.1.tgz` and keep its supplied checksum with it.
 
 ### Desktop
 
@@ -24,18 +26,18 @@ Open DSH **Plugins → Add plugin**, select the local tgz through the official p
 
 ### WebUI
 
-Use DSH 0.2.1-rc.1 and an explicit Web profile:
+Use DSH 0.2.1-rc.2 and an explicit Web profile:
 
 ```sh
 dsh --version
-dsh plugin --profile web add ./dsh-deepcanary-0.1.5-rc.2.tgz --registry=https://registry.npmjs.org/
+dsh plugin --profile web add ./dsh-deepcanary-0.1.6-rc.1.tgz --registry=https://registry.npmjs.org/
 dsh web
 ```
 
-To run the host through npm, prefix each command with `npx --yes --package=@deepseek-ai/dsh@0.2.1-rc.1`. For example:
+To run the host through npm, prefix each command with `npx --yes --package=@deepseek-ai/dsh@0.2.1-rc.2`. For example:
 
 ```sh
-npx --yes --package=@deepseek-ai/dsh@0.2.1-rc.1 dsh web
+npx --yes --package=@deepseek-ai/dsh@0.2.1-rc.2 dsh web
 ```
 
 Open the authenticated URL printed by DSH. A built source checkout can use its documented `pnpm dsh` entry. Use that checkout's own package manager version.
@@ -44,7 +46,7 @@ Open the authenticated URL printed by DSH. A built source checkout can use its d
 
 Use the official manager's update control when it offers one. An installation request for an already installed bundle can be refused by the current manager; remove that bundle through the manager before adding its replacement. Follow its applied/restart status and confirm the loaded version.
 
-The Web CLI forwards package operations to pnpm. To replace a local archive, run the fixed archive installation command and follow DSH's activation instructions. To remove the Web installation:
+The Web CLI forwards package operations to pnpm. To replace a local archive, run the installation command above, finish current work, stop that Web Host, start `dsh web` again and reload its page. Confirm the loaded plugin version. To remove the Web installation:
 
 ```sh
 dsh plugin --profile web remove dsh-deepcanary
@@ -67,6 +69,10 @@ DSH profiles own their sessions and configuration. Save active work before chang
 
 Related events are grouped and deduplicated. Healthy long tools retain bounded progress grace. Timed questions remain answerable after timeout, and accepted replies close their reminder. Completion summaries survive recovery and reload. Stopped tasks retain their stopped state; fork history stays quiet.
 
+Owned background jobs appear in the activity status while they run. Increasing output byte counts supply progress facts and close a previous stall reminder when activity returns. During live observation, uncollected completion enters Inbox at C1 and producer failure enters at C2; outcomes received by a waiter and intentional cancellation remain quiet. A completed reply with continuing background work says so explicitly. Reload restores watched jobs and collects missed observations once. Catch-up messages identify their recovery context; prior collection remains unknown. Tasks the Host cannot confirm retain unknown status.
+
+Inbox orders pending items by urgency, with questions and approvals ahead of routine updates. Further pages remain accessible through **Show more updates**. Choosing **Already resolved** records your feedback and marks that reminder handled; new questions retain their own reminder lifecycle.
+
 The resizable Inbox has opaque light/dark surfaces, keyboard controls and expandable evidence. Navigation verifies the target in DSH's public session catalog. An unavailable target keeps its summary and explains its availability.
 
 Settings use the Host's revision-aware configuration service. A concurrent write produces a conflict and preserves the draft. Discarding the draft reads the current Host snapshot. Plugin replacement waits for pending reminder writes before the replacement starts reading state.
@@ -85,7 +91,7 @@ HTTP endpoints use DSH's authenticated shared API, Host/Origin checks, bounded J
 - Supervisor is experimental and disabled by default. Its local projection lasts while the owning Host runs.
 - Natural feedback guides defect investigation. Policy calibration and selective Judge retain their evidence requirements; live decisions use deterministic rules.
 
-See [compatibility](docs/compatibility.md), [development](docs/development.md), [architecture](docs/architecture.md) and [contributing](CONTRIBUTING.md).
+See [compatibility](docs/compatibility.md), [roadmap](docs/roadmap.md), [development](docs/development.md), [architecture](docs/architecture.md) and [contributing](CONTRIBUTING.md).
 
 ## License
 

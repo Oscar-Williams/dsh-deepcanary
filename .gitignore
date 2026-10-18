@@ -24,4 +24,5 @@ output/release-notes-*.md
 output/releases/
 output/archive/
 output/development/
+output/preflight/
 output/review-*/

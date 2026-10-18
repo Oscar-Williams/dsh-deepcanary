@@ -80,6 +80,59 @@ try {
       session.append('turn/end', { turn, reason: { kind: 'completed' } })
     }
   }
+  {
+    const failureSession = ctx.sessions.prepare('contract-tool-failure-metadata')
+    const leaveFailureSession = ctx.sessions.enter(failureSession)
+    ctx.sessions.announce(failureSession)
+    try {
+      failureSession.append('turn/start', { turn: 1 })
+      const fail = (name, index) => {
+        const callId = `failed-call-${index}`
+        failureSession.append('tool/call', { turn: 1, step: index, name, callId, arguments: '{}' })
+        failureSession.append('tool/result', { turn: 1, step: index,
+          message: createToolResultMessage({ callId, content: [], isError: true }),
+        }, { surfaceOp: 'append' })
+      }
+      fail('read_file', 1)
+      fail('read_file', 2)
+      await service.dispose()
+      service = new DeepCanaryService(ctx, { stateDir: directory })
+      await service.ready
+      service.start()
+      await adapter.reconcile()
+      assert.equal((await adapter.getSessionSnapshot(failureSession.id)).sameToolFailures, 2)
+      fail('read_file', 3)
+      await check('publicToolFailureSurvivesReload', () => service.inbox(50).some(item =>
+        item.sessionId === failureSession.id && item.reasonCode === 'TOOL_FAILURE_LOOP' && item.level === 'C2'))
+      await adapter.reconcile()
+      assert.equal((await adapter.getSessionSnapshot(failureSession.id)).sameToolFailures, 3)
+      checks.publicToolFailureHistoryMatchesLive = true
+      failureSession.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+    } finally {
+      leaveFailureSession()
+    }
+    const mixedSession = ctx.sessions.prepare('contract-distinct-tool-failures')
+    const leaveMixedSession = ctx.sessions.enter(mixedSession)
+    ctx.sessions.announce(mixedSession)
+    try {
+      mixedSession.append('turn/start', { turn: 1 })
+      for (const [index, name] of ['read_file', 'search', 'write_file'].entries()) {
+        const callId = `mixed-call-${index}`
+        mixedSession.append('tool/call', { turn: 1, step: index + 1, name, callId, arguments: '{}' })
+        mixedSession.append('tool/result', { turn: 1, step: index + 1,
+          message: createToolResultMessage({ callId, content: [], isError: true }),
+        }, { surfaceOp: 'append' })
+      }
+      await adapter.reconcile()
+      assert.equal((await adapter.getSessionSnapshot(mixedSession.id)).sameToolFailures, 1)
+      await delay(30)
+      assert.equal(service.inbox(50).some(item => item.sessionId === mixedSession.id && item.reasonCode === 'TOOL_FAILURE_LOOP'), false)
+      checks.distinctToolFailuresStayQuiet = true
+      mixedSession.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+    } finally {
+      leaveMixedSession()
+    }
+  }
   console.log(JSON.stringify({ runtimeVersion: runtime.version, runtimeCommit: runtime.commit,
     provenance: 'controlled-public-session-v4-and-host-question-projection',
     artifact: 'current-local-build', checks, passed: true,

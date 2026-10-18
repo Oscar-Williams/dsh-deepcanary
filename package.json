@@ -1,6 +1,6 @@
 {
   "name": "dsh-deepcanary",
-  "version": "0.1.5-rc.2",
+  "version": "0.1.6-rc.1",
   "description": "Know when your DeepSeek Harness tasks need you. Local alerts, quiet notifications, and a task inbox.",
   "type": "module",
   "repository": {
@@ -112,6 +112,7 @@
     "clean": "node ./scripts/clean.mjs",
     "typecheck:host": "node ./scripts/build.mjs --host --typecheck",
     "adapter:host": "npm run build && node ./scripts/adapter-contract.mjs",
+    "background:host": "npm run build && node ./scripts/background-contract.mjs",
     "settings:host": "npm run build && node ./scripts/settings-contract.mjs",
     "connection:host": "npm run build && node ./scripts/connection-contract.mjs"
   },
@@ -148,18 +149,18 @@
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "4.0.5",
-    "@deepseek-ai/dsh-agent": "0.2.1-rc.1",
-    "@deepseek-ai/dsh-api-session-controller": "0.2.1-rc.1",
-    "@deepseek-ai/dsh-client-connection": "0.2.1-rc.1",
-    "@deepseek-ai/dsh-client-ui-session": "0.2.1-rc.1",
-    "@deepseek-ai/dsh-client-ui-settings": "0.2.1-rc.1",
-    "@deepseek-ai/dsh-client-ui-settings-plugins": "0.2.1-rc.1",
-    "@deepseek-ai/dsh-client-ui-slots": "0.2.1-rc.1",
-    "@deepseek-ai/dsh-host-webserver": "0.2.1-rc.1",
-    "@deepseek-ai/dsh-session": "0.2.1-rc.1",
-    "@deepseek-ai/dsh-settings": "0.2.1-rc.1",
-    "@deepseek-ai/dsh-subagent": "0.2.1-rc.1",
-    "@deepseek-ai/dsh-tools": "0.2.1-rc.1",
+    "@deepseek-ai/dsh-agent": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-api-session-controller": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-connection": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-session": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-settings": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-settings-plugins": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-slots": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-host-webserver": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-session": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-settings": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-subagent": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-tools": "0.2.1-rc.2",
     "@types/js-yaml": "4.0.9",
     "@types/node": "^22.0.0",
     "@types/react": "^18.3.12",
@@ -171,7 +172,7 @@
   },
   "engines": {
     "node": "^22.19.0 || >=24.0.0",
-    "dsh": "0.2.0-rc.2 || 0.2.1-rc.1"
+    "dsh": "0.2.1-rc.2"
   },
   "publishConfig": {
     "access": "public"
