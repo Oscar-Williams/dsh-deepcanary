@@ -2,7 +2,7 @@
 
 DeepCanary helps people leave tasks running with confidence, notice when their help is needed and return to the correct work. Development follows that outcome across foreground turns, background jobs and plugin lifecycle changes.
 
-## Current capability: 0.1.6-rc.2
+## Current capability: 0.1.6-rc.3
 
 WebUI and official Windows Desktop use released DSH 0.2.1-rc.2. The current release candidate adds:
 

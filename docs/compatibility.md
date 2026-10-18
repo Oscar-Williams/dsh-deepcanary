@@ -2,7 +2,7 @@
 
 ## Current baseline
 
-DeepCanary **0.1.6-rc.2** targets released DSH **0.2.1-rc.2** on WebUI and official Windows Desktop. The Host release tag points to `687f282e8625c6b8d11ff58211a90524be2e4317`. `engines.dsh` declares this version. Runtime checks resolve the explicitly selected installation through `DSH_RUNTIME`.
+DeepCanary **0.1.6-rc.3** targets released DSH **0.2.1-rc.2** on WebUI and official Windows Desktop. The Host release tag points to `687f282e8625c6b8d11ff58211a90524be2e4317`. `engines.dsh` declares this version. Runtime checks resolve the explicitly selected installation through `DSH_RUNTIME`.
 
 | Surface | Coverage and scope |
 | --- | --- |

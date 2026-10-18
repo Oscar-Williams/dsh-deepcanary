@@ -1,6 +1,11 @@
 # Changelog
 
-## 0.1.6-rc.2 — scheduled follow-up and durable reminder continuity
+## 0.1.6-rc.3 — complete copy for historical and grouped reminders
+
+- Show factual summary text when historical reminder metadata lacks duration, tool or count parameters. Grouped notification reasons use the same readable summaries; known values retain their detail.
+- Retain the scheduled follow-up, durable state, authoritative escalation and background supervision capabilities below.
+
+## 0.1.6-rc.2 — local candidate with scheduled follow-up and durable continuity
 
 - Add scheduled work inside Inbox with due times, 5/15/30/60-minute rescheduling and restore-to-pending actions. Preserve the schedule while the user inspects its session.
 - Give each explicit arrangement a delivery generation. Rearm due reminders under current quiet hours, budget and authoritative task state; reject stale claims and callbacks from earlier generations.
@@ -9,7 +14,7 @@
 - Continue dispatch beyond completed or exhausted claims, bound each pass and retry claim takeover through normal refreshes. Show exhausted delivery attempts while retaining the pending item. Recheck the current item before construction and keep stale clicks within Inbox.
 - Retain human waits and scheduled work ahead of routine updates when Inbox reaches capacity. Keep C3 classification and task ownership in the existing deterministic core.
 
-## 0.1.6-rc.1 — background supervision and Inbox follow-up
+## 0.1.6-rc.1 — local candidate with background supervision and Inbox follow-up
 
 - Follow owned background jobs through the released Job Registry and durable Session lifecycle. Keep running work quiet, summarize uncollected completions at C1 and surface producer failures at C2 with their exact owning session.
 - Restore background watches after plugin replacement, collect missed outcomes once and retain unknown state when authority is unavailable. Bound watch metadata and recent settlement identities to 256 records with a seven-day observation window.

@@ -9,6 +9,7 @@ import { hasCatalogSession, openAttentionSession } from './session-navigation.js
 import { rendererCapabilities } from './capabilities.js'
 import { inboxStyles } from './inbox-styles.js'
 import { claimNotificationBatch } from './notification-dispatch.js'
+import { formatReasonMessage } from './message-text.js'
 import { notificationGeneration, notificationKey } from '../core/reminders.js'
 import { SettingsDraft } from '../settings-draft.js'
 import type { SessionNavigationContext } from './session-navigation.js'
@@ -282,11 +283,15 @@ const zh = {
   'item.reason.HUMAN_QUESTION_CONTINUED': '此问题仍可回答；DSH 已不再阻塞等待。',
   'item.reason.HOST_UNREACHABLE': 'DSH 主机暂时无法访问。',
   'item.reason.HOST_SUSPECTED_STALL': '已连续 {idleMinutes} 分钟未观察到会话活动，任务可能仍在运行。',
+  'item.reason.HOST_SUSPECTED_STALL.summary': '暂未观察到会话活动，任务可能仍在运行。',
   'item.reason.TOOL_FAILURE_LOOP': '工具“{toolName}”已连续失败 {failureCount} 次。',
+  'item.reason.TOOL_FAILURE_LOOP.summary': '工具连续失败，需要查看会话。',
   'item.reason.NO_MEANINGFUL_PROGRESS': '会话持续运行，但暂未观察到有效进展。',
   'item.reason.SUBAGENT_PRESSURE': '活动 Subagent 已达 {activeSubagents} 个（阈值 {threshold}）。',
+  'item.reason.SUBAGENT_PRESSURE.summary': '子任务数量需要关注。',
   'item.reason.CONTEXT_PRESSURE': '会话上下文压力需要关注。',
   'item.reason.COMPACTION_OCCURRED': 'DSH 已完成第 {contextCompactions} 次上下文压缩。',
+  'item.reason.COMPACTION_OCCURRED.summary': 'DSH 已完成上下文压缩。',
   'item.reason.TASK_COMPLETED': '会话报告了一次正常完成。',
   'item.reason.SUBTASK_COMPLETED': '子任务已完成，可在父会话查看汇总。',
   'item.reason.BACKGROUND_TASK_COMPLETED': '后台任务已完成，可返回所属会话查看结果。',
@@ -294,6 +299,7 @@ const zh = {
   'item.reason.BACKGROUND_TASK_COMPLETED_CATCHUP': '恢复跟踪时发现后台任务已完成，可返回所属会话查看结果。',
   'item.reason.BACKGROUND_TASK_FAILED_CATCHUP': '恢复跟踪时发现后台任务已失败，需要查看所属会话。',
   'item.reason.TURN_COMPLETED_BACKGROUND': '本轮回复已结束，仍有 {backgroundJobs} 个后台任务继续运行。',
+  'item.reason.TURN_COMPLETED_BACKGROUND.summary': '本轮回复已结束，仍有后台任务继续运行。',
   'item.reason.TASK_FAILED': '会话报告执行失败。',
   'item.reason.TASK_ABORTED': '会话被中止，可能需要确认是否继续。',
   'item.reason.COMPLETION_SUSPICIOUS': '任务看似完成，但最终证据仍值得检查。',
@@ -499,11 +505,15 @@ const en = {
   'item.reason.HUMAN_QUESTION_CONTINUED': 'This question is still answerable; DSH is no longer blocking on it.',
   'item.reason.HOST_UNREACHABLE': 'The DSH host is temporarily unreachable.',
   'item.reason.HOST_SUSPECTED_STALL': 'No session activity has been observed for {idleMinutes} minutes. The task may still be running.',
+  'item.reason.HOST_SUSPECTED_STALL.summary': 'No recent session activity has been observed. The task may still be running.',
   'item.reason.TOOL_FAILURE_LOOP': 'Tool “{toolName}” has failed {failureCount} times in a row.',
+  'item.reason.TOOL_FAILURE_LOOP.summary': 'Tool failures are repeating. Review the session.',
   'item.reason.NO_MEANINGFUL_PROGRESS': 'The session is running, but meaningful progress has not been observed yet.',
   'item.reason.SUBAGENT_PRESSURE': 'Active subagents reached {activeSubagents} (threshold {threshold}).',
+  'item.reason.SUBAGENT_PRESSURE.summary': 'The number of active subtasks needs attention.',
   'item.reason.CONTEXT_PRESSURE': 'The session context pressure needs attention.',
   'item.reason.COMPACTION_OCCURRED': 'DSH completed context compaction number {contextCompactions}.',
+  'item.reason.COMPACTION_OCCURRED.summary': 'DSH completed context compaction.',
   'item.reason.TASK_COMPLETED': 'The session reported a normal completion.',
   'item.reason.SUBTASK_COMPLETED': 'A subtask completed; review the summary in its parent session.',
   'item.reason.BACKGROUND_TASK_COMPLETED': 'A background task completed. Return to its session to review the result.',
@@ -511,6 +521,7 @@ const en = {
   'item.reason.BACKGROUND_TASK_COMPLETED_CATCHUP': 'Tracking resumed: a background task completed. Review its owning session.',
   'item.reason.BACKGROUND_TASK_FAILED_CATCHUP': 'Tracking resumed: a background task failed. Review its owning session.',
   'item.reason.TURN_COMPLETED_BACKGROUND': 'This reply ended; {backgroundJobs} background tasks are still running.',
+  'item.reason.TURN_COMPLETED_BACKGROUND.summary': 'This reply ended; background work is still running.',
   'item.reason.TASK_FAILED': 'The session reported a failure.',
   'item.reason.TASK_ABORTED': 'The session was aborted and may need a follow-up decision.',
   'item.reason.COMPLETION_SUSPICIOUS': 'The task looks complete, but its final evidence is worth checking.',
@@ -1140,13 +1151,25 @@ function useController(controller: Controller): ControllerState {
   return state
 }
 
+const reasonSummaryKeys: Partial<Record<LocaleKey, LocaleKey>> = {
+  'item.reason.HOST_SUSPECTED_STALL': 'item.reason.HOST_SUSPECTED_STALL.summary',
+  'item.reason.TOOL_FAILURE_LOOP': 'item.reason.TOOL_FAILURE_LOOP.summary',
+  'item.reason.SUBAGENT_PRESSURE': 'item.reason.SUBAGENT_PRESSURE.summary',
+  'item.reason.COMPACTION_OCCURRED': 'item.reason.COMPACTION_OCCURRED.summary',
+  'item.reason.TURN_COMPLETED_BACKGROUND': 'item.reason.TURN_COMPLETED_BACKGROUND.summary',
+}
+
+function translatedReason(key: LocaleKey, t: Translate, params?: Record<string, unknown>): string {
+  return formatReasonMessage(translate(t, key), translate(t, reasonSummaryKeys[key] ?? 'item.reason.unknown'), params)
+}
+
 function reasonText(item: ClientItem, t: Translate): string {
   const key = item.messageKey !== undefined && item.messageKey in zh
     ? item.messageKey as LocaleKey
     : reasonKeys[item.reasonCode]
   return key === undefined
     ? translate(t, 'item.unknownReason', { code: item.reasonCode })
-    : translate(t, key, item.messageParams)
+    : translatedReason(key, t, item.messageParams)
 }
 
 function suggestionText(item: ClientItem, t: Translate): string {
@@ -1182,7 +1205,7 @@ function notificationTitleKey(item: ClientItem): string | undefined {
 
 function reasonCodeText(reasonCode: string, t: Translate): string {
   const key = reasonKeys[reasonCode]
-  return key === undefined ? translate(t, 'item.unknownReason', { code: reasonCode }) : translate(t, key)
+  return key === undefined ? translate(t, 'item.unknownReason', { code: reasonCode }) : translatedReason(key, t)
 }
 
 function notificationBody(item: ClientItem, t: Translate): string {

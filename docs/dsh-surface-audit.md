@@ -1,6 +1,6 @@
 # Public DSH surfaces
 
-DeepCanary 0.1.6-rc.2 uses released DSH 0.2.1-rc.2 for WebUI and official Windows Desktop, release tag `687f282e8625c6b8d11ff58211a90524be2e4317`. The generic Host contracts resolve the selected installation through `DSH_RUNTIME`.
+DeepCanary 0.1.6-rc.3 uses released DSH 0.2.1-rc.2 for WebUI and official Windows Desktop, release tag `687f282e8625c6b8d11ff58211a90524be2e4317`. The generic Host contracts resolve the selected installation through `DSH_RUNTIME`.
 
 | Public surface | Use and degradation |
 | --- | --- |

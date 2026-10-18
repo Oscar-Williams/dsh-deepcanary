@@ -1,4 +1,4 @@
-# Feedback and offline calibration — 0.1.6-rc.2
+# Feedback and offline calibration — 0.1.6-rc.3
 
 The product goal is timely help when a task needs a person, quiet healthy work and return to the correct session. The evidence chain supports factual repairs, lifecycle recovery and deliberate policy changes. The current lifecycle case is documented in [offline evaluation](offline-evaluation.md).
 

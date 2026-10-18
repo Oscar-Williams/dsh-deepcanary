@@ -1,6 +1,6 @@
 {
   "name": "dsh-deepcanary",
-  "version": "0.1.6-rc.2",
+  "version": "0.1.6-rc.3",
   "description": "Know when your DeepSeek Harness tasks need you. Local alerts, quiet notifications, and a task inbox.",
   "type": "module",
   "repository": {
