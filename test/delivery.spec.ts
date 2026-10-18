@@ -2,6 +2,16 @@ import { describe, expect, it } from 'vitest'
 import { DeliveryLedger } from '../src/core/delivery.js'
 
 describe('cross-sink delivery ledger', () => {
+  it('restores allowlisted fields and ignores malformed persisted entries', () => {
+    const ledger = new DeliveryLedger()
+    ledger.claim({ verdictId: 'controlled', conditionGeneration: 'one', sink: 'browser', clientInstance: 'local-owner',
+      claimedAt: '2026-10-18T00:00:00.000Z', expiresAt: '2026-10-18T00:00:30.000Z' })
+    const restored = new DeliveryLedger()
+    restored.restore([null as never, { ...ledger.snapshot()[0]!, privateText: 'PRIVATE-UNLISTED-FIELD' } as never])
+    expect(restored.snapshot()).toHaveLength(1)
+    expect(JSON.stringify(restored.snapshot())).not.toContain('PRIVATE-UNLISTED-FIELD')
+    expect(JSON.stringify(restored.snapshot())).not.toContain('local-owner')
+  })
   it('keeps one logical delivery idempotent across duplicate and delayed callbacks', () => {
     const ledger = new DeliveryLedger()
     const base = Date.parse('2026-09-04T00:00:00.000Z')
@@ -84,7 +94,8 @@ describe('cross-sink delivery ledger', () => {
     expect(ledger.claim({ ...logical, clientInstance: 'tab-a', claimedAt: at(0), expiresAt: at(30_000) }).outcome).toBe('granted')
     expect(ledger.claim({ ...logical, clientInstance: 'tab-b', claimedAt: at(30_001), expiresAt: at(60_001) }).outcome).toBe('granted')
     expect(ledger.claim({ ...logical, clientInstance: 'tab-c', claimedAt: at(60_002), expiresAt: at(90_002) }).outcome).toBe('granted')
-    expect(ledger.claim({ ...logical, clientInstance: 'tab-d', claimedAt: at(90_003), expiresAt: at(120_003) }).outcome).toBe('unavailable')
+    expect(ledger.claim({ ...logical, clientInstance: 'tab-d', claimedAt: at(90_003), expiresAt: at(120_003) }).outcome).toBe('exhausted')
+    expect(ledger.exhausted(logical.verdictId, logical.conditionGeneration, base + 90_003)).toBe(true)
     expect(ledger.snapshot()[0]).toMatchObject({ state: 'planned', claimAttempts: 3 })
   })
 

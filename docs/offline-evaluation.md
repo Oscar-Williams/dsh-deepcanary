@@ -1,4 +1,4 @@
-# Offline evaluation for 0.1.6-rc.1
+# Offline evaluation for 0.1.6-rc.2
 
 The current candidate adds background supervision, missed-outcome recovery, pending-work prioritization and explicit handled-feedback actions. Public Session/Agent/Job registry integration supplies the background facts. The existing deterministic core applies C1/C2 classification, deduplication, quiet hours and budget. Local receipts record checks and final artifact identity.
 
@@ -16,7 +16,19 @@ The current candidate adds background supervision, missed-outcome recovery, pend
 
 The factual defects and new capabilities have controlled, reproducible coverage. This iteration extends the available runtime facts and user actions; natural policy calibration retains the evidence conditions below.
 
-The Windows regression run passes 239 tests in 33 files. Released Host contracts cover nine Session cases, nine background-registry cases, ten Settings cases and seven Connection cases. The frozen twelve-case policy replay has zero differences. Device receipts state the observed UI scope separately.
+The Windows regression run passes 254 tests in 35 files. Released Host contracts include eleven scheduled-reminder cases alongside the Session, background-registry, Settings and Connection cases. The frozen twelve-case policy replay retains its safety role. Device receipts state the observed UI scope separately.
+
+## Scheduled follow-up development
+
+| Observed implementation gap | New behavior and evidence |
+| --- | --- |
+| A previously constructed notification retained its original logical identity after snooze. The scheduled item disappeared from the pending view until its deadline. | Each arrangement has a delivery generation and remains accessible in Scheduled. Deadline, rescheduling and restore-to-pending cases run in `test/reminder-lifecycle.spec.ts`. |
+| Delivery, dedupe and budget restoration previously depended on experimental Supervisor snapshots. | Ordinary atomic Inbox state now retains bounded runtime metadata. Restarts during ordinary operation preserve completed claims and rolling budget; failed persistence refuses a send claim. |
+| A renderer checked only the first three candidate items before asking for claims. Already completed entries could prevent later work from being reached. | Bounded claim batches continue past completed items and permit later pending work. `test/notification-dispatch.spec.ts` covers fairness, generations, urgency and request bounds. |
+| Blind truncation by arrival order could remove a scheduled item or human wait during a burst of routine updates. | Priority retention preserves those items within the configured capacity. An eighty-update regression at capacity fifty preserves the C3 and the schedule. |
+| A completed C2 delivery could suppress a later authoritative C3 escalation in the same bundle. | Escalation advances the delivery generation, returns a scheduled item to pending and permits the new authoritative notification. A regression covers the transition with quiet hours and an exhausted C2 budget. |
+
+These controlled development cases establish reproducible behavior. They add no natural cohort or policy-threshold adoption. The public reminder contract checks original ownership, current C3 authority, renderer arbitration, default-mode reload and accepted-answer cancellation using released Host objects and a controlled clock.
 
 ## Retained evidence scope
 

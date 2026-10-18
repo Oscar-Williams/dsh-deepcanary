@@ -4,7 +4,7 @@
 
 | Item | Version or identity |
 | --- | --- |
-| Local plugin | 0.1.6-rc.1 candidate |
+| Local plugin | 0.1.6-rc.2 candidate |
 | Published plugin | 0.1.4-rc.1 |
 | Web Host | published DSH 0.2.1-rc.2 npm packages |
 | Official Windows Desktop | released DSH 0.2.1-rc.2; release tag `687f282e8625c6b8d11ff58211a90524be2e4317` |

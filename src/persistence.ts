@@ -6,6 +6,10 @@ import { ATTENTION_POLICY_VERSION } from './types.js'
 import { SUPPRESSIBLE_REASON_CODES } from './types.js'
 import { copyBackgroundWatch, isBackgroundWatch, MAX_BACKGROUND_WATCHES } from './adapters/background-jobs.js'
 import type { BackgroundWatch } from './adapters/background-jobs.js'
+import { DeliveryLedger } from './core/delivery.js'
+import type { PersistedDeliveryEntry } from './core/delivery.js'
+import type { PersistedDedupeEntry } from './core/dedupe.js'
+import { MAX_NOTIFICATION_GENERATION } from './core/reminders.js'
 import type { AttentionAction, AttentionLevel, EvidenceAuthority, EvidenceType, FeedbackValue, InboxItem, InboxStatus, MessageParams, PolicyDecisionTrace, ReasonCode, SuppressibleReasonCode, TaskState } from './types.js'
 
 interface PersistedEvidence {
@@ -38,6 +42,9 @@ interface PersistedItem {
   decisionTrace?: PersistedDecisionTrace
   status: InboxStatus
   snoozedUntil?: string
+  notificationGeneration?: number
+  reminderPending?: boolean
+  lastReminderAt?: string
   seenAt?: string
   acknowledgedAt?: string
   recoveredAt?: string
@@ -57,6 +64,37 @@ interface PersistedState {
   schemaVersion: 1
   items: PersistedItem[]
   backgroundWatches?: BackgroundWatch[]
+  runtime?: AttentionRuntimeState
+}
+
+export interface AttentionRuntimeState {
+  policyVersion: string
+  dedupe: PersistedDedupeEntry[]
+  interruptConsumedAt: string[]
+  deliveryLedger: PersistedDeliveryEntry[]
+}
+
+function runtimeState(value: unknown): AttentionRuntimeState | undefined {
+  if (value === null || typeof value !== 'object') return undefined
+  const raw = value as Partial<AttentionRuntimeState>
+  if (raw.policyVersion !== ATTENTION_POLICY_VERSION) return undefined
+  const ledger = new DeliveryLedger()
+  ledger.restore(Array.isArray(raw.deliveryLedger) ? raw.deliveryLedger.slice(-512) : [])
+  return { policyVersion: ATTENTION_POLICY_VERSION,
+    dedupe: Array.isArray(raw.dedupe) ? raw.dedupe.filter(entry => entry !== null && typeof entry === 'object'
+      && typeof entry.keyHash === 'string' && /^[a-f0-9]{16}$/.test(entry.keyHash)
+      && typeof entry.acceptedAt === 'string' && Number.isFinite(Date.parse(entry.acceptedAt))).slice(-512)
+      .map(entry => ({ keyHash: entry.keyHash, acceptedAt: entry.acceptedAt })) : [],
+    interruptConsumedAt: Array.isArray(raw.interruptConsumedAt) ? raw.interruptConsumedAt
+      .filter(value => typeof value === 'string' && Number.isFinite(Date.parse(value))).slice(-256) : [],
+    deliveryLedger: ledger.snapshot() }
+}
+
+function reminderMetadata(item: Pick<PersistedItem, 'notificationGeneration' | 'reminderPending' | 'lastReminderAt'>) {
+  return { ...(Number.isSafeInteger(item.notificationGeneration) && item.notificationGeneration! >= 0 && item.notificationGeneration! <= MAX_NOTIFICATION_GENERATION
+    ? { notificationGeneration: item.notificationGeneration! } : {}),
+    ...(item.reminderPending === true ? { reminderPending: true } : {}),
+    ...(typeof item.lastReminderAt === 'string' && Number.isFinite(Date.parse(item.lastReminderAt)) ? { lastReminderAt: item.lastReminderAt } : {}) }
 }
 
 export function hashMetadata(value: string): string {
@@ -94,6 +132,7 @@ function toPersisted(item: InboxItem): PersistedItem {
     })),
     ...(item.decisionTrace === undefined ? {} : { decisionTrace: persistDecisionTrace(item.decisionTrace) }),
     status: item.status,
+    ...reminderMetadata(item),
     ...(item.snoozedUntil ? { snoozedUntil: item.snoozedUntil } : {}),
     ...(item.seenAt ? { seenAt: item.seenAt } : {}),
     ...(item.acknowledgedAt ? { acknowledgedAt: item.acknowledgedAt } : {}),
@@ -141,6 +180,7 @@ function fromPersisted(item: PersistedItem): InboxItem {
     })),
     ...(item.decisionTrace === undefined || !isDecisionTrace(item.decisionTrace) ? {} : { decisionTrace: item.decisionTrace }),
     status: item.status,
+    ...reminderMetadata(item),
     ...(item.snoozedUntil ? { snoozedUntil: item.snoozedUntil } : {}),
     ...(item.seenAt ? { seenAt: item.seenAt } : {}),
     ...(item.acknowledgedAt ? { acknowledgedAt: item.acknowledgedAt } : {}),
@@ -171,21 +211,25 @@ export class MetadataStore {
     return (await this.loadState()).items
   }
 
-  async loadState(): Promise<{ items: InboxItem[]; backgroundWatches: BackgroundWatch[] }> {
+  async loadState(): Promise<{ items: InboxItem[]; backgroundWatches: BackgroundWatch[]; runtime?: AttentionRuntimeState }> {
     try {
       const raw = JSON.parse(await readFile(this.file, 'utf8')) as Partial<PersistedState>
       if (raw.schemaVersion !== 1 || !Array.isArray(raw.items)) return { items: [], backgroundWatches: [] }
+      const runtime = runtimeState(raw.runtime)
       return { items: raw.items.filter(isPersistedItem).map(fromPersisted), backgroundWatches: Array.isArray(raw.backgroundWatches)
-        ? raw.backgroundWatches.filter(isBackgroundWatch).slice(-MAX_BACKGROUND_WATCHES).map(copyBackgroundWatch) : [] }
+        ? raw.backgroundWatches.filter(isBackgroundWatch).slice(-MAX_BACKGROUND_WATCHES).map(copyBackgroundWatch) : [],
+        ...(runtime === undefined ? {} : { runtime }) }
     } catch (error: unknown) {
       if (isNodeError(error, 'ENOENT')) return { items: [], backgroundWatches: [] }
       throw error
     }
   }
 
-  async save(items: readonly InboxItem[], backgroundWatches: readonly BackgroundWatch[] = []): Promise<void> {
+  async save(items: readonly InboxItem[], backgroundWatches: readonly BackgroundWatch[] = [], runtime?: AttentionRuntimeState): Promise<void> {
+    const sanitizedRuntime = runtimeState(runtime)
     const payload: PersistedState = { schemaVersion: 1, items: items.map(toPersisted),
-      backgroundWatches: backgroundWatches.filter(isBackgroundWatch).slice(-MAX_BACKGROUND_WATCHES).map(copyBackgroundWatch) }
+      backgroundWatches: backgroundWatches.filter(isBackgroundWatch).slice(-MAX_BACKGROUND_WATCHES).map(copyBackgroundWatch),
+      ...(sanitizedRuntime === undefined ? {} : { runtime: sanitizedRuntime }) }
     await mkdir(this.directory, { recursive: true })
     const temporary = `${this.file}.${process.pid}.tmp`
     await writeFile(temporary, `${JSON.stringify(payload, null, 2)}\n`, 'utf8')

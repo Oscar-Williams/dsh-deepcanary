@@ -25,6 +25,10 @@ The atomic Inbox state also retains at most 256 background watches and recent se
 
 Pending Inbox items sort by level, then human interaction and recency. Rendering expands in pages of 50 and reveals a selected item when it lies beyond the first page. Explicit already-resolved feedback acknowledges its selected reminder; runtime task state and later Human Needed generations retain their own facts.
 
+Explicit snooze creates a bounded integer delivery generation in the same reminder. Scheduled work remains available inside Inbox with its due time, rescheduling and restore-to-pending actions. Deadline processing reapplies delivery preferences to the existing verdict and evidence. Due C2 work waits through quiet hours, mute or budget pressure; a resolved task stays closed. Restored C3 work waits for current public authority. Capacity retention gives active human waits and deliberately scheduled work priority over routine updates.
+
+A higher authoritative verdict advances the delivery generation and returns a snoozed item to pending. A previously completed C2 delivery therefore permits the new C3 notification. Equal or lower-level merges preserve the current generation and its deduplication.
+
 The service registers cleanup through the public Cordis `ctx.effect()` contract. Unloading removes subscriptions and timers, then awaits pending metadata, outcome and capture writes. Repeated disposal awaits the same completion. A replacement instance reads the committed state before reconciliation. Completed sessions retain their summaries; aborted and interrupted sessions retain explicit outcome semantics, and forked history stays quiet until it represents new work.
 
 Configuration uses Host ConfigForm mutation with the original draft revision, volatile snapshots and profile-isolated state. Dirty drafts retain their revision across remote refresh. Conflicts preserve the draft; discard and successful save reread Host state. Legacy settings migration uses the same Host service and preserves the original source on failure.
@@ -38,6 +42,8 @@ Host self-checks read mounted in-process WebServer facts. They establish service
 ## Delivery and local state
 
 Notification permission, level, quiet hours and budget decide interruptions. Expiring server-owned claims arbitrate multiple renderer pages; client storage is an optimization. Bounded attempt stages distinguish attempted, constructed, callback-attached, clicked and failed. OS visibility stays unknown without an observation.
+
+Ordinary operation persists bounded dedupe, budget and delivery ledger metadata in the atomic Inbox state. A successful claim is saved before the server authorizes construction. Each delivery generation has its own claim and hashed notification identity; stale claims, callbacks and clicks preserve the newer arrangement. Client passes examine at most twelve claims and construct at most three notifications, continuing past completed claims. Regular refresh also supplies lease takeover opportunities. Supervisor can project this primary state when explicitly enabled.
 
 Local state stores bounded summaries, hashes, lifecycle, feedback and session navigation handles. Atomic replacement persists state in the active profile. Separate homes/profiles keep runtime instances independent. Raw conversation content, tool arguments, model output and credentials stay outside reminder capture.
 

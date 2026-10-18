@@ -6,15 +6,17 @@
 
 DeepCanary 为 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 提供本地任务收件箱，将提问、审批、异常和完成摘要集中呈现，并通过通知预算、合并与去重减少打扰。
 
-**当前候选为 0.1.6-rc.1，通过 tgz 安装。** WebUI 与官方 Windows Desktop 均使用已发布的 DSH **0.2.1-rc.2**。已发布版本与渠道见 [npm 包页面](https://www.npmjs.com/package/dsh-deepcanary)。
+**当前候选为 0.1.6-rc.2，通过 tgz 安装。** WebUI 与官方 Windows Desktop 均使用已发布的 DSH **0.2.1-rc.2**。已发布版本与渠道见 [npm 包页面](https://www.npmjs.com/package/dsh-deepcanary)。
 
 本版加入后台任务持续跟踪、重载补收、待办优先排序和反馈处理闭环。后台失败可从收件箱返回所属会话，健康任务保持安静。
+
+本次继续完善稍后处理：选择时间后可在收件箱查看安排、改期或恢复待办。到期提醒遵循当前通知策略，各次安排通过发送代次保持独立；普通动态集中到来时，人工等待和已安排的事项优先保留。
 
 ![DeepCanary 收件箱](assets/deepcanary-panel-zh.png)
 
 ## 安装本地候选
 
-准备构建好的 `dsh-deepcanary-0.1.6-rc.1.tgz`，保留随包提供的校验值。
+准备构建好的 `dsh-deepcanary-0.1.6-rc.2.tgz`，保留随包提供的校验值。
 
 ### Desktop
 
@@ -26,7 +28,7 @@ DeepCanary 为 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harnes
 
 ```sh
 dsh --version
-dsh plugin --profile web add ./dsh-deepcanary-0.1.6-rc.1.tgz --registry=https://registry.npmjs.org/
+dsh plugin --profile web add ./dsh-deepcanary-0.1.6-rc.2.tgz --registry=https://registry.npmjs.org/
 dsh web
 ```
 
@@ -68,6 +70,8 @@ dsh plugin --profile web remove dsh-deepcanary
 后台任务运行期间显示活动数量，输出字节数增长提供进展依据，并在活动恢复后闭合原停滞提醒。实时观察中，未被等待方接收的正常完成进入 C1，执行失败进入 C2；已被接收的结果和主动取消保持安静。本轮回复结束后仍有后台工作时，摘要会明确说明。重载可恢复跟踪并补收缺失的观察，补收摘要会标明恢复背景，保留原先接收状态的未知性；宿主无法确认的任务显示待确认状态。
 
 收件箱按处理优先级排列，紧急提醒、提问和审批优先呈现，其余动态可以继续展开。“问题已解决”会记录反馈，并将该条提醒标记为已处理；后续新的提问继续遵循独立的提醒生命周期。
+
+“稍后提醒”可选择5、15、30或60分钟，已安排事项显示恢复时间，并支持查看、改期与恢复待办。到期后C1回到收件箱，C2遵循静默时段和滚动预算，C3保留权威依据要求；已解决或确认处理的事项保持闭合。普通profile状态会保存去重、预算与发送认领，插件替换后继续生效。发送认领先持久化，再允许页面构造通知；操作系统可见性仍以实际观察为准。
 
 面板使用不透明的深浅色表面，支持缩放、键盘及展开依据。返回操作通过 DSH 的公开会话目录确认目标。目标失效时保留摘要并说明当前可用性。
 

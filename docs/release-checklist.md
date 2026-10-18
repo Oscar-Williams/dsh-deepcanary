@@ -1,5 +1,7 @@
 # Release checklist
 
+For scheduled-follow-up changes, check current authority at rearm, stale generation rejection, default-mode claim persistence, closed-item cancellation and retained schedules under capacity pressure. Observe the affected Inbox controls and restore the real browser window size after any responsive checks.
+
 ## Prepare the release snapshot
 
 Use the current published Host baseline documented in [compatibility](compatibility.md). Align package/lockfile versions, runtime identity, generated output, README installation commands, changelog and capability descriptions. Preserve historical frozen artifacts and receipts.
@@ -43,7 +45,7 @@ After explicit publication authorization:
 5. Update `latest` to the intended RC, then query both `latest` and `next` again.
 6. Write a publication receipt binding source commit, CI, tag/assets, npm integrity and final tag targets. Keep the RC designation and measured device scope visible.
 
-0.1.6-rc.1 is a local development candidate. Publication and remote CI require fresh user authorization. Query ambiguous remote outcomes before retrying. Interactive authentication and 2FA belong to the user in their existing browser; credentials remain in their owning service.
+0.1.6-rc.2 is a local development candidate. Publication and remote CI require fresh user authorization. Query ambiguous remote outcomes before retrying. Interactive authentication and 2FA belong to the user in their existing browser; credentials remain in their owning service.
 
 ## Post-release evidence
 

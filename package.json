@@ -1,6 +1,6 @@
 {
   "name": "dsh-deepcanary",
-  "version": "0.1.6-rc.1",
+  "version": "0.1.6-rc.2",
   "description": "Know when your DeepSeek Harness tasks need you. Local alerts, quiet notifications, and a task inbox.",
   "type": "module",
   "repository": {
@@ -113,6 +113,7 @@
     "typecheck:host": "node ./scripts/build.mjs --host --typecheck",
     "adapter:host": "npm run build && node ./scripts/adapter-contract.mjs",
     "background:host": "npm run build && node ./scripts/background-contract.mjs",
+    "reminders:host": "npm run build && node ./scripts/reminders-contract.mjs",
     "settings:host": "npm run build && node ./scripts/settings-contract.mjs",
     "connection:host": "npm run build && node ./scripts/connection-contract.mjs"
   },

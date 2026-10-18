@@ -127,6 +127,10 @@ export interface InboxItem extends AttentionVerdict {
   occurredAt: string
   status: InboxStatus
   snoozedUntil?: string
+  /** Explicit rescheduling creates a new delivery generation within the same reminder. */
+  notificationGeneration?: number
+  reminderPending?: boolean
+  lastReminderAt?: string
   seenAt?: string
   acknowledgedAt?: string
   recoveredAt?: string
@@ -281,6 +285,11 @@ export interface PublicInboxItem {
   decisionTrace?: PolicyDecisionTrace
   status: InboxStatus
   snoozedUntil?: string
+  notificationGeneration?: number
+  notificationEligible?: boolean
+  notificationExhausted?: boolean
+  reminderPending?: boolean
+  lastReminderAt?: string
   seenAt?: string
   acknowledgedAt?: string
   recoveredAt?: string
@@ -343,6 +352,8 @@ export interface PublicSnapshot {
   status: RuntimeStatus
   settings: PublicSettings
   inbox: PublicInboxItem[]
+  /** Pending items deliberately scheduled for a future time. */
+  scheduled?: PublicInboxItem[]
 }
 
 /** Version of the privacy-safe outcome record written by DeepCanary. */

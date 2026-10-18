@@ -29,7 +29,7 @@ export interface DeliveryRecordInput {
     stage: 'attempted' | 'constructed' | 'click-handler-attached' | 'clicked' | 'error';
     observedAt: string;
 }
-export type DeliveryClaimOutcome = 'granted' | 'already-claimed' | 'already-complete' | 'unavailable';
+export type DeliveryClaimOutcome = 'granted' | 'already-claimed' | 'already-complete' | 'exhausted' | 'unavailable';
 export interface DeliveryClaimInput {
     verdictId: string;
     conditionGeneration: string;
@@ -49,6 +49,8 @@ export interface DeliveryClaimResult {
  */
 export declare class DeliveryLedger {
     private readonly entries;
+    completed(verdictId: string, conditionGeneration: string, sink?: DeliverySink): boolean;
+    exhausted(verdictId: string, conditionGeneration: string, now?: number): boolean;
     /**
      * Atomically reserve one logical browser delivery for a short window.
      * Only hashes, enums and timestamps cross the persistence boundary.

@@ -38,6 +38,10 @@ body[data-ds-dark-theme] .dsc-panel .dsc-card-action[data-primary="true"]{color:
 .dsc-panel .dsc-policy-details .dsc-settings-hint{margin:6px 0}
 .dsc-panel .dsc-note{color:var(--dsc-muted);padding:20px 0}
 .dsc-panel .dsc-note strong{color:var(--dsc-ink);font-size:15px}
+.dsc-panel .dsc-scheduled{margin-top:20px;border-top:1px solid var(--dsc-border);padding-top:14px}
+.dsc-panel .dsc-scheduled>summary{color:var(--dsc-ink);font-size:13px;font-weight:600;cursor:pointer;padding:4px 0;line-height:1.6}
+.dsc-panel .dsc-scheduled>.dsc-card-suggestion{margin:6px 0 14px}
+.dsc-panel .dsc-scheduled-time{margin:0;padding:7px 10px;border-radius:7px;background:var(--dsc-subtle);color:var(--dsc-blue);font-size:12px;line-height:1.6;overflow-wrap:anywhere}
 @media(max-width:480px){.dsc-panel .dsc-header{padding:14px}.dsc-panel .dsc-toolbar{padding:12px 14px}.dsc-panel .dsc-body{padding:14px}.dsc-panel .dsc-card{padding:13px}.dsc-panel .dsc-card-head{gap:6px}.dsc-panel .dsc-toolbar-button{font-size:11px}.dsc-panel .dsc-card-reason{font-size:14px}}
 @media(forced-colors:active){.dsc-panel{background:Canvas;color:CanvasText;border-color:CanvasText}.dsc-panel .dsc-card-action[data-primary="true"]{background:Highlight;color:HighlightText}}
 `

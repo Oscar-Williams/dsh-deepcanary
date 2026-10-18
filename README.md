@@ -10,15 +10,17 @@ English · [简体中文](README.zh-CN.md) · [Documentation](docs/README.md) ·
 
 DeepCanary adds a local task inbox to [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). It brings questions, approvals, failures and completion summaries together, applies quiet notification policies, and returns you to the relevant session.
 
-**Candidate: 0.1.6-rc.1.** WebUI and official Windows Desktop use released DSH **0.2.1-rc.2**. Install the candidate tgz with the instructions below. Published versions and channels are listed on the [npm package page](https://www.npmjs.com/package/dsh-deepcanary).
+**Candidate: 0.1.6-rc.2.** WebUI and official Windows Desktop use released DSH **0.2.1-rc.2**. Install the candidate tgz with the instructions below. Published versions and channels are listed on the [npm package page](https://www.npmjs.com/package/dsh-deepcanary).
 
 This version follows owned background jobs through completion and plugin reload, brings urgent pending work to the top of Inbox, and turns explicit handled feedback into a completed reminder action. Background failures return you to their owning session. Healthy background activity stays quiet.
+
+Scheduled follow-up keeps work within reach: choose a delay, review it in **Scheduled**, adjust its time or restore it to pending. Due reminders use current notification preferences. Delivery generations protect each new arrangement across tabs and reloads, and retention gives human waits and scheduled work priority during routine update bursts.
 
 ![DeepCanary Inbox](assets/deepcanary-panel-en.png)
 
 ## Install the local candidate
 
-Obtain the built file `dsh-deepcanary-0.1.6-rc.1.tgz` and keep its supplied checksum with it.
+Obtain the built file `dsh-deepcanary-0.1.6-rc.2.tgz` and keep its supplied checksum with it.
 
 ### Desktop
 
@@ -30,7 +32,7 @@ Use DSH 0.2.1-rc.2 and an explicit Web profile:
 
 ```sh
 dsh --version
-dsh plugin --profile web add ./dsh-deepcanary-0.1.6-rc.1.tgz --registry=https://registry.npmjs.org/
+dsh plugin --profile web add ./dsh-deepcanary-0.1.6-rc.2.tgz --registry=https://registry.npmjs.org/
 dsh web
 ```
 
@@ -72,6 +74,8 @@ Related events are grouped and deduplicated. Healthy long tools retain bounded p
 Owned background jobs appear in the activity status while they run. Increasing output byte counts supply progress facts and close a previous stall reminder when activity returns. During live observation, uncollected completion enters Inbox at C1 and producer failure enters at C2; outcomes received by a waiter and intentional cancellation remain quiet. A completed reply with continuing background work says so explicitly. Reload restores watched jobs and collects missed observations once. Catch-up messages identify their recovery context; prior collection remains unknown. Tasks the Host cannot confirm retain unknown status.
 
 Inbox orders pending items by urgency, with questions and approvals ahead of routine updates. Further pages remain accessible through **Show more updates**. Choosing **Already resolved** records your feedback and marks that reminder handled; new questions retain their own reminder lifecycle.
+
+**Remind later** offers 5, 15, 30 and 60 minutes. Scheduled cards show their return time and remain inspectable. At the deadline, C1 returns to Inbox; C2 follows quiet hours and the rolling budget; authoritative C3 retains its boundary. A resolved or acknowledged item stays closed. The ordinary profile state preserves deduplication, budget and delivery claims through replacement. Claims are saved before notification construction is authorized. OS visibility still requires an actual observation.
 
 The resizable Inbox has opaque light/dark surfaces, keyboard controls and expandable evidence. Navigation verifies the target in DSH's public session catalog. An unavailable target keeps its summary and explains its availability.
 

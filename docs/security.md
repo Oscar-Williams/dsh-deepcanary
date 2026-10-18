@@ -1,5 +1,7 @@
 # Security and privacy
 
+Scheduled reminders store bounded generations and timestamps alongside the existing Inbox metadata. Dedupe, budget and delivery state use hashes, enums and times with fixed record limits. A send claim must persist before construction is authorized. Current item state, generation, mute, quiet policy and restored C3 authority constrain delivery. Late callbacks cannot update a newer arrangement.
+
 ## Stored data
 
 DeepCanary stores bounded reminder metadata in the current Host profile's state directory: event classes, levels, lifecycle timestamps, hashed references, explicit feedback and the local session handle required for navigation. Optional capture stores sanitized observations with provenance and task ownership. Supervisor stores bounded projections and lease metadata when explicitly enabled.

@@ -6,7 +6,7 @@ import { OutcomeStore } from './outcome.js';
 import { PersistentSupervisor } from './supervisor.js';
 import type { CanarySignal, DeepCanaryConfig, DryRunRequest, DryRunResult, FeedbackValue, InboxItem, PublicInboxItem, PublicSettings, PublicSnapshot, OutcomeReceipt, OutcomeDeleteFilter, OutcomeReceiptInput, RuntimeStatus, SuppressibleReasonCode } from './types.js';
 declare const PLUGIN_NAME = "dsh-deepcanary";
-declare const PLUGIN_VERSION = "0.1.6-rc.1";
+declare const PLUGIN_VERSION = "0.1.6-rc.2";
 interface ActionReceipt {
     status: number;
     body: Record<string, unknown>;
@@ -32,6 +32,7 @@ export declare class DeepCanaryService {
     private readonly dedupe;
     private readonly budget;
     private readonly deliveryLedger;
+    private readonly restoredAttention;
     private readonly pressureSeen;
     private readonly logger;
     private adapterSubscription;
@@ -80,6 +81,8 @@ export declare class DeepCanaryService {
     seen(id: string): boolean;
     acknowledge(id: string): boolean;
     snooze(id: string, minutes?: number): boolean;
+    /** Return a scheduled reminder to pending work; current delivery preferences still apply. */
+    unsnooze(id: string): boolean;
     mute(id: string): boolean;
     /** End a temporary mute immediately while retaining the Inbox item. */
     unmute(id: string): boolean;
@@ -152,6 +155,8 @@ export declare class DeepCanaryService {
     private isQuietHours;
     private toPublic;
     private isPending;
+    private reminderAuthorityReady;
+    private notificationEligible;
     private normalizeLifecycle;
     /**
      * Reconcile restored session-scoped items only after an authoritative,

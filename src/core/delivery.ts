@@ -43,7 +43,7 @@ export interface DeliveryRecordInput {
   observedAt: string
 }
 
-export type DeliveryClaimOutcome = 'granted' | 'already-claimed' | 'already-complete' | 'unavailable'
+export type DeliveryClaimOutcome = 'granted' | 'already-claimed' | 'already-complete' | 'exhausted' | 'unavailable'
 
 export interface DeliveryClaimInput {
   verdictId: string
@@ -111,7 +111,9 @@ function isDeliveryState(value: unknown): value is DeliveryState {
     || value === 'superseded'
 }
 
-function validEntry(value: PersistedDeliveryEntry): boolean {
+function validEntry(input: unknown): input is PersistedDeliveryEntry {
+  if (input === null || typeof input !== 'object') return false
+  const value = input as PersistedDeliveryEntry
   const planned = value.state === 'planned'
   return /^[a-f0-9]{16}$/.test(value.logicalKeyHash)
     && value.sink === 'browser'
@@ -141,6 +143,17 @@ function validEntry(value: PersistedDeliveryEntry): boolean {
  */
 export class DeliveryLedger {
   private readonly entries = new Map<string, PersistedDeliveryEntry>()
+
+  completed(verdictId: string, conditionGeneration: string, sink: DeliverySink = 'browser'): boolean {
+    const entry = this.entries.get(logicalHash(verdictId, conditionGeneration, sink))
+    return entry !== undefined && isComplete(entry.state)
+  }
+
+  exhausted(verdictId: string, conditionGeneration: string, now = Date.now()): boolean {
+    const entry = this.entries.get(logicalHash(verdictId, conditionGeneration, 'browser'))
+    return entry !== undefined && !isComplete(entry.state) && (entry.claimAttempts ?? 0) >= MAX_DELIVERY_ATTEMPTS
+      && (entry.claimExpiresAt === undefined || Date.parse(entry.claimExpiresAt) <= now)
+  }
 
   /**
    * Atomically reserve one logical browser delivery for a short window.
@@ -181,7 +194,7 @@ export class DeliveryLedger {
         }
       }
       const claimAttempts = current.claimAttempts ?? 0
-      if (claimAttempts >= MAX_DELIVERY_ATTEMPTS) return { outcome: 'unavailable', logicalKeyHash }
+      if (claimAttempts >= MAX_DELIVERY_ATTEMPTS) return { outcome: 'exhausted', logicalKeyHash }
       current.claimOwnerHash = hash(input.clientInstance)
       current.claimExpiresAt = input.expiresAt
       current.claimAttempts = claimAttempts + 1
@@ -269,7 +282,7 @@ export class DeliveryLedger {
     this.entries.clear()
     for (const entry of entries) {
       if (!validEntry(entry)) continue
-      this.entries.set(entry.logicalKeyHash, { ...entry })
+      this.entries.set(entry.logicalKeyHash, copyEntry(entry))
     }
     this.trim()
   }
@@ -277,7 +290,7 @@ export class DeliveryLedger {
   snapshot(): PersistedDeliveryEntry[] {
     return [...this.entries.values()]
       .sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt))
-      .map(entry => ({ ...entry }))
+      .map(copyEntry)
   }
 
   size(): number {
@@ -292,6 +305,15 @@ export class DeliveryLedger {
     this.entries.clear()
     for (const entry of entries) this.entries.set(entry.logicalKeyHash, entry)
   }
+}
+
+function copyEntry(entry: PersistedDeliveryEntry): PersistedDeliveryEntry {
+  return { logicalKeyHash: entry.logicalKeyHash, sink: entry.sink, state: entry.state, attempts: entry.attempts,
+    attemptHashes: [...entry.attemptHashes], firstObservedAt: entry.firstObservedAt, updatedAt: entry.updatedAt,
+    ...(entry.attemptHash === undefined ? {} : { attemptHash: entry.attemptHash }),
+    ...(entry.claimOwnerHash === undefined ? {} : { claimOwnerHash: entry.claimOwnerHash }),
+    ...(entry.claimExpiresAt === undefined ? {} : { claimExpiresAt: entry.claimExpiresAt }),
+    ...(entry.claimAttempts === undefined ? {} : { claimAttempts: entry.claimAttempts }) }
 }
 
 const MAX_CLAIM_MS = 5 * 60 * 1000

@@ -2,13 +2,14 @@
 
 ## Current baseline
 
-DeepCanary **0.1.6-rc.1** is a local candidate for released DSH **0.2.1-rc.2** on WebUI and official Windows Desktop. The release tag points to `687f282e8625c6b8d11ff58211a90524be2e4317`. `engines.dsh` declares this version. Runtime checks resolve the explicitly selected installation through `DSH_RUNTIME`.
+DeepCanary **0.1.6-rc.2** is a local candidate for released DSH **0.2.1-rc.2** on WebUI and official Windows Desktop. The release tag points to `687f282e8625c6b8d11ff58211a90524be2e4317`. `engines.dsh` declares this version. Runtime checks resolve the explicitly selected installation through `DSH_RUNTIME`.
 
 | Surface | Coverage and scope |
 | --- | --- |
 | Deterministic core | Human Needed authority, C3 boundaries, parallel long tools, recovery, deduplication, completion summaries and notification arbitration have regression coverage. |
 | Host integration | Public Session/question projection, revision-aware Settings and authenticated Connection Fetch contracts use the selected released runtime. Public Cordis effects await state writes during plugin replacement. |
 | Background work | Public owned Job Registry events supply progress counts and outcomes. Replacement restores bounded watches; authoritative Session lifecycle facts resolve missed outcomes. Missing authority stays unknown. |
+| Scheduled follow-up | Inbox schedules, due-time policy and generation-scoped delivery use shared public facts. Default-mode state retains claims, dedupe and budget through replacement. Restored C3 requires current authority. |
 | Windows WebUI / Edge | Current development entry; authenticated communication, loading, settings and Inbox presentation receive device checks for this release. |
 | Windows Desktop | Shared core and public same-origin renderer communication; targeted loading/settings/navigation checks accompany common-code changes. |
 | Native Windows notifications | Permission, OS settings and Host/renderer lifecycle affect delivery. Toast visibility, Notification Center retention and real click return require device observations for the exact package. |

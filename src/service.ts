@@ -4,6 +4,8 @@ import { DeliveryLedger } from './core/delivery.js'
 import type { DeliveryClaimOutcome } from './core/delivery.js'
 import { judgeSignal } from './core/judge.js'
 import { compareInboxPriority } from './core/inbox-order.js'
+import { retainInboxItems } from './core/inbox-retention.js'
+import { MAX_NOTIFICATION_GENERATION, notificationCondition, notificationGeneration, notificationKey, reminderVerdict } from './core/reminders.js'
 import { applyDeliveryPolicy, mergeBundleTrace, withRecoveryTrace } from './core/policy.js'
 import { normalizeConfig, sanitizeConfigPatch } from './config.js'
 import { resolveStateIdentity, claimStateDirectory, importLegacyInbox } from './state-identity.js'
@@ -64,7 +66,7 @@ import type {
 import { ATTENTION_POLICY_VERSION, ATTENTION_PROTOCOL_VERSION as PROTOCOL_VERSION, SUPPRESSIBLE_REASON_CODES } from './types.js'
 
 const PLUGIN_NAME = 'dsh-deepcanary'
-const PLUGIN_VERSION = '0.1.6-rc.1'
+const PLUGIN_VERSION = '0.1.6-rc.2'
 const SETTINGS_NAMESPACE = 'deepcanary'
 const DEFAULT_MUTE_MINUTES = 60
 const ORPHAN_GRACE_MS = 30_000
@@ -211,6 +213,7 @@ export class DeepCanaryService {
   private readonly dedupe: DedupeLedger
   private readonly budget: InterruptBudget
   private readonly deliveryLedger = new DeliveryLedger()
+  private readonly restoredAttention = new Set<string>()
   private readonly pressureSeen = new Set<number>()
   private readonly logger: LoggerLike
   private adapterSubscription: Disposable | undefined
@@ -474,7 +477,12 @@ export class DeepCanaryService {
       reasonCodes: [signal.kind],
     }
     this.items.unshift(item)
-    if (this.items.length > this.config.maxInboxItems) this.items.length = this.config.maxInboxItems
+    if (this.items.length > this.config.maxInboxItems) this.items.splice(0, this.items.length, ...retainInboxItems(this.items, this.config.maxInboxItems))
+    if (!this.items.includes(item)) {
+      this.recordDogfood(signal, verdict, 'dropped-event', 'none')
+      this.queueSave()
+      return undefined
+    }
     this.bumpRevision()
     const disposition = dispositionForAction(item.action)
     this.recordDogfood(signal, verdict, disposition, deliveryChannelForAction(item.action), {
@@ -499,6 +507,9 @@ export class DeepCanaryService {
       inbox: this.items
         .filter(item => this.isPending(item, now))
         .sort(compareInboxPriority)
+        .map(item => this.toPublic(item)),
+      scheduled: this.items.filter(item => item.status === 'snoozed' && item.snoozedUntil !== undefined && Date.parse(item.snoozedUntil) > now)
+        .sort((left, right) => Date.parse(left.snoozedUntil!) - Date.parse(right.snoozedUntil!))
         .map(item => this.toPublic(item)),
     }
   }
@@ -631,9 +642,11 @@ export class DeepCanaryService {
     const item = this.find(id)
     if (!item || item.status === 'acknowledged' || item.status === 'muted' || item.status === 'recovered' || item.status === 'expired') return false
     if (item.status === 'seen') return false
-    item.status = 'seen'
+    if (item.status !== 'snoozed') {
+      item.status = 'seen'
+      delete item.reminderPending
+    }
     item.seenAt = nowIso()
-    delete item.snoozedUntil
     this.bumpRevision()
     this.queueSave()
     this.syncSupervisor()
@@ -645,6 +658,7 @@ export class DeepCanaryService {
     const item = this.find(id)
     if (!item || item.status === 'acknowledged' || item.status === 'muted' || item.status === 'recovered' || item.status === 'expired') return false
     item.status = 'acknowledged'
+    delete item.reminderPending
     item.acknowledgedAt = nowIso()
     delete item.snoozedUntil
     delete item.mutedUntil
@@ -658,8 +672,11 @@ export class DeepCanaryService {
   snooze(id: string, minutes = 30): boolean {
     const item = this.find(id)
     if (!item || item.status === 'acknowledged' || item.status === 'muted' || item.status === 'recovered' || item.status === 'expired') return false
+    if (notificationGeneration(item) >= MAX_NOTIFICATION_GENERATION) return false
     const bounded = Number.isFinite(minutes) ? Math.max(1, Math.min(24 * 60, Math.trunc(minutes))) : 30
     item.status = 'snoozed'
+    item.notificationGeneration = notificationGeneration(item) + 1
+    item.reminderPending = true
     item.snoozedUntil = new Date(Date.now() + bounded * 60 * 1000).toISOString()
     delete item.mutedUntil
     this.bumpRevision()
@@ -669,14 +686,25 @@ export class DeepCanaryService {
     return true
   }
 
+  /** Return a scheduled reminder to pending work; current delivery preferences still apply. */
+  unsnooze(id: string): boolean {
+    const item = this.find(id)
+    if (!item || item.status !== 'snoozed') return false
+    item.status = 'open'
+    delete item.snoozedUntil
+    this.normalizeLifecycle(Date.now())
+    this.bumpRevision()
+    this.queueSave()
+    this.syncSupervisor()
+    return true
+  }
+
   mute(id: string): boolean {
     const item = this.find(id)
     if (!item || item.status === 'muted' || item.status === 'recovered' || item.status === 'expired') return false
     const now = Date.now()
     const currentMute = item.mutedUntil === undefined ? Number.NaN : Date.parse(item.mutedUntil)
     if (Number.isFinite(currentMute) && currentMute > now) return false
-    if (item.status === 'snoozed') item.status = 'open'
-    delete item.snoozedUntil
     item.mutedUntil = new Date(now + DEFAULT_MUTE_MINUTES * 60 * 1000).toISOString()
     this.bumpRevision()
     this.queueSave()
@@ -809,7 +837,7 @@ export class DeepCanaryService {
     if (typeof requestId !== 'string' || requestId.length === 0 || requestId.length > 128 || /[\u0000-\u001f]/.test(requestId)) {
       return { status: 400, body: { error: 'requestId must be a printable string of 1-128 characters' }, fingerprint: '' }
     }
-    const knownActions = new Set(['seen', 'acknowledge', 'snooze', 'mute', 'unmute', 'suppress', 'unsuppress', 'feedback', 'jump', 'retry', 'notification-claim', 'notification-delivery'])
+    const knownActions = new Set(['seen', 'acknowledge', 'snooze', 'unsnooze', 'mute', 'unmute', 'suppress', 'unsuppress', 'feedback', 'jump', 'retry', 'notification-claim', 'notification-delivery'])
     if (!knownActions.has(action)) {
       return { status: 400, body: { error: 'unsupported action', schemaVersion: PROTOCOL_VERSION }, fingerprint: '' }
     }
@@ -834,6 +862,10 @@ export class DeepCanaryService {
     if (action === 'notification-claim' && !this.isNotificationClaimPayload(payload)) {
       return { status: 400, body: { error: 'notification claim payload is invalid', schemaVersion: PROTOCOL_VERSION }, fingerprint: '' }
     }
+    if ((action === 'notification-claim' || action === 'notification-delivery') && payload.notificationGeneration !== undefined
+      && (!Number.isSafeInteger(payload.notificationGeneration) || (payload.notificationGeneration as number) < 0 || (payload.notificationGeneration as number) > MAX_NOTIFICATION_GENERATION)) {
+      return { status: 400, body: { error: 'notification generation is invalid', schemaVersion: PROTOCOL_VERSION }, fingerprint: '' }
+    }
 
     const fingerprint = JSON.stringify({
       id,
@@ -852,6 +884,7 @@ export class DeepCanaryService {
       titleKey: payload.titleKey,
       bodyFingerprint: payload.bodyFingerprint,
       observedAt: payload.observedAt,
+      notificationGeneration: payload.notificationGeneration,
     })
     const previous = this.actionReceipts.get(requestId)
     if (previous !== undefined) {
@@ -874,12 +907,12 @@ export class DeepCanaryService {
       result = { kind: updated ? 'host-probe-complete' : 'host-probe-unavailable' }
       body = { schemaVersion: PROTOCOL_VERSION, requestId, revision: this.revision, updated, result }
     } else if (action === 'notification-claim') {
-      const outcome = this.claimNotification(id, payload)
+      const outcome = await this.claimNotification(id, payload)
       const available = outcome !== 'unavailable'
       result = { kind: 'notification-claim', outcome }
       body = { schemaVersion: PROTOCOL_VERSION, requestId, revision: this.revision, updated: available, result }
     } else if (action === 'notification-delivery') {
-      const updated = this.recordNotificationDelivery(id, payload)
+      const updated = await this.recordNotificationDelivery(id, payload)
       result = { kind: updated ? 'notification-delivery-recorded' : 'notification-delivery-unavailable' }
       body = { schemaVersion: PROTOCOL_VERSION, requestId, revision: this.revision, updated, result }
     } else if (action === 'unsuppress') {
@@ -898,6 +931,7 @@ export class DeepCanaryService {
       if (action === 'seen') updated = this.seen(id)
       else if (action === 'acknowledge') updated = this.acknowledge(id)
       else if (action === 'snooze') updated = this.snooze(id, typeof payload.minutes === 'number' ? payload.minutes : 30)
+      else if (action === 'unsnooze') updated = this.unsnooze(id)
       else if (action === 'mute') updated = this.mute(id)
       else if (action === 'unmute') updated = this.unmute(id)
       else if (action === 'suppress') {
@@ -942,31 +976,40 @@ export class DeepCanaryService {
   }
 
   /** Reserve one browser notification before a client constructs it. */
-  private claimNotification(id: string, payload: Record<string, unknown>): DeliveryClaimOutcome {
+  private async claimNotification(id: string, payload: Record<string, unknown>): Promise<DeliveryClaimOutcome> {
+    this.normalizeLifecycle(Date.now())
     const item = this.find(id)
-    if (item === undefined || (item.action !== 'INTERRUPT' && item.action !== 'ESCALATE')) return 'unavailable'
+    if (item === undefined || (payload.notificationGeneration ?? 0) !== notificationGeneration(item)) return 'unavailable'
+    if (this.deliveryLedger.completed(item.id, notificationCondition(item))) return 'already-complete'
+    if (this.deliveryLedger.exhausted(item.id, notificationCondition(item))) {
+      this.bumpRevision()
+      return 'exhausted'
+    }
+    if (!this.notificationEligible(item)) return 'unavailable'
     const result = this.deliveryLedger.claim({
       verdictId: item.id,
-      conditionGeneration: item.bundleKey ?? item.id,
+      conditionGeneration: notificationCondition(item),
       sink: 'browser',
       clientInstance: payload.notificationClientInstance as string,
       expiresAt: payload.notificationExpiresAt as string,
+      claimedAt: new Date(Date.now()).toISOString(),
     })
     this.syncSupervisor()
-    return result.outcome
+    this.bumpRevision()
+    return await this.queueSave() ? result.outcome : 'unavailable'
   }
 
   /** Accept only redacted browser-sink facts for a known attention item. */
-  private recordNotificationDelivery(id: string, payload: Record<string, unknown>): boolean {
+  private async recordNotificationDelivery(id: string, payload: Record<string, unknown>): Promise<boolean> {
     const item = this.find(id)
-    if (item === undefined) return false
+    if (item === undefined || (payload.notificationGeneration ?? 0) !== notificationGeneration(item)) return false
     const stage = payload.notificationStage as DogfoodNotificationStage
     const notificationAttemptId = payload.notificationAttemptId as string
     const notificationRef = payload.notificationRef as string
     const tagRef = payload.tagRef as string
     const titleKey = payload.titleKey as string
-    if (notificationRef !== hashMetadata(`${item.id}:notification`)
-      || tagRef !== hashMetadata(`${item.id}:tag`)
+    if (notificationRef !== hashMetadata(`${notificationKey(item)}:notification`)
+      || tagRef !== hashMetadata(`${notificationKey(item)}:tag`)
       || titleKey !== `notification.title.${item.reasonCode}`) return false
     const delivery: DogfoodNotificationDelivery = {
       notificationAttemptId,
@@ -980,7 +1023,7 @@ export class DeepCanaryService {
     }
     this.deliveryLedger.record({
       verdictId: item.id,
-      conditionGeneration: item.bundleKey ?? item.id,
+      conditionGeneration: notificationCondition(item),
       sink: 'browser',
       attemptId: notificationAttemptId,
       stage,
@@ -988,7 +1031,8 @@ export class DeepCanaryService {
     })
     this.dogfoodRecorder?.recordNotificationDelivery(item.id, delivery)
     this.syncSupervisor()
-    return true
+    this.bumpRevision()
+    return this.queueSave()
   }
 
   private isNotificationDeliveryPayload(payload: Record<string, unknown>): boolean {
@@ -1175,8 +1219,15 @@ export class DeepCanaryService {
     }
     try {
       const restored = await this.store.loadState()
-      this.items.splice(0, this.items.length, ...restored.items.slice(0, this.config.maxInboxItems))
+      this.items.splice(0, this.items.length, ...retainInboxItems(restored.items, this.config.maxInboxItems))
+      for (const item of this.items) this.restoredAttention.add(item.id)
       this.background.restore(restored.backgroundWatches)
+      if (restored.runtime?.policyVersion === ATTENTION_POLICY_VERSION) {
+        this.dedupe.restore(restored.runtime.dedupe)
+        this.budget.restore(restored.runtime.interruptConsumedAt)
+        this.deliveryLedger.restore(restored.runtime.deliveryLedger)
+        this.policyRestored = true
+      }
     } catch (error: unknown) {
       this.logger.warn?.(`${PLUGIN_NAME}: metadata state could not be loaded; starting with an empty inbox`, error)
     }
@@ -1684,6 +1735,12 @@ export class DeepCanaryService {
       .slice(-8)
     if (verdict.why !== item.why && !item.why.includes(verdict.why)) item.why = `${item.why} Related signal: ${verdict.why}`.slice(0, 500)
     if (incomingIsHigher) {
+      item.notificationGeneration = Math.min(MAX_NOTIFICATION_GENERATION, notificationGeneration(item) + 1)
+      item.lastReminderAt = new Date(Date.now()).toISOString()
+      this.restoredAttention.delete(item.id)
+      if (item.status === 'snoozed') item.status = 'open'
+      delete item.snoozedUntil
+      delete item.reminderPending
       item.level = verdict.level
       item.reasonCode = verdict.reasonCode
       item.action = verdict.action
@@ -1753,7 +1810,7 @@ export class DeepCanaryService {
     this.dedupe.setWindowMs(next.dedupeWindowMinutes * 60 * 1000)
     this.budget.setMaxPerHour(next.maxInterruptsPerHour)
     if (this.items.length > next.maxInboxItems) {
-      this.items.length = next.maxInboxItems
+      this.items.splice(0, this.items.length, ...retainInboxItems(this.items, next.maxInboxItems))
       this.bumpRevision()
       this.queueSave()
     }
@@ -1840,6 +1897,11 @@ export class DeepCanaryService {
       evidence: item.evidence.map(evidence => ({ type: evidence.type, authority: evidence.authority, summary: evidence.summary })),
       ...(item.decisionTrace === undefined ? {} : { decisionTrace: publicDecisionTrace(item.decisionTrace) }),
       status: item.status,
+      notificationGeneration: notificationGeneration(item),
+      notificationEligible: this.notificationEligible(item),
+      notificationExhausted: this.deliveryLedger.exhausted(item.id, notificationCondition(item)),
+      ...(item.reminderPending ? { reminderPending: true } : {}),
+      ...(item.lastReminderAt === undefined ? {} : { lastReminderAt: item.lastReminderAt }),
       ...(item.snoozedUntil ? { snoozedUntil: item.snoozedUntil } : {}),
       ...(item.seenAt ? { seenAt: item.seenAt } : {}),
       ...(item.acknowledgedAt ? { acknowledgedAt: item.acknowledgedAt } : {}),
@@ -1862,14 +1924,42 @@ export class DeepCanaryService {
     return Number.isFinite(until) && until <= now
   }
 
+  private reminderAuthorityReady(item: InboxItem): boolean {
+    if (item.level !== 'C3' || !this.restoredAttention.has(item.id)) return true
+    if (item.reasonCode === 'HOST_UNREACHABLE') return this.hostProbe.status().state === 'outage-open'
+    if (item.sessionId === undefined) return false
+    const reconciliation = this.adapter.getReconciliationStatus()
+    return reconciliation.phase === 'ready' && reconciliation.authoritative && reconciliation.verified
+      && item.targetAvailable !== false && this.sessions.get(item.sessionId)?.waitingForHuman === true
+  }
+
+  private notificationEligible(item: InboxItem): boolean {
+    const now = Date.now()
+    if (!this.isPending(item, now) || !this.reminderAuthorityReady(item)
+      || (item.action !== 'INTERRUPT' && item.action !== 'ESCALATE')
+      || (item.mutedUntil !== undefined && Date.parse(item.mutedUntil) > now)
+      || this.deliveryLedger.completed(item.id, notificationCondition(item))) return false
+    if (this.deliveryLedger.exhausted(item.id, notificationCondition(item), now)) return false
+    // An initial interrupt has already reserved its budget. Recheck current
+    // quiet/level preferences without reserving another unit at claim time.
+    const current = applyDeliveryPolicy(item, this.config, now, { budgetAvailable: true })
+    return current.action === 'INTERRUPT' || current.action === 'ESCALATE'
+  }
+
   private normalizeLifecycle(now: number): void {
-    let changed = false
+    // Reconcile terminal authority before making an elapsed reminder eligible.
+    let changed = this.reconcileOrphans(now)
     for (const item of this.items) {
+      if (item.reminderPending && (item.status === 'acknowledged' || item.status === 'recovered' || item.status === 'expired')) {
+        delete item.reminderPending
+        changed = true
+      }
       if (item.status === 'snoozed' && item.snoozedUntil !== undefined) {
         const until = Date.parse(item.snoozedUntil)
         if (Number.isFinite(until) && until <= now) {
           item.status = 'open'
           delete item.snoozedUntil
+          item.lastReminderAt = new Date(now).toISOString()
           changed = true
         }
       }
@@ -1880,8 +1970,20 @@ export class DeepCanaryService {
           changed = true
         }
       }
+      if (item.reminderPending && item.status === 'open'
+        && (item.mutedUntil === undefined || Date.parse(item.mutedUntil) <= now) && this.reminderAuthorityReady(item)) {
+        const next = this.applyPolicy(reminderVerdict(item), now)
+        if (item.action !== next.action || JSON.stringify(item.decisionTrace) !== JSON.stringify(next.decisionTrace)) changed = true
+        item.action = next.action
+        if (next.decisionTrace === undefined) delete item.decisionTrace
+        else item.decisionTrace = next.decisionTrace
+        if (next.action !== 'DIGEST') {
+          delete item.reminderPending
+          item.lastReminderAt = new Date(now).toISOString()
+          changed = true
+        }
+      }
     }
-    if (this.reconcileOrphans(now)) changed = true
     if (changed) {
       this.bumpRevision()
       this.queueSave()
@@ -1955,11 +2057,15 @@ export class DeepCanaryService {
     this.revision = this.revision >= Number.MAX_SAFE_INTEGER ? 1 : this.revision + 1
   }
 
-  private queueSave(): void {
+  private queueSave(): Promise<boolean> {
+    let saved = true
     this.saveChain = this.saveChain
       .then(() => this.ready)
-      .then(() => this.store.save(this.items, this.background.snapshot()))
-      .catch(error => this.logger.warn?.(`${PLUGIN_NAME}: metadata state could not be saved`, error))
+      .then(() => this.store.save(this.items, this.background.snapshot(), {
+        ...this.supervisorPolicyState(), deliveryLedger: this.deliveryLedger.snapshot(),
+      }))
+      .catch(error => { saved = false; this.logger.warn?.(`${PLUGIN_NAME}: metadata state could not be saved`, error) })
+    return this.saveChain.then(() => saved)
   }
 
   private async ingestBackground(settlement: BackgroundSettlement): Promise<void> {

@@ -2,7 +2,7 @@
 
 DeepCanary helps people leave tasks running with confidence, notice when their help is needed and return to the correct work. Development follows that outcome across foreground turns, background jobs and plugin lifecycle changes.
 
-## Current capability: 0.1.6-rc.1
+## Current capability: 0.1.6-rc.2
 
 WebUI and official Windows Desktop use released DSH 0.2.1-rc.2. The current local candidate adds:
 
@@ -10,6 +10,9 @@ WebUI and official Windows Desktop use released DSH 0.2.1-rc.2. The current loca
 - Bounded persistent watches and original-owner reconciliation. Replacement collects missed outcomes once and shows uncertainty when authority is unavailable.
 - Pending Inbox prioritization, accessible additional pages and direct handling through already-resolved feedback.
 - Public tool failure normalization shared by live events and startup recovery.
+- Scheduled follow-up within Inbox, with due times, rescheduling and restore-to-pending actions. Current authority and delivery policy govern rearming.
+- Persistence during ordinary operation of dedupe, rolling budget and claims for each delivery generation. Fair bounded client passes continue beyond completed deliveries.
+- Capacity retention that protects active human waits and deliberately scheduled work from routine update bursts.
 
 These capabilities extend the existing question/approval lifecycle, progress grace, revision-aware settings, authenticated communication and exact session return.
 

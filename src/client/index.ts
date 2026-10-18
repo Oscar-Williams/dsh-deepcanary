@@ -1,6 +1,6 @@
 import { createElement, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type {
-  CSSProperties, FormEvent, KeyboardEvent as ReactKeyboardEvent,
+  CSSProperties, FormEvent, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent, ReactNode,
 } from 'react'
 import type { ConfigForm, ConfigFormSnapshot, SettingsPluginsTabOwnerProps } from '@deepseek-ai/dsh-client-ui-settings/client'
@@ -8,6 +8,8 @@ import { handleNotificationClick, positionSelectedAttention } from './attention-
 import { hasCatalogSession, openAttentionSession } from './session-navigation.js'
 import { rendererCapabilities } from './capabilities.js'
 import { inboxStyles } from './inbox-styles.js'
+import { claimNotificationBatch } from './notification-dispatch.js'
+import { notificationGeneration, notificationKey } from '../core/reminders.js'
 import { SettingsDraft } from '../settings-draft.js'
 import type { SessionNavigationContext } from './session-navigation.js'
 
@@ -41,6 +43,11 @@ type ClientItem = {
   }
   status: string
   snoozedUntil?: string
+  notificationGeneration?: number
+  notificationEligible?: boolean
+  notificationExhausted?: boolean
+  reminderPending?: boolean
+  lastReminderAt?: string
   seenAt?: string
   acknowledgedAt?: string
   recoveredAt?: string
@@ -89,6 +96,7 @@ type ClientSnapshot = {
   }
   settings: ClientSettings
   inbox: ClientItem[]
+  scheduled?: ClientItem[]
 }
 
 type JumpResult = { available: boolean; sessionId?: string; url?: string; note: string }
@@ -141,7 +149,8 @@ type Controller = {
   setTrigger: (element: HTMLButtonElement | null) => void
   setSize: (width: number, height: number) => void
   action: (id: string, payload: Record<string, unknown>) => Promise<void>
-  claimDelivery: (id: string, expiresAt: string) => Promise<'granted' | 'already-claimed' | 'already-complete' | 'unavailable'>
+  canNotifyItem: (item: ClientItem) => boolean
+  claimDelivery: (id: string, expiresAt: string, generation: number) => Promise<'granted' | 'already-claimed' | 'already-complete' | 'exhausted' | 'unavailable'>
   recordDelivery: (id: string, payload: {
     notificationStage: 'attempted' | 'constructed' | 'click-handler-attached' | 'clicked' | 'error'
     notificationAttemptId: string
@@ -150,6 +159,7 @@ type Controller = {
     titleKey: string
     bodyFingerprint: string
     observedAt: string
+    notificationGeneration: number
   }) => Promise<void>
   openSession: (sessionId: string) => boolean
   hasHistoricalSession: (sessionId: string) => boolean
@@ -190,6 +200,15 @@ const zh = {
   'panel.backgroundUnknown': '{count} 个后台任务待确认',
   'panel.backgroundLimited': '后台跟踪已达容量上限，当前统计为部分任务。',
   'panel.moreItems': '再显示 {count} 条动态',
+  'panel.scheduled': '稍后处理 · {count}',
+  'panel.scheduledHint': '按安排的时间恢复待办，通知遵循当前策略。',
+  'panel.emptyScheduled': '已安排 {count} 条稍后处理，可在下方查看和调整。',
+  'item.snoozeAfter': '{minutes} 分钟后',
+  'item.scheduledAt': '计划恢复：{time}',
+  'item.reminderWaiting': '已到期，通知等待当前静默时段、预算或任务状态允许。',
+  'item.notificationExhausted': '通知尝试已达上限，待办保留在此处，实际送达状态待确认。',
+  'item.unsnooze': '恢复待办',
+  'item.notice.unsnoozed': '已恢复待办，通知按当前策略处理',
   'panel.notification.enable': '启用浏览器通知',
   'panel.notification.enabled': '浏览器通知已启用',
   'panel.notification.denied': '浏览器通知已被阻止，请在地址栏的站点权限中允许后重试',
@@ -398,6 +417,15 @@ const en = {
   'panel.backgroundUnknown': 'Background tasks awaiting confirmation: {count}',
   'panel.backgroundLimited': 'Background tracking is at capacity; counts cover the tracked tasks.',
   'panel.moreItems': 'Show {count} more updates',
+  'panel.scheduled': 'Scheduled · {count}',
+  'panel.scheduledHint': 'Scheduled work returns to pending at its due time. Current notification preferences apply.',
+  'panel.emptyScheduled': '{count} updates are scheduled. Review or adjust them below.',
+  'item.snoozeAfter': 'In {minutes} minutes',
+  'item.scheduledAt': 'Returns to pending: {time}',
+  'item.reminderWaiting': 'Due now. Notification awaits quiet hours, budget or current task authority.',
+  'item.notificationExhausted': 'Notification attempts reached their limit. This item remains pending; actual delivery is unconfirmed.',
+  'item.unsnooze': 'Restore to pending',
+  'item.notice.unsnoozed': 'Restored to pending with current notification preferences',
   'panel.notification.enable': 'Enable browser notifications',
   'panel.notification.enabled': 'Browser notifications enabled',
   'panel.notification.denied': 'Browser notifications are blocked; allow them in site permissions and try again',
@@ -919,6 +947,7 @@ function createController(ctx: ClientContext): Controller {
           tone: 'success',
         })
         await controller.refresh()
+        if (payload.action === 'snooze' || payload.action === 'unsnooze') publish({ selectedId: id })
       } catch {
         showNotice({ id, kind: 'action-failed', tone: 'error' })
       } finally {
@@ -927,7 +956,9 @@ function createController(ctx: ClientContext): Controller {
         publish({ pending: finished })
       }
     },
-    claimDelivery: async (id, expiresAt) => {
+    canNotifyItem: item => !disposed && state.snapshot?.inbox.some(current => current.id === item.id
+      && notificationGeneration(current) === notificationGeneration(item) && current.notificationEligible !== false) === true,
+    claimDelivery: async (id, expiresAt, generation) => {
       try {
         const response = await request('/api/dsh-deepcanary/action', {
           method: 'POST',
@@ -938,12 +969,13 @@ function createController(ctx: ClientContext): Controller {
             requestId: makeRequestId(),
             notificationClientInstance: clientInstance,
             notificationExpiresAt: expiresAt,
+            notificationGeneration: generation,
           }),
         })
         if (!response?.ok) return 'unavailable'
         const body = await response.json() as { result?: { outcome?: unknown } }
         const outcome = body.result?.outcome
-        return outcome === 'granted' || outcome === 'already-claimed' || outcome === 'already-complete' || outcome === 'unavailable'
+        return outcome === 'granted' || outcome === 'already-claimed' || outcome === 'already-complete' || outcome === 'exhausted' || outcome === 'unavailable'
           ? outcome
           : 'unavailable'
       } catch {
@@ -1176,6 +1208,7 @@ function noticeText(notice: ActionNotice, t: Translate): string {
   const keys: Record<string, LocaleKey> = {
     'acknowledge-complete': 'item.notice.acknowledged',
     'snooze-complete': 'item.notice.snoozed',
+    'unsnooze-complete': 'item.notice.unsnoozed',
     'mute-complete': 'item.notice.muted',
     'unmute-complete': 'item.notice.unmuted',
     suppressed: 'item.notice.suppressed',
@@ -1215,7 +1248,14 @@ function formatTime(value: string): string {
   }).format(date)
 }
 
+const notifying = new WeakSet<Controller>()
 async function notify(snapshot: ClientSnapshot, t: Translate, controller: Controller): Promise<void> {
+  if (notifying.has(controller)) return
+  notifying.add(controller)
+  try { await notifyOnce(snapshot, t, controller) } finally { notifying.delete(controller) }
+}
+
+async function notifyOnce(snapshot: ClientSnapshot, t: Translate, controller: Controller): Promise<void> {
   if (snapshot.settings.openOnCritical && !controller.getState().open) {
     let opened = new Set<string>()
     try {
@@ -1224,10 +1264,11 @@ async function notify(snapshot: ClientSnapshot, t: Translate, controller: Contro
       opened = new Set()
     }
     const critical = snapshot.inbox.find(item => item.level === 'C3'
+      && item.notificationEligible !== false
       && AUTO_OPEN_REASONS.has(item.reasonCode)
-      && !opened.has(item.id))
+      && !opened.has(notificationKey(item)))
     if (critical !== undefined) {
-      opened.add(critical.id)
+      opened.add(notificationKey(critical))
       try {
         window.localStorage.setItem(AUTO_OPEN_KEY, JSON.stringify([...opened].slice(-100)))
       } catch {
@@ -1248,14 +1289,10 @@ async function notify(snapshot: ClientSnapshot, t: Translate, controller: Contro
   } catch {
     attempted = new Set()
   }
-  for (const item of snapshot.inbox
-    .filter(value => {
-      const mutedUntil = value.mutedUntil === undefined ? Number.NaN : Date.parse(value.mutedUntil)
-      return (value.action === 'INTERRUPT' || value.action === 'ESCALATE')
-        && (!Number.isFinite(mutedUntil) || mutedUntil <= Date.now())
-        && !attempted.has(value.id)
-    })
-    .slice(0, 3)) {
+  for await (const item of claimNotificationBatch(snapshot.inbox, attempted,
+    item => controller.claimDelivery(item.id, new Date(Date.now() + 30_000).toISOString(), notificationGeneration(item)))) {
+    if (!controller.canNotifyItem(item)) continue
+    const key = notificationKey(item)
     const titleKey = notificationTitleKey(item)
     if (titleKey === undefined) continue
     const navigationUrl = item.sessionId && item.targetAvailable !== false
@@ -1269,8 +1306,8 @@ async function notify(snapshot: ClientSnapshot, t: Translate, controller: Contro
     } | undefined
     try {
       delivery = {
-        notificationRef: await opaqueRef(`${item.id}:notification`),
-        tagRef: await opaqueRef(`${item.id}:tag`),
+        notificationRef: await opaqueRef(`${key}:notification`),
+        tagRef: await opaqueRef(`${key}:tag`),
         bodyFingerprint: await opaqueRef(body),
       }
     } catch {
@@ -1278,10 +1315,8 @@ async function notify(snapshot: ClientSnapshot, t: Translate, controller: Contro
       // receives the user-facing notification through the authoritative Inbox.
       delivery = undefined
     }
-    const claim = await controller.claimDelivery(item.id, new Date(Date.now() + 30_000).toISOString())
-    if (claim !== 'granted') continue
     const observedAt = new Date().toISOString()
-    attempted.add(item.id)
+    attempted.add(key)
     try {
       window.localStorage.setItem(ATTEMPTED_NOTIFICATION_KEY, JSON.stringify([...attempted].slice(-100)))
     } catch {
@@ -1290,7 +1325,7 @@ async function notify(snapshot: ClientSnapshot, t: Translate, controller: Contro
     let notificationAttemptId: string | undefined
     if (delivery !== undefined) {
       try {
-        notificationAttemptId = await opaqueRef(`${item.id}:attempt:${Date.now()}:${Math.random()}`)
+        notificationAttemptId = await opaqueRef(`${key}:attempt:${Date.now()}:${Math.random()}`)
       } catch {
         // A transient Web Crypto failure must not cancel the user-facing
         // notification; only its optional delivery telemetry is omitted.
@@ -1300,6 +1335,7 @@ async function notify(snapshot: ClientSnapshot, t: Translate, controller: Contro
     if (delivery !== undefined && notificationAttemptId !== undefined) {
       void controller.recordDelivery(item.id, {
         notificationStage: 'attempted',
+        notificationGeneration: notificationGeneration(item),
         notificationAttemptId,
         notificationRef: delivery.notificationRef,
         tagRef: delivery.tagRef,
@@ -1309,6 +1345,7 @@ async function notify(snapshot: ClientSnapshot, t: Translate, controller: Contro
       })
     }
     let notification: Notification
+    if (!controller.canNotifyItem(item)) { attempted.delete(key); continue }
     try {
       const options: NotificationOptions = {
         body,
@@ -1323,7 +1360,7 @@ async function notify(snapshot: ClientSnapshot, t: Translate, controller: Contro
     } catch {
       // Permission can change between the guard above and construction. Keep
       // the Inbox path authoritative and avoid breaking the overlay.
-      attempted.delete(item.id)
+      attempted.delete(key)
       try {
         window.localStorage.setItem(ATTEMPTED_NOTIFICATION_KEY, JSON.stringify([...attempted].slice(-100)))
       } catch {
@@ -1332,6 +1369,7 @@ async function notify(snapshot: ClientSnapshot, t: Translate, controller: Contro
       if (delivery !== undefined && notificationAttemptId !== undefined) {
         void controller.recordDelivery(item.id, {
           notificationStage: 'error',
+          notificationGeneration: notificationGeneration(item),
           notificationAttemptId,
           notificationRef: delivery.notificationRef,
           tagRef: delivery.tagRef,
@@ -1345,6 +1383,7 @@ async function notify(snapshot: ClientSnapshot, t: Translate, controller: Contro
     if (delivery !== undefined && notificationAttemptId !== undefined) {
       void controller.recordDelivery(item.id, {
         notificationStage: 'constructed',
+        notificationGeneration: notificationGeneration(item),
         notificationAttemptId,
         notificationRef: delivery.notificationRef,
         tagRef: delivery.tagRef,
@@ -1354,9 +1393,12 @@ async function notify(snapshot: ClientSnapshot, t: Translate, controller: Contro
       })
     }
     notification.onclick = () => {
+      const current = controller.getState().snapshot
+      const selected = [...(current?.inbox ?? []), ...(current?.scheduled ?? [])].find(value => value.id === item.id)
       if (delivery !== undefined && notificationAttemptId !== undefined) {
         void controller.recordDelivery(item.id, {
           notificationStage: 'clicked',
+          notificationGeneration: notificationGeneration(item),
           notificationAttemptId,
           notificationRef: delivery.notificationRef,
           tagRef: delivery.tagRef,
@@ -1364,6 +1406,12 @@ async function notify(snapshot: ClientSnapshot, t: Translate, controller: Contro
           bodyFingerprint: delivery.bodyFingerprint,
           observedAt: new Date().toISOString(),
         })
+      }
+      if (selected === undefined || notificationGeneration(selected) !== notificationGeneration(item)) {
+        rendererCapabilities.focus()
+        controller.open()
+        notification.close()
+        return
       }
       handleNotificationClick(
         notification,
@@ -1379,6 +1427,7 @@ async function notify(snapshot: ClientSnapshot, t: Translate, controller: Contro
     if (delivery !== undefined && notificationAttemptId !== undefined) {
       void controller.recordDelivery(item.id, {
         notificationStage: 'click-handler-attached',
+        notificationGeneration: notificationGeneration(item),
         notificationAttemptId,
         notificationRef: delivery.notificationRef,
         tagRef: delivery.tagRef,
@@ -1770,9 +1819,13 @@ function itemCard(item: ClientItem, state: ControllerState, t: Translate, contro
       }, item.level),
       createElement('span', { className: 'dsc-level-label' }, levelLabel(item.level, t)),
       createElement('span', { className: 'dsc-card-reason' }, reason),
-      createElement('time', { className: 'dsc-card-time', dateTime: item.occurredAt }, formatTime(item.occurredAt)),
+      createElement('time', { className: 'dsc-card-time', dateTime: item.lastReminderAt ?? item.occurredAt }, formatTime(item.lastReminderAt ?? item.occurredAt)),
     ),
   ]
+  if (item.snoozedUntil !== undefined) children.push(createElement('p', { className: 'dsc-scheduled-time', key: 'scheduled-at' },
+    translate(t, 'item.scheduledAt', { time: new Intl.DateTimeFormat(chineseLocale() ? 'zh-CN' : 'en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(item.snoozedUntil)) })))
+  else if (item.reminderPending === true) children.push(createElement('p', { className: 'dsc-card-suggestion', key: 'reminder-waiting' }, translate(t, 'item.reminderWaiting')))
+  if (item.notificationExhausted === true) children.push(createElement('p', { className: 'dsc-card-suggestion', key: 'notification-exhausted' }, translate(t, 'item.notificationExhausted')))
   if (item.reasonCode !== 'TASK_COMPLETED') children.push(createElement('p', { className: 'dsc-card-suggestion', key: 'suggestion' },
     translate(t, 'item.suggestion', { text: suggestionText(item, t) })))
   if (item.bundleCount > 1) {
@@ -1822,10 +1875,20 @@ function itemCard(item: ClientItem, state: ControllerState, t: Translate, contro
       : actionButton(translate(t, 'item.acknowledge'), () => {
         void controller.action(item.id, { action: 'acknowledge' })
       }, busy, true),
-    actionButton(translate(t, 'item.snooze'), () => {
-      void controller.action(item.id, { action: 'snooze', minutes: 30 })
-    }, busy),
+    createElement('details', { className: 'dsc-more', key: 'snooze', 'data-deepcanary-snooze-menu': true,
+      onClick: (event: ReactMouseEvent<HTMLDetailsElement>) => {
+        if ((event.target as Element).closest('button')) event.currentTarget.open = false
+      },
+    },
+      createElement('summary', null, translate(t, 'item.snooze')),
+      createElement('div', { className: 'dsc-more-actions', role: 'group', 'aria-label': translate(t, 'item.snooze') },
+        ...[5, 15, 30, 60].map(minutes => actionButton(translate(t, 'item.snoozeAfter', { minutes }), () => {
+          void controller.action(item.id, { action: 'snooze', minutes })
+        }, busy)))),
   ]
+  if (item.status === 'snoozed') actions.push(actionButton(translate(t, 'item.unsnooze'), () => {
+    void controller.action(item.id, { action: 'unsnooze' })
+  }, busy))
   const moreActions: ReactNode[] = [
     actionButton(translate(t, 'item.acknowledge'), () => {
       void controller.action(item.id, { action: 'acknowledge' })
@@ -1860,6 +1923,7 @@ function itemCard(item: ClientItem, state: ControllerState, t: Translate, contro
   children.push(createElement('div', { className: 'dsc-card-actions', key: 'actions' }, ...actions))
   return createElement('article', {
     className: 'dsc-card',
+    tabIndex: -1,
     key: item.id,
     'data-deepcanary-item': item.id,
     'data-selected': selected,
@@ -1869,10 +1933,13 @@ function itemCard(item: ClientItem, state: ControllerState, t: Translate, contro
 function DeepCanaryOverlay(props: { t: Translate; controller: Controller }): ReactNode {
   const state = useController(props.controller)
   const [visibleItems, setVisibleItems] = useState(50)
+  const [visibleScheduled, setVisibleScheduled] = useState(10)
   const selectedIndex = state.snapshot?.inbox.findIndex(item => item.id === state.selectedId) ?? -1
+  const scheduledIndex = state.snapshot?.scheduled?.findIndex(item => item.id === state.selectedId) ?? -1
   useLayoutEffect(() => {
     if (selectedIndex >= visibleItems) setVisibleItems(Math.ceil((selectedIndex + 1) / 50) * 50)
-  }, [selectedIndex, visibleItems])
+    if (scheduledIndex >= visibleScheduled) setVisibleScheduled(Math.ceil((scheduledIndex + 1) / 10) * 10)
+  }, [selectedIndex, visibleItems, scheduledIndex, visibleScheduled])
   const panelRef = useRef<HTMLElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
   const positionedId = useRef<string | undefined>(undefined)
@@ -1884,10 +1951,14 @@ function DeepCanaryOverlay(props: { t: Translate; controller: Controller }): Rea
       positionedId.current = undefined
       return
     }
-    if (positionedId.current === state.selectedId) return
+    const focusLost = document.activeElement === document.body
+    if (positionedId.current === state.selectedId && !focusLost) return
     const elements = panelRef.current?.querySelectorAll<HTMLElement>('[data-deepcanary-item]') ?? []
-    if (positionSelectedAttention(elements, state.selectedId)) positionedId.current = state.selectedId
-  }, [state.open, state.selectedId, state.snapshot, visibleItems])
+    if (positionSelectedAttention(elements, state.selectedId)) {
+      positionedId.current = state.selectedId
+      if (focusLost) [...elements].find(element => element.dataset.deepcanaryItem === state.selectedId)?.focus({ preventScroll: true })
+    }
+  }, [state.open, state.selectedId, state.snapshot, visibleItems, visibleScheduled])
   useEffect(() => {
     if (!state.open) return
     const onKeyDown = (event: globalThis.KeyboardEvent): void => {
@@ -1912,7 +1983,7 @@ function DeepCanaryOverlay(props: { t: Translate; controller: Controller }): Rea
   }, [props.controller, state.open])
   useEffect(() => {
     if (state.snapshot !== undefined) void notify(state.snapshot, props.t, props.controller)
-  }, [props.controller, props.t, state.snapshot])
+  }, [props.controller, props.t, state.snapshot, state.lastSyncedAt])
   if (!state.open) return null
 
   const snapshot = state.snapshot
@@ -1925,6 +1996,7 @@ function DeepCanaryOverlay(props: { t: Translate; controller: Controller }): Rea
       ? translate(props.t, 'panel.status.loading')
       : translate(props.t, 'panel.status.ready')
   const items = snapshot?.inbox ?? []
+  const scheduled = snapshot?.scheduled ?? []
   const panelStyle = {
     '--dsc-width': state.width + 'px',
     '--dsc-height': state.height + 'px',
@@ -1977,7 +2049,8 @@ function DeepCanaryOverlay(props: { t: Translate; controller: Controller }): Rea
   } else if (items.length === 0) {
     body.push(createElement('div', { className: 'dsc-note', key: 'empty' },
       createElement('strong', null, translate(props.t, 'panel.empty')),
-      createElement('span', null, translate(props.t, 'panel.emptyHint'))))
+      createElement('span', null, scheduled.length > 0
+        ? translate(props.t, 'panel.emptyScheduled', { count: scheduled.length }) : translate(props.t, 'panel.emptyHint'))))
   } else {
     body.push(createElement('h3', { className: 'dsc-group-title', key: 'group' },
       translate(props.t, 'panel.inbox')))
@@ -1988,6 +2061,14 @@ function DeepCanaryOverlay(props: { t: Translate; controller: Controller }): Rea
       key: 'more-items', type: 'button', className: 'dsc-toolbar-button', onClick: () => { setVisibleItems(value => value + 50) },
     }, translate(props.t, 'panel.moreItems', { count: Math.min(50, items.length - visibleItems) })))
   }
+  if (scheduled.length > 0) body.push(createElement('details', {
+    className: 'dsc-scheduled', key: 'scheduled', ...(items.length === 0 || scheduledIndex >= 0 ? { open: true } : {}),
+  }, createElement('summary', null, translate(props.t, 'panel.scheduled', { count: scheduled.length })),
+  createElement('p', { className: 'dsc-card-suggestion' }, translate(props.t, 'panel.scheduledHint')),
+  ...scheduled.slice(0, visibleScheduled).map(item => itemCard(item, state, props.t, props.controller, state.selectedId === item.id)),
+  scheduled.length > visibleScheduled ? createElement('button', {
+    type: 'button', className: 'dsc-toolbar-button', onClick: () => { setVisibleScheduled(value => value + 10) },
+  }, translate(props.t, 'panel.moreItems', { count: Math.min(10, scheduled.length - visibleScheduled) })) : null))
   const notificationSupported = 'Notification' in globalThis
   const notificationPermission = notificationSupported ? Notification.permission : 'unsupported'
   const notificationBlocked = notificationPermission === 'denied'
