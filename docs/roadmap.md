@@ -4,7 +4,7 @@ DeepCanary helps people leave tasks running with confidence, notice when their h
 
 ## Current capability: 0.1.6-rc.2
 
-WebUI and official Windows Desktop use released DSH 0.2.1-rc.2. The current local candidate adds:
+WebUI and official Windows Desktop use released DSH 0.2.1-rc.2. The current release candidate adds:
 
 - Owned background work tracking through public registration, output-count and settlement events. Running tasks stay quiet; uncollected completion reaches C1 and producer failure reaches C2.
 - Bounded persistent watches and original-owner reconciliation. Replacement collects missed outcomes once and shows uncertainty when authority is unavailable.

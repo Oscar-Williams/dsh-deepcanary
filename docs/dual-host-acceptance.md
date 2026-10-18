@@ -10,7 +10,7 @@ DeepCanary 0.1.6-rc.2 uses released DSH 0.2.1-rc.2 on WebUI and official Windows
 - Background integration verifies healthy silence, C1 completion/C2 producer failure, waiter suppression, original ownership, replacement catch-up and repeated-reload deduplication. Unit regressions cover unknown authority, byte-count progress, bounded metadata and private-field exclusion.
 - Inbox prioritization, expanded pages and explicit handled feedback use the existing panel and reminder actions.
 - A real Cordis plugin unload verifies pending state writes finish before replacement; cancellation, interruption and forked-history regressions preserve their distinct semantics.
-- Desktop official-manager installation and a cold restart load the new routes and synchronize the retained Inbox.
+- On Desktop, use official-manager installation and a cold restart to check the new routes and retained Inbox. Record actual completion in the package's device receipt.
 - Completed-session navigation checks exact membership in the public client catalog before returning to retained history. Missing targets show an unavailable notice.
 - Web development uses an independent profile and port. Frozen-package installation and runtime observations are recorded separately in the release receipt.
 

@@ -4,8 +4,8 @@
 
 | Item | Version or identity |
 | --- | --- |
-| Local plugin | 0.1.6-rc.2 candidate |
-| Published plugin | 0.1.4-rc.1 |
+| Current release candidate | 0.1.6-rc.2 |
+| npm channels | `latest` and `next`: 0.1.6-rc.2 |
 | Web Host | published DSH 0.2.1-rc.2 npm packages |
 | Official Windows Desktop | released DSH 0.2.1-rc.2; release tag `687f282e8625c6b8d11ff58211a90524be2e4317` |
 | Development Cordis / Schemastery | 4.0.5 / 3.18.5 |
@@ -35,4 +35,4 @@ Freeze after committing source and `lib`, with a clean tracked snapshot. The fre
 
 Installation comparison checks package bytes. Runtime validation additionally checks the active module/server/client after restart. Reports distinguish natural/controlled/replay/unknown data and installation/runtime/OS observation scope.
 
-Historical receipts retain their Host pins. Current README commands identify the local candidate and the published npm version. `DSH_RUNTIME` selects the actual released installation for development contracts.
+Historical receipts retain their Host pins. Current README commands pin the release candidate explicitly. `DSH_RUNTIME` selects the actual released installation for development contracts.

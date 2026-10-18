@@ -10,7 +10,7 @@ English · [简体中文](README.zh-CN.md) · [Documentation](docs/README.md) ·
 
 DeepCanary adds a local task inbox to [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). It brings questions, approvals, failures and completion summaries together, applies quiet notification policies, and returns you to the relevant session.
 
-**Candidate: 0.1.6-rc.2.** WebUI and official Windows Desktop use released DSH **0.2.1-rc.2**. Install the candidate tgz with the instructions below. Published versions and channels are listed on the [npm package page](https://www.npmjs.com/package/dsh-deepcanary).
+**Release candidate: 0.1.6-rc.2.** The supported Host baseline is released DSH **0.2.1-rc.2** for WebUI and official Windows Desktop. Get the package from [npm](https://www.npmjs.com/package/dsh-deepcanary) or [GitHub Releases](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.6-rc.2). Both `latest` and `next` select this RC.
 
 This version follows owned background jobs through completion and plugin reload, brings urgent pending work to the top of Inbox, and turns explicit handled feedback into a completed reminder action. Background failures return you to their owning session. Healthy background activity stays quiet.
 
@@ -18,13 +18,11 @@ Scheduled follow-up keeps work within reach: choose a delay, review it in **Sche
 
 ![DeepCanary Inbox](assets/deepcanary-panel-en.png)
 
-## Install the local candidate
-
-Obtain the built file `dsh-deepcanary-0.1.6-rc.2.tgz` and keep its supplied checksum with it.
+## Install
 
 ### Desktop
 
-Open DSH **Plugins → Add plugin**, select the local tgz through the official package manager, and follow the manager's activation instructions. Save active work before a requested restart. Desktop owns its profile and manages its packages through the application.
+Download `dsh-deepcanary-0.1.6-rc.2.tgz` and `SHA256SUMS` from the [release assets](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.6-rc.2). Open DSH **Plugins → Add plugin**, select the local tgz through the official package manager, and follow the manager's activation instructions. Save active work before a requested restart. Desktop owns its profile and manages its packages through the application.
 
 ### WebUI
 
@@ -32,7 +30,7 @@ Use DSH 0.2.1-rc.2 and an explicit Web profile:
 
 ```sh
 dsh --version
-dsh plugin --profile web add ./dsh-deepcanary-0.1.6-rc.2.tgz --registry=https://registry.npmjs.org/
+dsh plugin --profile web add dsh-deepcanary@0.1.6-rc.2 --registry=https://registry.npmjs.org/
 dsh web
 ```
 
@@ -44,11 +42,17 @@ npx --yes --package=@deepseek-ai/dsh@0.2.1-rc.2 dsh web
 
 Open the authenticated URL printed by DSH. A built source checkout can use its documented `pnpm dsh` entry. Use that checkout's own package manager version.
 
+To install the verified GitHub archive instead, use its local path:
+
+```sh
+dsh plugin --profile web add ./dsh-deepcanary-0.1.6-rc.2.tgz --registry=https://registry.npmjs.org/
+```
+
 ### Update and remove
 
 Use the official manager's update control when it offers one. An installation request for an already installed bundle can be refused by the current manager; remove that bundle through the manager before adding its replacement. Follow its applied/restart status and confirm the loaded version.
 
-The Web CLI forwards package operations to pnpm. To replace a local archive, run the installation command above, finish current work, stop that Web Host, start `dsh web` again and reload its page. Confirm the loaded plugin version. To remove the Web installation:
+The Web CLI forwards package operations to pnpm. To update Web, run the version-pinned installation command above, finish current work, stop that Web Host, start `dsh web` again and reload its page. Confirm the loaded plugin version. To remove the Web installation:
 
 ```sh
 dsh plugin --profile web remove dsh-deepcanary
