@@ -1,6 +1,11 @@
 # Changelog
 
-## 0.1.6-rc.3 — complete copy for historical and grouped reminders
+## 0.1.6-rc.4 — readable settings actions across themes
+
+- Use a blue Save button with white text in both themes. This preserves readable contrast when the Host's dark-theme label and background tokens resolve to similar colors.
+- Include the historical-message repair and the background supervision, scheduled follow-up and durable delivery capabilities below.
+
+## 0.1.6-rc.3 — local candidate with complete historical and grouped copy
 
 - Show factual summary text when historical reminder metadata lacks duration, tool or count parameters. Grouped notification reasons use the same readable summaries; known values retain their detail.
 - Retain the scheduled follow-up, durable state, authoritative escalation and background supervision capabilities below.

@@ -1,6 +1,6 @@
 # Web and Desktop verification
 
-DeepCanary 0.1.6-rc.3 uses released DSH 0.2.1-rc.2 on WebUI and official Windows Desktop (release tag `687f282e8625c6b8d11ff58211a90524be2e4317`). Both surfaces use authenticated Connection Fetch routes, Host settings, public background Job observation and the deterministic attention core. Each profile owns its state.
+DeepCanary 0.1.6-rc.4 uses released DSH 0.2.1-rc.2 on WebUI and official Windows Desktop (release tag `687f282e8625c6b8d11ff58211a90524be2e4317`). Both surfaces use authenticated Connection Fetch routes, Host settings, public background Job observation and the deterministic attention core. Each profile owns its state.
 
 ## Development checks
 

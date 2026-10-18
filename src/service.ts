@@ -66,7 +66,7 @@ import type {
 import { ATTENTION_POLICY_VERSION, ATTENTION_PROTOCOL_VERSION as PROTOCOL_VERSION, SUPPRESSIBLE_REASON_CODES } from './types.js'
 
 const PLUGIN_NAME = 'dsh-deepcanary'
-const PLUGIN_VERSION = '0.1.6-rc.3'
+const PLUGIN_VERSION = '0.1.6-rc.4'
 const SETTINGS_NAMESPACE = 'deepcanary'
 const DEFAULT_MUTE_MINUTES = 60
 const ORPHAN_GRACE_MS = 30_000

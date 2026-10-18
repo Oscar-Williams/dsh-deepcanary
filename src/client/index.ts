@@ -1119,7 +1119,7 @@ function injectStyles(): () => void {
     '.dsc-settings-fieldset{display:grid;gap:8px;margin:0;padding:8px;border:1px solid var(--dsw-alias-border-l2,#eceef1);border-radius:8px}',
     '.dsc-settings-fieldset legend{padding:0 4px;color:var(--dsw-alias-label-tertiary,#6b7280);font-size:11px}',
     '.dsc-settings-actions{display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap}',
-    '.dsc-settings-save{display:inline-flex;align-items:center;justify-content:center;min-height:28px;padding:4px 10px;border:0;border-radius:8px;background:var(--dsw-alias-label-primary,#202124);color:var(--dsw-alias-bg-primary,#fff);font:inherit;font-size:11px;cursor:pointer}',
+    '.dsc-settings-save{display:inline-flex;align-items:center;justify-content:center;min-height:28px;padding:4px 10px;border:0;border-radius:8px;background:#365fe9;color:#fff;font:inherit;font-size:11px;cursor:pointer}',
     '.dsc-settings-save:disabled{cursor:default;opacity:.45}',
     '.dsc-field{display:grid;gap:4px;color:var(--dsw-alias-label-tertiary,#6b7280);font-size:11px}',
     '.dsc-field-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}',

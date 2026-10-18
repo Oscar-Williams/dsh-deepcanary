@@ -6,7 +6,7 @@
 
 DeepCanary 为 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 提供本地任务收件箱，将提问、审批、异常和完成摘要集中呈现，并通过通知预算、合并与去重减少打扰。
 
-**当前发布候选为 0.1.6-rc.3。** 宿主基线为已发布的 DSH **0.2.1-rc.2**，覆盖 WebUI 与官方 Windows Desktop。安装包见 [npm](https://www.npmjs.com/package/dsh-deepcanary) 和 [GitHub Releases](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.6-rc.3)，`latest` 与 `next` 均指向此 RC。
+**当前发布候选为 0.1.6-rc.4。** 宿主基线为已发布的 DSH **0.2.1-rc.2**，覆盖 WebUI 与官方 Windows Desktop。安装包见 [npm](https://www.npmjs.com/package/dsh-deepcanary) 和 [GitHub Releases](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.6-rc.4)，`latest` 与 `next` 均指向此 RC。
 
 本版加入后台任务持续跟踪、重载补收、待办优先排序和反馈处理闭环。后台失败可从收件箱返回所属会话，健康任务保持安静。
 
@@ -18,7 +18,7 @@ DeepCanary 为 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harnes
 
 ### Desktop
 
-从[发布资产](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.6-rc.3)下载 `dsh-deepcanary-0.1.6-rc.3.tgz` 和 `SHA256SUMS`。在 DSH 的“插件 → 添加插件”中通过官方管理器选择本地 tgz，按界面提示启用。需要重启时先保存进行中的工作。桌面版通过应用管理自己的 profile 与插件。
+从[发布资产](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.6-rc.4)下载 `dsh-deepcanary-0.1.6-rc.4.tgz` 和 `SHA256SUMS`。在 DSH 的“插件 → 添加插件”中通过官方管理器选择本地 tgz，按界面提示启用。需要重启时先保存进行中的工作。桌面版通过应用管理自己的 profile 与插件。
 
 ### WebUI
 
@@ -26,7 +26,7 @@ DeepCanary 为 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harnes
 
 ```sh
 dsh --version
-dsh plugin --profile web add dsh-deepcanary@0.1.6-rc.3 --registry=https://registry.npmjs.org/
+dsh plugin --profile web add dsh-deepcanary@0.1.6-rc.4 --registry=https://registry.npmjs.org/
 dsh web
 ```
 
@@ -41,7 +41,7 @@ npx --yes --package=@deepseek-ai/dsh@0.2.1-rc.2 dsh web
 使用已校验的 GitHub 压缩包安装时，填写本地文件路径：
 
 ```sh
-dsh plugin --profile web add ./dsh-deepcanary-0.1.6-rc.3.tgz --registry=https://registry.npmjs.org/
+dsh plugin --profile web add ./dsh-deepcanary-0.1.6-rc.4.tgz --registry=https://registry.npmjs.org/
 ```
 
 ### 更新与卸载

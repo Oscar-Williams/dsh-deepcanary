@@ -1,4 +1,4 @@
-# Offline evaluation for 0.1.6-rc.3
+# Offline evaluation for 0.1.6-rc.4
 
 The current candidate adds background supervision, missed-outcome recovery, pending-work prioritization and explicit handled-feedback actions. Public Session/Agent/Job registry integration supplies the background facts. The existing deterministic core applies C1/C2 classification, deduplication, quiet hours and budget. Local receipts record checks and final artifact identity.
 
@@ -28,6 +28,7 @@ The Windows regression run passes 258 tests in 36 files. Released Host contracts
 | Blind truncation by arrival order could remove a scheduled item or human wait during a burst of routine updates. | Priority retention preserves those items within the configured capacity. An eighty-update regression at capacity fifty preserves the C3 and the schedule. |
 | A completed C2 delivery could suppress a later authoritative C3 escalation in the same bundle. | Escalation advances the delivery generation, returns a scheduled item to pending and permits the new authoritative notification. A regression covers the transition with quiet hours and an exhausted C2 budget. |
 | Desktop displayed `{idleMinutes}` in historical reminders without saved duration metadata. Related reasons in grouped notifications also lacked parameters. | Parameterless summaries preserve the recorded event meaning. Complete metadata retains its detail; missing values stay unknown. The formatter and installed Inbox cover both paths. |
+| The Save button inherited nearly white text and background in the Host's explicit dark theme. | A fixed blue surface and white label provide readable contrast in both themes. Device checks use the actual settings form and restore appearance preferences afterward. |
 
 These controlled development cases establish reproducible behavior. They add no natural cohort or policy-threshold adoption. The public reminder contract checks original ownership, current C3 authority, renderer arbitration, default-mode reload and accepted-answer cancellation using released Host objects and a controlled clock.
 

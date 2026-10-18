@@ -4,8 +4,8 @@
 
 | Item | Version or identity |
 | --- | --- |
-| Current release candidate | 0.1.6-rc.3 |
-| npm channels | `latest` and `next`: 0.1.6-rc.3 |
+| Current release candidate | 0.1.6-rc.4 |
+| npm channels | `latest` and `next`: 0.1.6-rc.4 |
 | Web Host | published DSH 0.2.1-rc.2 npm packages |
 | Official Windows Desktop | released DSH 0.2.1-rc.2; release tag `687f282e8625c6b8d11ff58211a90524be2e4317` |
 | Development Cordis / Schemastery | 4.0.5 / 3.18.5 |
