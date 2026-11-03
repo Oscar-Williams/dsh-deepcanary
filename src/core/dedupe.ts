@@ -32,6 +32,8 @@ export class DedupeLedger {
     this.prune(now)
   }
 
+  forget(key: string): void { this.seen.delete(keyHash(key)) }
+
   snapshot(now = Date.now(), limit = 512): PersistedDedupeEntry[] {
     // Snapshotting may happen from a wall-clock status refresh while the
     // newest signal carries an event timestamp. Keep entries here and let

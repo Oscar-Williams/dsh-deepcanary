@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeConfig, sanitizeConfigPatch } from '../src/config.js'
+import { Config, normalizeConfig, sanitizeConfigPatch } from '../src/config.js'
 
 describe('DeepCanary settings boundary', () => {
   it('accepts the public settings surface and never accepts stateDir', () => {
@@ -25,5 +25,9 @@ describe('DeepCanary settings boundary', () => {
     expect(normalizeConfig({ quietHours: { enabled: true } }).quietHours).toEqual({ enabled: true, start: '22:00', end: '08:00' })
     expect(normalizeConfig({}).supervisorMode).toBe('off')
     expect(() => sanitizeConfigPatch({ supervisorMode: 'stable' })).toThrow(/supervisorMode/)
+    expect(() => Config({ quietHours: { enabled: true, start: '22:00', end: '08:00', timeZone: 'Missing/Zone' } })).toThrow()
+    expect(() => Config({ quietHours: { enabled: true, start: '25:00', end: '08:00', timeZone: 'Asia/Shanghai' } })).toThrow()
+    expect(sanitizeConfigPatch({ quietHours: { timeZone: 'Asia/Shanghai' } })).toEqual({ quietHours: { timeZone: 'Asia/Shanghai' } })
+    expect(normalizeConfig({ maxInboxItems: 5_000 }).maxInboxItems).toBe(500)
   })
 })

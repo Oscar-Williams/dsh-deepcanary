@@ -1,5 +1,10 @@
 import type { InboxItem } from '../types.js'
 
+export function isProtectedItem(item: InboxItem): boolean {
+  return (item.status === 'open' || item.status === 'seen' || item.status === 'snoozed')
+    && (item.level === 'C3' || item.status === 'snoozed' || item.reminderPending === true)
+}
+
 function retentionPriority(item: InboxItem): number {
   if (item.status !== 'open' && item.status !== 'seen' && item.status !== 'snoozed') return 0
   if (item.level === 'C3') return 100

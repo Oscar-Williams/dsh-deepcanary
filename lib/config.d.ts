@@ -21,10 +21,12 @@ export declare const Config: Schema<Schemastery.ObjectS<NoInfer<{
         enabled: Schema<boolean, boolean, "defined">;
         start: Schema<string, string, "defined">;
         end: Schema<string, string, "defined">;
+        timeZone: Schema<string, string, "plain">;
     }>>>, NoInfer<Schemastery.ObjectT<NoInfer<{
         enabled: Schema<boolean, boolean, "defined">;
         start: Schema<string, string, "defined">;
         end: Schema<string, string, "defined">;
+        timeZone: Schema<string, string, "plain">;
     }>>>, "volatile-defined">;
     privacySafeSummary: Schema<boolean, boolean, "volatile-defined">;
     healthPollSeconds: Schema<number, number, "volatile-defined">;
@@ -43,10 +45,12 @@ export declare const Config: Schema<Schemastery.ObjectS<NoInfer<{
         enabled: Schema<boolean, boolean, "defined">;
         start: Schema<string, string, "defined">;
         end: Schema<string, string, "defined">;
+        timeZone: Schema<string, string, "plain">;
     }>>>, NoInfer<Schemastery.ObjectT<NoInfer<{
         enabled: Schema<boolean, boolean, "defined">;
         start: Schema<string, string, "defined">;
         end: Schema<string, string, "defined">;
+        timeZone: Schema<string, string, "plain">;
     }>>>, "volatile-defined">;
     privacySafeSummary: Schema<boolean, boolean, "volatile-defined">;
     healthPollSeconds: Schema<number, number, "volatile-defined">;

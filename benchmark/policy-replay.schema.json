@@ -47,7 +47,8 @@
             "type": "object",
             "properties": {
               "steps": { "type": "array", "items": { "type": ["object", "null"] } },
-              "finalInboxCount": { "type": "integer", "minimum": 0 }
+              "finalInboxCount": { "type": "integer", "minimum": 0 },
+              "finalActivityCount": { "type": "integer", "minimum": 0 }
             },
             "additionalProperties": false
           }

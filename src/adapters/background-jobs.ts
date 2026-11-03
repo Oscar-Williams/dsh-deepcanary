@@ -238,6 +238,8 @@ export function signalFromBackgroundSettlement(job: BackgroundSettlement): Canar
   return { schemaVersion: 1, id: `background-${job.jobRef}-${job.status}`,
     occurredAt: new Date(job.catchup ? Date.now() : job.finishedAt ?? Date.now()).toISOString(), source: 'tool', kind, sessionId: job.sessionId,
     severityHint: job.status === 'failed' ? 2 : 1,
+    task: { taskRef: job.jobRef, executionGeneration: createHash('sha256').update(`${job.jobRef}:${job.startedAt}`).digest('hex').slice(0, 16),
+      kind: 'job', parentTaskRef: createHash('sha256').update(`session:${job.sessionId}`).digest('hex').slice(0, 16) },
     evidence: [{ type: 'runtime-probe', authority: 'runtime', ref: `background:${job.jobRef}`,
       summary: `DSH reported a ${job.status} background task (${job.kind}).` }],
     dedupeKey: `background:${job.jobRef}:${job.status}`,

@@ -97,7 +97,7 @@ describe('DeepCanary Web contract', () => {
       const supervisor = await fetch(`http://127.0.0.1:${port}/api/dsh-deepcanary/supervisor`)
       expect(supervisor.status).toBe(200)
       expect(await supervisor.json()).toMatchObject({
-        schemaVersion: 2,
+        schemaVersion: 3,
         supervisorSchemaVersion: 1,
         status: { state: 'inactive', leaseHeld: false },
         snapshot: { schemaVersion: 1, pending: expect.any(Array) },
@@ -109,11 +109,16 @@ describe('DeepCanary Web contract', () => {
       expect(settings.status).toBe(405)
       expect(service.settings().maxInterruptsPerHour).toBe(3)
 
-      const actionPayload = { id: item?.id, action: 'feedback', useful: true, requestId: 'web-feedback-1' }
+      const actionPayload = { id: item?.id, action: 'feedback', useful: true, requestId: 'web-feedback-1', schemaVersion: 3,
+        expectedRevision: service.status().revision }
+      const oldClient = await fetch(`http://127.0.0.1:${port}/api/dsh-deepcanary/action`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...actionPayload, schemaVersion: 2 }) })
+      expect(oldClient.status).toBe(409)
+      const stale = await fetch(`http://127.0.0.1:${port}/api/dsh-deepcanary/action`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...actionPayload, expectedRevision: actionPayload.expectedRevision - 1 }) })
+      expect(stale.status).toBe(409)
       const action = await fetch(`http://127.0.0.1:${port}/api/dsh-deepcanary/action`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(actionPayload) })
       expect(action.status).toBe(200)
       const actionBody = await action.json()
-      expect(actionBody).toMatchObject({ schemaVersion: 2, requestId: 'web-feedback-1', updated: true })
+      expect(actionBody).toMatchObject({ schemaVersion: 3, requestId: 'web-feedback-1', updated: true })
       const replay = await fetch(`http://127.0.0.1:${port}/api/dsh-deepcanary/action`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(actionPayload) })
       expect(replay.status).toBe(200)
       expect(await replay.json()).toEqual(actionBody)

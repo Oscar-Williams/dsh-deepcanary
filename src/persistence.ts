@@ -2,7 +2,10 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import os from 'node:os'
 import path from 'node:path'
-import { ATTENTION_POLICY_VERSION } from './types.js'
+import { ATTENTION_POLICY_VERSION, ATTENTION_PROTOCOL_VERSION } from './types.js'
+import type { TaskContext } from './types.js'
+import { isAutomationRun } from './adapters/automation.js'
+import type { AutomationRun } from './adapters/automation.js'
 import { SUPPRESSIBLE_REASON_CODES } from './types.js'
 import { copyBackgroundWatch, isBackgroundWatch, MAX_BACKGROUND_WATCHES } from './adapters/background-jobs.js'
 import type { BackgroundWatch } from './adapters/background-jobs.js'
@@ -23,6 +26,7 @@ type PersistedDecisionTrace = PolicyDecisionTrace
 
 interface PersistedItem {
   id: string
+  task?: TaskContext
   /** Opaque DSH session identity retained locally so historical alerts can reopen their session. */
   sessionId?: string
   sessionRef?: string
@@ -61,7 +65,7 @@ interface PersistedItem {
 }
 
 interface PersistedState {
-  schemaVersion: 1
+  schemaVersion: 1 | 2
   items: PersistedItem[]
   backgroundWatches?: BackgroundWatch[]
   runtime?: AttentionRuntimeState
@@ -72,15 +76,25 @@ export interface AttentionRuntimeState {
   dedupe: PersistedDedupeEntry[]
   interruptConsumedAt: string[]
   deliveryLedger: PersistedDeliveryEntry[]
+  revision?: number
+  automationRuns?: AutomationRun[]
+  deferredSources?: Array<{ sessionRef: string; sourceSeq: number }>
+  rescanAll?: boolean
 }
 
 function runtimeState(value: unknown): AttentionRuntimeState | undefined {
   if (value === null || typeof value !== 'object') return undefined
   const raw = value as Partial<AttentionRuntimeState>
-  if (raw.policyVersion !== ATTENTION_POLICY_VERSION) return undefined
+  if (raw.policyVersion !== ATTENTION_POLICY_VERSION && raw.policyVersion !== 'attention-policy.v1') return undefined
   const ledger = new DeliveryLedger()
   ledger.restore(Array.isArray(raw.deliveryLedger) ? raw.deliveryLedger.slice(-512) : [])
   return { policyVersion: ATTENTION_POLICY_VERSION,
+    ...(raw.rescanAll === true ? { rescanAll: true } : {}),
+    ...(Array.isArray(raw.deferredSources) ? { deferredSources: raw.deferredSources.filter(value => value
+      && /^[a-f0-9]{16}$/.test(value.sessionRef) && Number.isSafeInteger(value.sourceSeq) && value.sourceSeq >= 0)
+      .slice(0, 256).map(value => ({ sessionRef: value.sessionRef, sourceSeq: value.sourceSeq })) } : {}),
+    ...(Array.isArray(raw.automationRuns) ? { automationRuns: raw.automationRuns.filter(isAutomationRun).slice(-256).map(run => ({ ...run })) } : {}),
+    ...(Number.isSafeInteger(raw.revision) && raw.revision! >= 0 ? { revision: raw.revision! } : {}),
     dedupe: Array.isArray(raw.dedupe) ? raw.dedupe.filter(entry => entry !== null && typeof entry === 'object'
       && typeof entry.keyHash === 'string' && /^[a-f0-9]{16}$/.test(entry.keyHash)
       && typeof entry.acceptedAt === 'string' && Number.isFinite(Date.parse(entry.acceptedAt))).slice(-512)
@@ -110,6 +124,7 @@ export function resolveStateDir(value: string): string {
 function toPersisted(item: InboxItem): PersistedItem {
   return {
     id: item.id,
+    ...(item.task === undefined ? {} : { task: { ...item.task } }),
     ...(item.sessionId ? { sessionId: item.sessionId } : {}),
     ...(item.sessionRef || item.sessionId ? { sessionRef: item.sessionRef ?? hashMetadata(item.sessionId as string) } : {}),
     ...(item.workspaceRef || item.workspaceId ? { workspaceRef: item.workspaceRef ?? hashMetadata(item.workspaceId as string) } : {}),
@@ -155,6 +170,9 @@ function fromPersisted(item: PersistedItem): InboxItem {
   return {
     eventId: item.id,
     id: item.id,
+    ...(isTaskContext(item.task) ? { task: { ...item.task } } : item.sessionRef || item.sessionId ? {
+      task: { taskRef: item.sessionRef ?? hashMetadata(item.sessionId!), executionGeneration: hashMetadata(`legacy:${item.id}`), kind: 'session' as const },
+    } : {}),
     ...(isSafeOpaqueId(item.sessionId) ? { sessionId: item.sessionId } : {}),
     ...(item.sessionRef ? { sessionRef: item.sessionRef } : {}),
     ...(item.workspaceRef ? { workspaceRef: item.workspaceRef } : {}),
@@ -163,7 +181,7 @@ function fromPersisted(item: PersistedItem): InboxItem {
     action: item.action,
     confidence: item.confidence,
     reasonCode: item.reasonCode,
-    schemaVersion: 2,
+    schemaVersion: ATTENTION_PROTOCOL_VERSION,
     messageKey: item.messageKey ?? `item.reason.${item.reasonCode}`,
     ...(item.messageParams === undefined ? {} : { messageParams: { ...item.messageParams } }),
     ...(item.suggestionKey === undefined && item.suggestedAction === undefined
@@ -201,6 +219,7 @@ function fromPersisted(item: PersistedItem): InboxItem {
 export class MetadataStore {
   readonly directory: string
   readonly file: string
+  private writable = true
 
   constructor(stateDir: string) {
     this.directory = resolveStateDir(stateDir)
@@ -214,20 +233,25 @@ export class MetadataStore {
   async loadState(): Promise<{ items: InboxItem[]; backgroundWatches: BackgroundWatch[]; runtime?: AttentionRuntimeState }> {
     try {
       const raw = JSON.parse(await readFile(this.file, 'utf8')) as Partial<PersistedState>
-      if (raw.schemaVersion !== 1 || !Array.isArray(raw.items)) return { items: [], backgroundWatches: [] }
+      if ((raw.schemaVersion !== 1 && raw.schemaVersion !== 2) || !Array.isArray(raw.items)) {
+        throw new TypeError('Unsupported DeepCanary ledger schema; original file preserved')
+      }
+      if (!raw.items.every(isPersistedItem)) throw new TypeError('Invalid DeepCanary ledger item; original file preserved')
       const runtime = runtimeState(raw.runtime)
-      return { items: raw.items.filter(isPersistedItem).map(fromPersisted), backgroundWatches: Array.isArray(raw.backgroundWatches)
+      return { items: raw.items.map(fromPersisted), backgroundWatches: Array.isArray(raw.backgroundWatches)
         ? raw.backgroundWatches.filter(isBackgroundWatch).slice(-MAX_BACKGROUND_WATCHES).map(copyBackgroundWatch) : [],
         ...(runtime === undefined ? {} : { runtime }) }
     } catch (error: unknown) {
       if (isNodeError(error, 'ENOENT')) return { items: [], backgroundWatches: [] }
+      this.writable = false
       throw error
     }
   }
 
   async save(items: readonly InboxItem[], backgroundWatches: readonly BackgroundWatch[] = [], runtime?: AttentionRuntimeState): Promise<void> {
+    if (!this.writable) throw new Error('DeepCanary ledger is protected after a load failure; original file preserved')
     const sanitizedRuntime = runtimeState(runtime)
-    const payload: PersistedState = { schemaVersion: 1, items: items.map(toPersisted),
+    const payload: PersistedState = { schemaVersion: 2, items: items.map(toPersisted),
       backgroundWatches: backgroundWatches.filter(isBackgroundWatch).slice(-MAX_BACKGROUND_WATCHES).map(copyBackgroundWatch),
       ...(sanitizedRuntime === undefined ? {} : { runtime: sanitizedRuntime }) }
     await mkdir(this.directory, { recursive: true })
@@ -235,6 +259,19 @@ export class MetadataStore {
     await writeFile(temporary, `${JSON.stringify(payload, null, 2)}\n`, 'utf8')
     await rename(temporary, this.file)
   }
+}
+
+export function isTaskContext(value: unknown): value is TaskContext {
+  if (!value || typeof value !== 'object') return false
+  const item = value as Partial<TaskContext>
+  const ref = (value: unknown): boolean => typeof value === 'string' && /^[a-f0-9]{16}$/.test(value)
+  return ref(item.taskRef) && ref(item.executionGeneration)
+    && ['session', 'subagent', 'fork', 'job', 'automation'].includes(item.kind!)
+    && (item.parentTaskRef === undefined || ref(item.parentTaskRef))
+    && (item.runRef === undefined || ref(item.runRef))
+    && (item.humanActionRef === undefined || ref(item.humanActionRef))
+    && (item.sourceSeq === undefined || Number.isSafeInteger(item.sourceSeq) && item.sourceSeq >= 0)
+    && Object.keys(item).every(key => ['taskRef', 'executionGeneration', 'kind', 'parentTaskRef', 'runRef', 'humanActionRef', 'sourceSeq'].includes(key))
 }
 
 interface PersistedSuppressionState {
@@ -283,6 +320,7 @@ function isPersistedItem(value: unknown): value is PersistedItem {
   if (value === null || typeof value !== 'object') return false
   const item = value as Partial<PersistedItem>
   return typeof item.id === 'string'
+    && (item.task === undefined || isTaskContext(item.task))
     && (item.sessionId === undefined || isSafeOpaqueId(item.sessionId))
     && typeof item.occurredAt === 'string'
     && typeof item.level === 'string'

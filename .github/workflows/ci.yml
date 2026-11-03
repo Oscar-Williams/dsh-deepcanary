@@ -41,7 +41,15 @@ jobs:
       - run: npm pack --dry-run
 
   host-contracts:
-    name: released DSH 0.2.1-rc.2 contracts
+    name: DSH ${{ matrix.host }} / Node ${{ matrix.node }} contracts
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - host: 0.2.1-rc.5
+            node: 22.19.0
+          - host: 0.2.2-alpha.3
+            node: 24.19.0
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -50,10 +58,10 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v6
         with:
-          node-version: 24.19.0
+          node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
-      - run: npm install --prefix .ci-dsh-runtime --ignore-scripts --no-audit --no-fund @deepseek-ai/dsh@0.2.1-rc.2
+      - run: npm install --prefix .ci-dsh-runtime --ignore-scripts --no-audit --no-fund @deepseek-ai/dsh@${{ matrix.host }}
       - run: npm run typecheck:host
       - run: npm run adapter:host
       - run: npm run background:host
@@ -62,7 +70,7 @@ jobs:
       - run: npm run connection:host
 
   browser-smoke:
-    name: DSH 0.2.1-rc.2 WebUI smoke
+    name: DSH 0.2.1-rc.5 WebUI smoke
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -75,12 +83,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - name: Install the released DSH 0.2.1-rc.2 runtime
+      - name: Install the released DSH 0.2.1-rc.5 runtime
         shell: bash
         run: |
           set -euo pipefail
           npm install --global --no-audit --no-fund pnpm@11.28.5
-          npm install --global --prefix "$RUNNER_TEMP/dsh" --ignore-scripts --no-audit --no-fund @deepseek-ai/dsh@0.2.1-rc.2
+          npm install --global --prefix "$RUNNER_TEMP/dsh" --ignore-scripts --no-audit --no-fund @deepseek-ai/dsh@0.2.1-rc.5
           echo "$RUNNER_TEMP/dsh/bin" >> "$GITHUB_PATH"
           export PATH="$RUNNER_TEMP/dsh/bin:$PATH"
           dsh --version
@@ -149,7 +157,7 @@ jobs:
             }
 
             const health = await page.request.get(new URL('/api/dsh-deepcanary/health', page.url()).href)
-            if (health.status() !== 200 || (await health.json()).plugin.version !== '0.1.6-rc.4') throw new Error('authenticated runtime identity mismatch')
+            if (health.status() !== 200 || (await health.json()).plugin.version !== '0.1.8-rc.1') throw new Error('authenticated runtime identity mismatch')
             const outcomes = await page.request.get(new URL('/api/dsh-deepcanary/outcomes', page.url()).href)
             if (outcomes.status() !== 200 || (await outcomes.json()).outcomeSchemaVersion !== 1) throw new Error('authenticated outcome route failed')
             const legacy = await page.request.get(new URL('/dsh-deepcanary/health', page.url()).href)

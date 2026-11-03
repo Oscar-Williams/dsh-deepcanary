@@ -28,7 +28,8 @@ describe('attention judge', () => {
 
   it('requires authoritative evidence before assigning C3', () => {
     expect(judgeSignal(signal({ kind: 'HOST_UNREACHABLE', severityHint: 3, evidence: [{ type: 'model-judgment', authority: 'heuristic', ref: 'model', summary: 'heuristic only' }] }))).toMatchObject({ level: 'C2' })
-    expect(judgeSignal(signal({ kind: 'HOST_UNREACHABLE', severityHint: 3 }))).toMatchObject({ level: 'C3', action: 'ESCALATE' })
+    expect(judgeSignal(signal({ kind: 'HOST_UNREACHABLE', severityHint: 3 }))).toMatchObject({ level: 'C2', action: 'INTERRUPT' })
+    expect(judgeSignal(signal({ kind: 'TASK_FAILED', severityHint: 3 }))).toMatchObject({ level: 'C2', action: 'INTERRUPT' })
     expect(judgeSignal(signal({
       kind: 'SUBAGENT_PRESSURE',
       severityHint: 3,
@@ -69,7 +70,7 @@ describe('attention judge', () => {
   })
 
   it('keeps C3 delivery as the safety floor through quiet hours, level caps, and budget exhaustion', () => {
-    const verdict = judgeSignal(signal({ kind: 'HOST_UNREACHABLE', severityHint: 3 }))
+    const verdict = judgeSignal(signal({ kind: 'HUMAN_QUESTION_PENDING', severityHint: 3 }))
     const delivered = applyDeliveryPolicy(verdict, {
       notificationLevel: 'C1',
       quietHours: { enabled: true, start: '00:00', end: '00:00' },
@@ -83,7 +84,7 @@ describe('attention judge', () => {
     const verdict = judgeSignal(signal({ kind: 'HUMAN_APPROVAL_REQUIRED', severityHint: 2 }))
     expect(verdict.decisionTrace).toMatchObject({
       schemaVersion: 1,
-      policyVersion: 'attention-policy.v1',
+      policyVersion: 'attention-policy.v2',
       verdictId: 'test-event',
       matchedRules: ['reason.default-c2'],
       appliedScopes: ['global'],

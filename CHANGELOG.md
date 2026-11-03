@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.8-rc.1 — local candidate
+
+- Use one package and UI on DSH 0.2.2-alpha.3 and 0.2.1-rc.5, with an open range for later Host releases and no older-version fallback.
+- Add Pending, Snoozed and Activity views, list/detail layout, free title-bar dragging, eight-direction resizing, docking, split adjustment and keyboard/touch controls. Keep geometry on the device.
+- Track task execution generations, independent human actions, native subagent/job ownership and automation occurrence/admission boundaries. Exclude inherited fork history and old execution callbacks.
+- Preserve individual approvals through restart. Timed questions distinguish blocking waits, continued questions and accepted replies. Connection loss and ordinary failures remain C2.
+- Migrate to state schema 2 and client protocol 3 while retaining schedules, budgets and claims. Fence stale actions, hold one lifetime writer, coalesce saves and withhold notification authorization after failed writes.
+- Preserve protected work at Inbox capacity and retain unread Host watermarks. Keep raw failed-tool text out of metadata and notification summaries.
+- Add one aggregate verification and one immutable local freeze with a shared file manifest and content/hash checks. No GitHub or npm publication accompanies this local candidate.
+
 ## 0.1.6-rc.4 — readable settings actions across themes
 
 - Use a blue Save button with white text in both themes. This preserves readable contrast when the Host's dark-theme label and background tokens resolve to similar colors.

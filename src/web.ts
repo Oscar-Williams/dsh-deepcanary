@@ -90,6 +90,12 @@ export function installWebRoutes(ctx: unknown, service: DeepCanaryService): void
     })
     register('action', ['POST'], async request => {
       const payload = await body(request)
+      if (payload.schemaVersion !== ATTENTION_PROTOCOL_VERSION) return json(409, {
+        error: 'client protocol changed; reload DeepCanary', schemaVersion: ATTENTION_PROTOCOL_VERSION,
+      })
+      if (!['notification-claim', 'notification-delivery'].includes(String(payload.action)) && !Number.isSafeInteger(payload.expectedRevision)) {
+        return json(400, { error: 'expectedRevision is required', schemaVersion: ATTENTION_PROTOCOL_VERSION })
+      }
       const receipt = await service.performAction(typeof payload.requestId === 'string' ? payload.requestId : '',
         typeof payload.id === 'string' ? payload.id : '', typeof payload.action === 'string' ? payload.action : '', payload)
       return json(receipt.status, receipt.body)

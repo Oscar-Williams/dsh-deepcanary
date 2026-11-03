@@ -173,7 +173,7 @@ describe('DSH adapter boundary', () => {
       phase: 'unavailable',
       authoritative: false,
       verified: false,
-      detail: 'session list temporarily unavailable',
+      detail: 'Authoritative session reconciliation failed; inspect the Host diagnostics.',
     })
     expect(await adapter.getSessionSnapshot('degraded-session')).toMatchObject({ active: true, lastEventSeq: 0 })
   })

@@ -22,8 +22,8 @@ function levelFor(signal: CanarySignal): { level: AttentionLevel; matchedRules: 
     matchedRules.push('signal.healthy-c0')
     level = 'C0'
   } else if (signal.kind === 'HOST_UNREACHABLE') {
-    matchedRules.push(signal.evidence.some(item => item.authority === 'host' || item.authority === 'runtime') ? 'host.authoritative-c3' : 'host.heuristic-c2')
-    level = authoritative ? 'C3' : 'C2'
+    matchedRules.push('host.connection-c2')
+    level = 'C2'
   } else if (signal.kind === 'SUBAGENT_PRESSURE') {
     matchedRules.push('subagent.pressure-threshold')
     // A count proves pressure, not an urgent blocking condition.
@@ -36,9 +36,6 @@ function levelFor(signal: CanarySignal): { level: AttentionLevel; matchedRules: 
     level = 'C1'
   } else if (signal.kind === 'HUMAN_QUESTION_PENDING' && authoritative && signal.severityHint === 3) {
     matchedRules.push('human.question-blocking-c3')
-    level = 'C3'
-  } else if (signal.severityHint === 3 && authoritative) {
-    matchedRules.push('severity.authoritative-c3')
     level = 'C3'
   } else if (signal.data.userViewing === true && signal.severityHint !== 0) {
     matchedRules.push('context.user-viewing-downgrade')

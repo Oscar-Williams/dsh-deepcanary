@@ -14,7 +14,7 @@ for (let index = 2; index < process.argv.length; index += 1) {
   }
 }
 
-const fixturePath = path.resolve(root, args.get('fixture') ?? 'benchmark/attention-gold-v3.json')
+const fixturePath = path.resolve(root, args.get('fixture') ?? 'benchmark/attention-gold-v4.json')
 const outputPath = path.resolve(root, args.get('out') ?? 'output/attention-quality-report.json')
 const runtimeTag = args.get('runtime-tag') ?? process.env.DSH_RUNTIME_TAG ?? 'unverified-local-runtime'
 const fixture = JSON.parse(await readFile(fixturePath, 'utf8'))

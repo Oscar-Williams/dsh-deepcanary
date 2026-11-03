@@ -1,3 +1,5 @@
+import type { TaskContext } from './types.js';
+import type { AutomationRun } from './adapters/automation.js';
 import type { BackgroundWatch } from './adapters/background-jobs.js';
 import type { PersistedDeliveryEntry } from './core/delivery.js';
 import type { PersistedDedupeEntry } from './core/dedupe.js';
@@ -7,12 +9,20 @@ export interface AttentionRuntimeState {
     dedupe: PersistedDedupeEntry[];
     interruptConsumedAt: string[];
     deliveryLedger: PersistedDeliveryEntry[];
+    revision?: number;
+    automationRuns?: AutomationRun[];
+    deferredSources?: Array<{
+        sessionRef: string;
+        sourceSeq: number;
+    }>;
+    rescanAll?: boolean;
 }
 export declare function hashMetadata(value: string): string;
 export declare function resolveStateDir(value: string): string;
 export declare class MetadataStore {
     readonly directory: string;
     readonly file: string;
+    private writable;
     constructor(stateDir: string);
     load(): Promise<InboxItem[]>;
     loadState(): Promise<{
@@ -22,6 +32,7 @@ export declare class MetadataStore {
     }>;
     save(items: readonly InboxItem[], backgroundWatches?: readonly BackgroundWatch[], runtime?: AttentionRuntimeState): Promise<void>;
 }
+export declare function isTaskContext(value: unknown): value is TaskContext;
 /** Durable, reason-code-only notification preferences. No session or workspace data is stored here. */
 export declare class SuppressionStore {
     readonly directory: string;

@@ -1,53 +1,12 @@
-# Release checklist
+# Local candidate and publication
 
-For scheduled-follow-up changes, check current authority at rearm, stale generation rejection, default-mode claim persistence, closed-item cancellation and retained schedules under capacity pressure. Observe the affected Inbox controls and restore the real browser window size after any responsive checks.
+1. Complete core reliability, task organization, Inbox interactions and settings. Repair discovered defects in the current step; preserve valid historical data.
+2. Run verify:candidate once for the final inputs. Include RC5 on Node 22, privacy, migration, cancellation, concurrent actions, notification claims and automation Session reuse. Re-run a gate only when a change or failure invalidates it.
+3. Capture the implemented UI with the same real Host sample content in light/dark themes, 1440/1024/360 px, 200% zoom, keyboard and touch. Verify all window interactions and scoped load behavior.
+4. Synchronize English/Chinese documentation and tracked lib. Commit only intended public files. Freeze one tgz with file whitelist, content scan and hashes.
+5. Install that tgz in alpha.3/RC5 × Web/Desktop. Check first install, upgrade, restart, actual loaded identity, question/approval closure, precise return and front/background/hidden notification behavior. Record actual evidence and external capability gaps; do not mark unobserved behavior passed.
+6. Back up daily configuration and necessary state. Upgrade daily Web and official Desktop to RC5 with the verified package, preserving home, profiles, Sessions and workspace registration; check continuity.
 
-## Prepare the release snapshot
+The local delivery contains the candidate, its checksum/manifest, source commit and actual acceptance record. A source-built alpha.3 Desktop is labeled unsigned/local. An unavailable official alpha.3 installer does not prevent using that fixed-source build for plugin testing.
 
-Use the current published Host baseline documented in [compatibility](compatibility.md). Align package/lockfile versions, runtime identity, generated output, README installation commands, changelog and capability descriptions. Preserve historical frozen artifacts and receipts.
-
-Review the explicit Git staging list, every pending push commit and the actual npm archive. Public files must exclude private design material, machine-specific scripts, original samples, browser logs, authenticated URLs, credentials and personal configuration. Report security findings as locations/categories, with secret values omitted.
-
-## Local checks
-
-```sh
-npm ci
-npm run verify:environment
-npm run typecheck
-npm run typecheck:tests
-npm test
-npm run typecheck:host
-npm run adapter:host
-npm run background:host
-npm run reminders:host
-npm run settings:host
-npm run connection:host
-npm run build
-npm run verify:distribution
-npm run pack:check
-```
-
-Supply `DSH_RUNTIME` for the selected released runtime installation or clean built source checkout. Run relevant policy replay and necessary device checks. Preserve C3/Human Needed boundaries, health/progress grace, recovery, completion summaries, budget, navigation, settings conflicts and source attribution. Missing native delivery evidence stays explicit.
-
-## Commit and freeze
-
-Commit an explicit public file list, including `lib`. Freeze one tgz from that clean tracked commit. Bind commit, Host identity, archive SHA-256, SHA-1, SHA-512, byte length and actual installed files. Install those same bytes into independent profiles and confirm the actual running server/client identity after startup.
-
-A frozen package is immutable. A subsequent package fix uses a new candidate version. Local receipts remain outside the archive to keep the package hash independent of its evidence.
-
-## CI and remote release
-
-After explicit publication authorization:
-
-1. Push the reviewed public commit. Require all existing CI checks on that exact commit, including generated-output consistency and pinned Host/browser contracts.
-2. Create an immutable version tag and GitHub prerelease. Upload the verified frozen tgz and checksum summary.
-3. Publish that same tgz to the official npm registry with `next`.
-4. Query the remote version and integrity, download its tarball and compare bytes with the GitHub asset and local freeze.
-5. Update `latest` to the intended RC, then query both `latest` and `next` again.
-6. Write a publication receipt binding source commit, CI, tag/assets, npm integrity and final tag targets. Keep the RC designation and measured device scope visible.
-
-Publication and remote CI require explicit user authorization. Query ambiguous remote outcomes before retrying. Interactive authentication and 2FA belong to the user in their existing browser; credentials remain in their owning service.
-
-## Post-release evidence
-
-Remote receipts and documentation-only follow-ups can be separate commits. Immutable package bytes, source tags and release assets retain their original identities. Historical command lanes remain labeled by full plugin/Host versions.
+GitHub push, remote CI, Release and npm publication require a later user instruction. When authorized, use the frozen file and compare its SHA-256 rather than repacking or repeatedly inspecting file lists. Keep the chosen prerelease npm tag explicit; do not silently promote a candidate to latest.

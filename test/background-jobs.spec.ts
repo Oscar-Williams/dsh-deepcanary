@@ -16,7 +16,7 @@ const job = (status = 'running', id = 'workflow-1') => ({ id, owner: 'owner-1', 
 })
 
 describe('background task observation', () => {
-  it('closes a stalled reminder on renewed background activity and releases grace on settlement', async () => {
+  it('keeps output bytes as activity and closes a stall only on structured settlement', async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-background-progress-'))
     let now = 1_000_000
     const clock = vi.spyOn(Date, 'now').mockImplementation(() => now)
@@ -45,11 +45,12 @@ describe('background task observation', () => {
       await vi.waitFor(() => { expect(service.inbox(20).find(item => item.reasonCode === 'HOST_SUSPECTED_STALL')?.status).toBe('open') })
       now += 1
       notify?.({ type: 'output', id: 'workflow-1', owner: session.id, total: 128 })
-      await vi.waitFor(() => { expect(service.inbox(20).find(item => item.reasonCode === 'HOST_SUSPECTED_STALL')?.status).toBe('recovered') })
+      expect(service.inbox(20).find(item => item.reasonCode === 'HOST_SUSPECTED_STALL')?.status).toBe('open')
       rows = []
       notify?.({ type: 'settled', job: { id: 'workflow-1', owner: session.id, kind: 'workflow', status: 'completed',
         startedAt: 1_000_000, finishedAt: now }, cause: 'producer', awaited: true })
       await vi.waitFor(() => { expect(service.status().background?.running).toBe(0) })
+      expect(service.inbox(20).find(item => item.reasonCode === 'HOST_SUSPECTED_STALL')?.status).toBe('recovered')
       now += 59_000
       ;(service as unknown as { checkStalls(): void }).checkStalls()
       expect(service.inbox(20).filter(item => item.reasonCode === 'HOST_SUSPECTED_STALL' && item.status === 'open')).toHaveLength(0)

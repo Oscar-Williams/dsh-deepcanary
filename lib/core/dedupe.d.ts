@@ -9,6 +9,7 @@ export declare class DedupeLedger {
     setWindowMs(windowMs: number): void;
     accept(key: string, now?: number): boolean;
     remember(key: string, now?: number): void;
+    forget(key: string): void;
     snapshot(now?: number, limit?: number): PersistedDedupeEntry[];
     restore(entries: readonly PersistedDedupeEntry[], now?: number): void;
     clear(): void;

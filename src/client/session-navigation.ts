@@ -4,7 +4,7 @@ export interface SessionNavigationContext {
   uiWorkspace?: { openSession: (sessionId: string) => void }
   sessions: {
     open?: (sessionId: string) => void
-    list?: { getSnapshot?: () => { phase: string; ids: readonly string[] } }
+    list?: { getSnapshot?: () => { phase: string; ids: readonly string[]; byId?: Record<string, { title?: string }> } }
   }
 }
 

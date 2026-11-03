@@ -4,11 +4,12 @@
 
 | Item | Version or identity |
 | --- | --- |
-| Current release candidate | 0.1.6-rc.4 |
-| npm channels | `latest` and `next`: 0.1.6-rc.4 |
-| Web Host | published DSH 0.2.1-rc.2 npm packages |
-| Official Windows Desktop | released DSH 0.2.1-rc.2; release tag `687f282e8625c6b8d11ff58211a90524be2e4317` |
-| Development Cordis / Schemastery | 4.0.5 / 3.18.5 |
+| Current local candidate | 0.1.8-rc.1; unpublished |
+| Publication channels | unchanged by this local implementation |
+| Development Host | DSH 0.2.2-alpha.3, pinned source 05b1cae8db6e674c5685101494d4eec24652424a |
+| Compatibility Host | DSH 0.2.1-rc.5, pinned source b830ec950faba0a46dda564be3e2d854afed94f1 |
+| Desktop artifacts | alpha.3 unsigned local build; RC5 official signed distribution; actual build commits recorded in device acceptance |
+| Development Cordis / Schemastery | 4.0.6-alpha.2 / 3.18.6-alpha.2 |
 | Plugin package manager | npm with `package-lock.json` |
 | Host package manager | released runtime's own package manager; existing source checkouts retain their pins |
 | CI Node lanes | 22.19.0 and 24.19.0 |

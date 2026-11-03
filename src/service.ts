@@ -4,14 +4,15 @@ import { DeliveryLedger } from './core/delivery.js'
 import type { DeliveryClaimOutcome } from './core/delivery.js'
 import { judgeSignal } from './core/judge.js'
 import { compareInboxPriority } from './core/inbox-order.js'
-import { retainInboxItems } from './core/inbox-retention.js'
+import { isProtectedItem, retainInboxItems } from './core/inbox-retention.js'
 import { MAX_NOTIFICATION_GENERATION, notificationCondition, notificationGeneration, notificationKey, reminderVerdict } from './core/reminders.js'
 import { applyDeliveryPolicy, mergeBundleTrace, withRecoveryTrace } from './core/policy.js'
 import { normalizeConfig, sanitizeConfigPatch } from './config.js'
-import { resolveStateIdentity, claimStateDirectory, importLegacyInbox } from './state-identity.js'
+import { resolveStateIdentity, claimStateDirectory, claimStateWriter, importLegacyInbox } from './state-identity.js'
 import { importLegacySettings } from './settings-migration.js'
 import type { DeepCanaryConfigInput, DeepCanaryRuntimeConfig } from './config.js'
 import { ContextDshAdapter } from './adapters/dsh.js'
+import { AutomationTracker } from './adapters/automation.js'
 import { BackgroundJobTracker, countRunningBackgroundJobs, selectBackgroundEvent, signalFromBackgroundSettlement } from './adapters/background-jobs.js'
 import type { BackgroundSettlement } from './adapters/background-jobs.js'
 import type { Disposable, SessionSnapshot } from './adapters/dsh.js'
@@ -37,6 +38,7 @@ import {
   toolCallIdOf,
   recordToolResult,
   signalsFromSessionEvent,
+  humanActionRef,
 } from './providers.js'
 import type { ToolClass, TurnState } from './providers.js'
 import type {
@@ -66,7 +68,7 @@ import type {
 import { ATTENTION_POLICY_VERSION, ATTENTION_PROTOCOL_VERSION as PROTOCOL_VERSION, SUPPRESSIBLE_REASON_CODES } from './types.js'
 
 const PLUGIN_NAME = 'dsh-deepcanary'
-const PLUGIN_VERSION = '0.1.6-rc.4'
+const PLUGIN_VERSION = '0.1.8-rc.1'
 const SETTINGS_NAMESPACE = 'deepcanary'
 const DEFAULT_MUTE_MINUTES = 60
 const ORPHAN_GRACE_MS = 30_000
@@ -75,6 +77,9 @@ interface LiveSession {
   id: string
   cwd?: string
   startedAt: number
+  executionStartSeq?: number
+  currentTurn?: number
+  lastEventSeq?: number
   lastEventAt: number
   lastMeaningfulAt: number
   active: boolean
@@ -193,6 +198,8 @@ function taskStateForReason(reasonCode: ReasonCode): TaskState | undefined {
 }
 
 export class DeepCanaryService {
+  private readonly automation = new AutomationTracker()
+  private automationChain: Promise<void> = Promise.resolve()
   private readonly background = new BackgroundJobTracker()
   private backgroundRegistry: { list(owner: string): unknown } | undefined
   private refreshBackground: (() => void) | undefined
@@ -214,6 +221,9 @@ export class DeepCanaryService {
   private readonly budget: InterruptBudget
   private readonly deliveryLedger = new DeliveryLedger()
   private readonly restoredAttention = new Set<string>()
+  private readonly deferredSources = new Map<string, number>()
+  private rescanAll = false
+  private rescanning = false
   private readonly pressureSeen = new Set<number>()
   private readonly logger: LoggerLike
   private adapterSubscription: Disposable | undefined
@@ -229,12 +239,17 @@ export class DeepCanaryService {
   private settingsProvider: SettingsProviderLike | undefined
   private settingsSubscription: (() => void) | undefined
   private saveChain = Promise.resolve()
+  private saveQueued = false
+  private saveEpoch = 0
+  private stateWriteFailed = false
+  private readonly saveWaiters: Array<{ epoch: number; resolve: (saved: boolean) => void }> = []
   private questionChain = Promise.resolve()
   private hydrated = false
   private disposed = false
   private disposePromise: Promise<void> | undefined
   private started = false
-  private revision = 0
+  private revision = Date.now()
+  private releaseWriter: (() => Promise<void>) | undefined
   private policyRestored = false
   private readonly actionReceipts = new Map<string, ActionReceipt>()
   private readonly outcomeReceipts = new Map<string, OutcomeReceipt>()
@@ -290,8 +305,12 @@ export class DeepCanaryService {
     this.ctx.inject?.(['agents'], (agentCtx: any) => {
       agentCtx.on?.('agent/error', (payload: unknown) => {
         const record = asRecord(payload)
+        const live = this.sessions.get(idOf(asRecord(record.agent)) ?? '')
+        if (live?.currentTurn !== undefined && typeof record.turn === 'number' && record.turn < live.currentTurn) return
         this.onAgentError(record)
-        void this.ingest(signalFromAgentError(record))
+        const signal = signalFromAgentError(record)
+        if (signal.task && live) signal.task.executionGeneration = hashMetadata(`execution:${live.id}:${live.executionStartSeq ?? live.startedAt}`)
+        void this.ingest(signal)
       })
     })
     this.ctx.inject?.(['subagents'], (subagentCtx: any) => {
@@ -333,7 +352,7 @@ export class DeepCanaryService {
             const before = this.background.lastActivityFor(owner)
             this.background.observe(selected)
             const after = this.background.lastActivityFor(owner)
-            if (after !== undefined && after > (before ?? 0)) this.onBackgroundProgress(owner, after)
+            if (after !== undefined && after > (before ?? 0)) this.onBackgroundProgress(owner, after, false)
           }
           return
         }
@@ -361,6 +380,46 @@ export class DeepCanaryService {
       }
       this.backgroundDisposers.add(detach)
       jobCtx.effect?.(() => detach, 'deepcanary: background task observation')
+    })
+    this.ctx.inject?.(['schedule', 'sessions'], (scheduleCtx: any) => {
+      let attached = true
+      let queued = false
+      let dirty = false
+      const refresh = (): void => {
+        dirty = true
+        if (queued) return
+        queued = true
+        this.automationChain = this.automationChain.then(() => this.ready).then(async () => {
+          while (dirty && attached && !this.disposed) {
+          dirty = false
+          if (!attached || this.disposed) return
+          const before = JSON.stringify(this.automation.snapshot())
+          const catalog: unknown = await scheduleCtx.schedule.catalog()
+          if (!Array.isArray(catalog)) throw new TypeError('Invalid public schedule catalog')
+          if (!attached || this.disposed) return
+          this.automation.observeCatalog(catalog)
+          const sessions: unknown = await scheduleCtx.sessions.list()
+          if (!attached || this.disposed) return
+          if (Array.isArray(sessions)) for (const value of sessions) {
+            const session = asRecord(value)
+            if (typeof session.id === 'string' && typeof session.snapshotEvents === 'function') this.automation.observeSession(session.id, session.snapshotEvents())
+          }
+          let relinked = false
+          for (const item of this.items) {
+            if (!item.sessionId || item.task?.sourceSeq === undefined) continue
+            const task = this.automation.taskForEvent(item.sessionId, item.task.sourceSeq)
+            if (task && item.task.runRef !== task.runRef) { item.task = { ...item.task, ...task }; relinked = true }
+          }
+          if (relinked || before !== JSON.stringify(this.automation.snapshot())) { this.bumpRevision(); this.queueSave() }
+          }
+        }).catch(() => { this.logger.warn?.('DeepCanary could not reconcile automation receipt metadata.') }).finally(() => { queued = false })
+      }
+      scheduleCtx.on?.('schedule/changed', refresh)
+      scheduleCtx.on?.('session/event', (_session: unknown, event: { type?: string }) => {
+        if (['turn/start', 'user/message', 'turn/end'].includes(event.type ?? '')) refresh()
+      })
+      scheduleCtx.effect?.(() => () => { attached = false }, 'deepcanary: automation observation')
+      refresh()
     })
     this.ctx.inject?.(['settings'], (settingsCtx: any) => {
       const settings = settingsCtx.settings as SettingsProviderLike | undefined
@@ -437,7 +496,12 @@ export class DeepCanaryService {
     }
 
     const bundleKey = signal.bundleKey ? hashMetadata(signal.bundleKey) : undefined
-    const existing = bundleKey ? this.findBundle(bundleKey, now) : undefined
+    const candidate = bundleKey ? this.findBundle(bundleKey, now) : undefined
+    const ordinaryChildSummary = signal.kind === 'TASK_COMPLETED' && signal.data.childCompletion === true
+      && candidate?.reasonCode === 'TASK_COMPLETED' && candidate.task?.parentTaskRef !== undefined
+      && candidate.task.parentTaskRef === signal.task?.parentTaskRef
+    const existing = !ordinaryChildSummary && candidate?.task !== undefined && signal.task !== undefined
+      && candidate.task.executionGeneration !== signal.task.executionGeneration ? undefined : candidate
     if (existing) {
       // A bundle represents one user-facing attention item. Repeated signals
       // at the same or lower level enrich that item without spending another
@@ -457,12 +521,25 @@ export class DeepCanaryService {
       return existing
     }
 
+    if (this.items.filter(isProtectedItem).length >= this.config.maxInboxItems) {
+      this.dedupe.forget(dedupeKey)
+      if (signal.sessionId !== undefined) {
+        const ref = hashMetadata(signal.sessionId)
+        if (this.deferredSources.has(ref) || this.deferredSources.size < 256) {
+          this.deferredSources.set(ref, Math.min(this.deferredSources.get(ref) ?? Number.MAX_SAFE_INTEGER, signal.task?.sourceSeq ?? 0))
+        } else this.rescanAll = true
+      } else this.rescanAll = true
+      this.bumpRevision(); this.queueSave()
+      this.recordDogfood(signal, verdict, 'dropped-event', 'none')
+      return undefined
+    }
     verdict = this.applyPolicy(verdict, now)
     const taskState = taskStateForReason(signal.kind)
 
     const item: InboxItem = {
       ...verdict,
       id: verdict.eventId,
+      ...(signal.task === undefined ? {} : { task: { ...signal.task } }),
       ...(signal.sessionId ? { sessionId: signal.sessionId } : {}),
       ...(signal.workspaceId ? { workspaceId: signal.workspaceId } : {}),
       ...(signal.sessionId ? { sessionRef: hashMetadata(signal.sessionId) } : {}),
@@ -511,6 +588,11 @@ export class DeepCanaryService {
       scheduled: this.items.filter(item => item.status === 'snoozed' && item.snoozedUntil !== undefined && Date.parse(item.snoozedUntil) > now)
         .sort((left, right) => Date.parse(left.snoozedUntil!) - Date.parse(right.snoozedUntil!))
         .map(item => this.toPublic(item)),
+      activity: this.items.filter(item => !this.isPending(item, now) && item.status !== 'snoozed')
+        .sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt)).map(item => this.toPublic(item)),
+      automation: { runs: this.automation.snapshot(), limited: this.automation.limited },
+      retention: { limit: this.config.maxInboxItems, limited: this.rescanAll || this.deferredSources.size > 0 || this.rescanning,
+        deferredSessions: this.deferredSources.size },
     }
   }
 
@@ -521,6 +603,7 @@ export class DeepCanaryService {
     const highest = open.reduce<AttentionLevel>((current, level) => levelValue[level] > levelValue[current] ? level : current, 'C0')
     return {
       plugin: { name: PLUGIN_NAME, version: PLUGIN_VERSION, state: this.hydrated ? 'ready' : 'loading' },
+      persistence: { state: this.stateWriteFailed ? 'write-failed' : 'ready' },
       process: { platform: process.platform, node: process.version },
       workspace: { platform: this.workspace.platform, windowsInterop: this.workspace.windowsInterop, nativeToast: this.workspace.nativeToast },
       sessions: [...this.sessions.values()].filter(session => session.active).length,
@@ -834,6 +917,7 @@ export class DeepCanaryService {
   /** Apply one browser action exactly once for its request id. */
   async performAction(requestId: string, id: string, action: string, payload: Record<string, unknown> = {}): Promise<ActionReceipt> {
     await this.ready
+    if (this.disposed) return { status: 503, body: { error: 'DeepCanary is stopping; reload the page', schemaVersion: PROTOCOL_VERSION }, fingerprint: '' }
     if (typeof requestId !== 'string' || requestId.length === 0 || requestId.length > 128 || /[\u0000-\u001f]/.test(requestId)) {
       return { status: 400, body: { error: 'requestId must be a printable string of 1-128 characters' }, fingerprint: '' }
     }
@@ -885,6 +969,8 @@ export class DeepCanaryService {
       bodyFingerprint: payload.bodyFingerprint,
       observedAt: payload.observedAt,
       notificationGeneration: payload.notificationGeneration,
+      expectedRevision: payload.expectedRevision,
+      executionGeneration: payload.executionGeneration,
     })
     const previous = this.actionReceipts.get(requestId)
     if (previous !== undefined) {
@@ -898,12 +984,22 @@ export class DeepCanaryService {
       return previous
     }
 
+    const currentItem = this.find(id)
+    if (payload.expectedRevision !== undefined && payload.expectedRevision !== this.revision
+      && action !== 'notification-claim' && action !== 'notification-delivery') {
+      return { status: 409, body: { error: 'state changed; refresh before applying this action', schemaVersion: PROTOCOL_VERSION, requestId, revision: this.revision }, fingerprint }
+    }
+    if (payload.executionGeneration !== undefined && currentItem?.task?.executionGeneration !== payload.executionGeneration) {
+      return { status: 409, body: { error: 'execution changed; refresh before applying this action', schemaVersion: PROTOCOL_VERSION, requestId, revision: this.revision }, fingerprint }
+    }
+
     let status = 200
     let body: Record<string, unknown>
     let result: Record<string, unknown> | undefined
     if (action === 'retry') {
       await this.probeHost()
-      const updated = this.hostProbePort !== undefined
+      const saved = await this.queueSave()
+      const updated = saved || this.hostProbePort !== undefined
       result = { kind: updated ? 'host-probe-complete' : 'host-probe-unavailable' }
       body = { schemaVersion: PROTOCOL_VERSION, requestId, revision: this.revision, updated, result }
     } else if (action === 'notification-claim') {
@@ -1202,15 +1298,19 @@ export class DeepCanaryService {
     await this.ready.catch(() => undefined)
     await this.questionChain
     await this.backgroundChain
+    await this.automationChain
     await this.saveChain
     await this.outcomeSaveChain
     await this.suppressionSaveChain
+    await this.releaseWriter?.()
+    this.releaseWriter = undefined
     this.dogfoodRecorder?.finish()
     await this.dogfoodRecorder?.flush()
   }
 
   private async hydrate(): Promise<void> {
     await claimStateDirectory(this.stateIdentity)
+    this.releaseWriter = await claimStateWriter(this.stateIdentity)
     await importLegacyInbox(this.stateIdentity)
     try {
       await this.dogfoodRecorder?.load()
@@ -1223,13 +1323,18 @@ export class DeepCanaryService {
       for (const item of this.items) this.restoredAttention.add(item.id)
       this.background.restore(restored.backgroundWatches)
       if (restored.runtime?.policyVersion === ATTENTION_POLICY_VERSION) {
+        this.revision = Math.max(this.revision, (restored.runtime.revision ?? 0) + 1)
         this.dedupe.restore(restored.runtime.dedupe)
         this.budget.restore(restored.runtime.interruptConsumedAt)
         this.deliveryLedger.restore(restored.runtime.deliveryLedger)
+        this.automation.restore(restored.runtime.automationRuns ?? [])
+        for (const source of restored.runtime.deferredSources ?? []) this.deferredSources.set(source.sessionRef, source.sourceSeq)
+        this.rescanAll = restored.runtime.rescanAll === true
         this.policyRestored = true
       }
     } catch (error: unknown) {
-      this.logger.warn?.(`${PLUGIN_NAME}: metadata state could not be loaded; starting with an empty inbox`, error)
+      this.logger.error?.(`${PLUGIN_NAME}: metadata state could not be loaded; original ledger preserved`)
+      throw error
     }
     try {
       const restoredOutcomes = await this.outcomeStore.load()
@@ -1262,6 +1367,12 @@ export class DeepCanaryService {
       id,
       ...(cwd ? { cwd } : {}),
       startedAt: authoritativeSnapshot?.startedAt ?? existing?.startedAt ?? now,
+      ...(authoritativeSnapshot?.executionStartSeq === undefined ? existing?.executionStartSeq === undefined ? {} : { executionStartSeq: existing.executionStartSeq }
+        : { executionStartSeq: authoritativeSnapshot.executionStartSeq }),
+      ...(authoritativeSnapshot?.lastEventSeq === undefined ? existing?.lastEventSeq === undefined ? {} : { lastEventSeq: existing.lastEventSeq }
+        : { lastEventSeq: authoritativeSnapshot.lastEventSeq }),
+      ...(authoritativeSnapshot?.currentTurn === undefined ? existing?.currentTurn === undefined ? {} : { currentTurn: existing.currentTurn }
+        : { currentTurn: authoritativeSnapshot.currentTurn }),
       lastEventAt: authoritativeSnapshot?.lastEventAt ?? existing?.lastEventAt ?? now,
       lastMeaningfulAt: authoritativeSnapshot?.lastMeaningfulAt
         ?? existing?.lastMeaningfulAt
@@ -1303,13 +1414,37 @@ export class DeepCanaryService {
       }
     }
     if (linkedHistoricalItem) this.queueSave()
+    if (authoritativeSnapshot?.humanWaits !== undefined) {
+      const activeRefs = new Set(authoritativeSnapshot.humanWaits.map(wait => wait.humanActionRef))
+      void this.ready.then(() => {
+        if (!this.disposed) this.resolveHumanWait(id, now, authoritativeSnapshot.running ? 'running' : 'unknown', undefined, activeRefs)
+      })
+    }
     if (authoritativeSnapshot?.eventCount !== undefined && authoritativeSnapshot.waitingForHuman === false
       && authoritativeSnapshot.turnState !== 'unknown') {
       void this.ready.then(() => {
         if (!this.disposed) this.resolveHumanWait(id, now, authoritativeSnapshot.turnState === 'running' ? 'running' : 'unknown')
       })
     }
-    if (authoritativeSnapshot?.waitingForHuman && authoritativeSnapshot.humanNeededReason !== undefined
+    if (authoritativeSnapshot?.humanWaits !== undefined) {
+      for (const wait of authoritativeSnapshot.humanWaits) {
+        if (wait.reason === 'question' && authoritativeSnapshot.userQuestions?.active.some(question => question.state === 'open')) continue
+        const signal = signalFromAuthoritativeHumanWait(
+          { id, ...(cwd === undefined ? {} : { header: { cwd } }) }, wait.reason, wait.seq, wait.time,
+          { humanActionRef: wait.humanActionRef,
+            ...(authoritativeSnapshot.executionStartSeq === undefined ? {} : { executionStartSeq: authoritativeSnapshot.executionStartSeq }) },
+        )
+        const legacy = this.items.filter(item => item.sessionId === id && item.task?.humanActionRef === undefined
+          && item.reasonCode === signal.kind && isActiveInboxStatus(item.status))
+        if (legacy.length === 1 && authoritativeSnapshot.humanWaits.filter(value => value.reason === wait.reason).length === 1) {
+          if (signal.task) legacy[0]!.task = signal.task
+          if (signal.bundleKey) legacy[0]!.bundleKey = hashMetadata(signal.bundleKey)
+          this.queueSave()
+        }
+        const alreadyTracked = this.items.some(item => item.sessionId === id && item.task?.humanActionRef === wait.humanActionRef)
+        if (!alreadyTracked) void this.ingest(signal)
+      }
+    } else if (authoritativeSnapshot?.waitingForHuman && authoritativeSnapshot.humanNeededReason !== undefined
       && !(authoritativeSnapshot.humanNeededReason === 'question' && authoritativeSnapshot.userQuestions?.active.some(question => question.state === 'open'))) {
       const bundleKey = hashMetadata(`${id}:human-needed`)
       const alreadyTracked = this.items.some(item => item.sessionId === id
@@ -1379,8 +1514,17 @@ export class DeepCanaryService {
       session = this.sessions.get(id)
     }
     if (!session) return
+    if (typeof event.seq === 'number' && session.lastEventSeq !== undefined && event.seq <= session.lastEventSeq) {
+      this.queueQuestionSync(id, authoritativeSnapshot, Date.now())
+      return
+    }
+    if (typeof event.seq === 'number') session.lastEventSeq = event.seq
     const now = Date.now()
     const eventData = asRecord(event.data)
+    if (typeof eventData.turn === 'number' && session.currentTurn !== undefined && eventData.turn < session.currentTurn) {
+      this.queueQuestionSync(id, authoritativeSnapshot, now)
+      return
+    }
     const parentSession = asRecord(sessionRecord.header).parentSession
     const callId = toolCallIdOf(eventData)
     const observedToolName = typeof eventData.name === 'string'
@@ -1393,7 +1537,9 @@ export class DeepCanaryService {
       session.running = true
       session.turnState = 'running'
       session.waitingForHuman = false
-      session.startedAt = now
+      session.startedAt = typeof event.time === 'number' ? event.time : now
+      if (typeof event.seq === 'number') session.executionStartSeq = event.seq
+      if (typeof eventData.turn === 'number') session.currentTurn = eventData.turn
       session.lastMeaningfulAt = now
       delete session.lastHealthyObservationAt
       session.stalled = false
@@ -1456,6 +1602,7 @@ export class DeepCanaryService {
       lastEventAt: session.lastEventAt,
       lastMeaningfulAt: session.lastMeaningfulAt,
       startedAt: session.startedAt,
+      ...(session.executionStartSeq === undefined ? {} : { executionStartSeq: session.executionStartSeq }),
       activeToolCount: session.activeToolCount,
       toolClass: session.toolClass,
       waitingForHuman: session.waitingForHuman,
@@ -1470,7 +1617,9 @@ export class DeepCanaryService {
       ? [signalFromStallRecovery({ id, ...(session.cwd ? { header: { cwd: session.cwd } } : {}) }, now)]
       : []
     signals.push(...signalsFromSessionEvent(
-      { id, header: { ...(session.cwd ? { cwd: session.cwd } : {}), ...(typeof parentSession === 'string' ? { parentSession } : {}) } },
+      { id, header: { ...(session.cwd ? { cwd: session.cwd } : {}), ...(typeof parentSession === 'string' ? { parentSession } : {}),
+        ...(asRecord(sessionRecord.header).origin === 'subagent' ? { origin: 'subagent' as const } : {}),
+        ...(asRecord(sessionRecord.header).isSeeded === true ? { isSeeded: true } : {}) } },
       { type: event.type, ...(typeof event.seq === 'number' ? { seq: event.seq } : {}), ...(typeof event.time === 'number' ? { time: event.time } : {}), ...(event.ignorable === true ? { ignorable: true } : {}), data: asRecord(event.data) },
       facts,
     ))
@@ -1488,7 +1637,7 @@ export class DeepCanaryService {
       && signal.evidence.some(evidence => evidence.authority === 'runtime'))) {
       session.waitingForHuman = true
     }
-    if (humanWaitResolved || event.type === 'turn/end') {
+    if (humanWaitResolved || event.type === 'turn/end' || event.type === 'turn/start') {
       // Ingest also awaits ready. Queue the closing boundary before this
       // event's signals so an earlier pending HN is closed even when host
       // events arrive back-to-back during startup.
@@ -1497,9 +1646,11 @@ export class DeepCanaryService {
         : reason === 'completed' ? 'completed'
         : reason === 'aborted' || reason === 'interrupted' ? 'aborted'
         : reason === 'error' || reason === 'max-tokens' ? 'failed' : 'unknown'
-      void this.ready.then(() => { if (!this.disposed) this.resolveHumanWait(id, now, state) })
+      const exactRef = event.type === 'approval/decided' ? humanActionRef(id, 'HUMAN_APPROVAL_REQUIRED', eventData)
+        : callId !== undefined ? humanActionRef(id, 'HUMAN_QUESTION_PENDING', eventData) : undefined
+      void this.ready.then(() => { if (!this.disposed) this.resolveHumanWait(id, now, state, exactRef) })
     }
-    for (const signal of signals) void this.ingest(signal)
+    for (const signal of signals) void this.ingest(typeof event.seq === 'number' ? this.automation.contextualize(signal, event.seq) : signal)
     if (event.type === 'turn/end') {
       session.running = false
       session.turnState = 'terminal'
@@ -1513,12 +1664,14 @@ export class DeepCanaryService {
     this.syncSupervisor()
   }
 
-  private resolveHumanWait(sessionId: string, now: number, taskState: TaskState): void {
+  private resolveHumanWait(sessionId: string, now: number, taskState: TaskState, humanActionRef?: string, activeRefs?: ReadonlySet<string>): void {
     let changed = false
     for (const item of this.items) {
       if (item.questionState !== undefined || item.sessionId !== sessionId || item.taskState !== 'waiting-human'
         || (item.status !== 'open' && item.status !== 'seen' && item.status !== 'snoozed')
         || Date.parse(item.occurredAt) > now) continue
+      if (humanActionRef !== undefined && item.task?.humanActionRef !== humanActionRef) continue
+      if (activeRefs?.has(item.task?.humanActionRef ?? '')) continue
       if (!(item.reasonCodes ?? [item.reasonCode]).some(reason => reason === 'HUMAN_QUESTION_PENDING' || reason === 'HUMAN_APPROVAL_REQUIRED')) continue
       item.status = 'recovered'
       item.recoveredAt = new Date(now).toISOString()
@@ -1576,10 +1729,12 @@ export class DeepCanaryService {
         if (item.taskState !== taskState) { item.taskState = taskState; changed = true }
         continue
       }
-      const signal = signalFromAuthoritativeHumanWait({ id: sessionId }, 'question', snapshot.lastEventSeq, now)
+      const signal = signalFromAuthoritativeHumanWait({ id: sessionId }, 'question', snapshot.lastEventSeq, now,
+        { humanActionRef: hashMetadata(bundleKey), ...(snapshot.executionStartSeq === undefined ? {} : { executionStartSeq: snapshot.executionStartSeq }) })
       signal.id += `:${hashedKey}:${question.state}`
       signal.dedupeKey = `${bundleKey}:${question.state}`
       signal.bundleKey = bundleKey
+      if (signal.task !== undefined) signal.task.humanActionRef = hashMetadata(bundleKey)
       signal.data = { questionState: question.state }
       signal.severityHint = question.state === 'open' ? 3 : 1
       if (item === undefined) item = await this.ingest(signal)
@@ -1654,6 +1809,18 @@ export class DeepCanaryService {
 
   private checkStalls(): void {
     const now = Date.now()
+    if ((this.rescanAll || this.deferredSources.size > 0) && !this.rescanning
+      && this.items.filter(isProtectedItem).length < this.config.maxInboxItems) {
+      this.rescanning = true
+      const before = new Map(this.deferredSources); const all = this.rescanAll
+      this.deferredSources.clear(); this.rescanAll = false
+      void this.adapter.reconcile().then(result => {
+        if (!result.verified) {
+          for (const [ref, seq] of before) this.deferredSources.set(ref, Math.min(seq, this.deferredSources.get(ref) ?? seq))
+          this.rescanAll ||= all
+        }
+      }).finally(() => { this.rescanning = false; this.bumpRevision(); this.queueSave() })
+    }
     const background = this.background.summary()
     if (background.unknown > 0 || background.limited) this.refreshBackground?.()
     // The liveness cadence also advances timestamp-only orphan grace. This
@@ -1873,7 +2040,8 @@ export class DeepCanaryService {
 
   private isQuietHours(timestamp: number): boolean {
     if (!this.config.quietHours.enabled) return false
-    const time = new Date(timestamp).toTimeString().slice(0, 5)
+    const time = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+      ...(this.config.quietHours.timeZone ? { timeZone: this.config.quietHours.timeZone } : {}) }).format(timestamp)
     const start = this.config.quietHours.start
     const end = this.config.quietHours.end
     if (start === end) return true
@@ -1883,6 +2051,7 @@ export class DeepCanaryService {
   private toPublic(item: InboxItem): PublicInboxItem {
     return {
       id: item.id,
+      ...(item.task === undefined ? {} : { task: { ...item.task } }),
       ...(item.sessionId ? { sessionId: item.sessionId } : {}),
       occurredAt: item.occurredAt,
       level: item.level,
@@ -1918,6 +2087,8 @@ export class DeepCanaryService {
   }
 
   private isPending(item: InboxItem, now: number): boolean {
+    if (item.level === 'C1' && (item.reasonCode === 'TASK_COMPLETED' || item.reasonCode === 'COMPACTION_OCCURRED')
+      && notificationGeneration(item) === 0) return false
     if (item.status === 'open' || item.status === 'seen') return true
     if (item.status !== 'snoozed' || item.snoozedUntil === undefined) return false
     const until = Date.parse(item.snoozedUntil)
@@ -2058,14 +2229,37 @@ export class DeepCanaryService {
   }
 
   private queueSave(): Promise<boolean> {
-    let saved = true
-    this.saveChain = this.saveChain
-      .then(() => this.ready)
-      .then(() => this.store.save(this.items, this.background.snapshot(), {
-        ...this.supervisorPolicyState(), deliveryLedger: this.deliveryLedger.snapshot(),
-      }))
-      .catch(error => { saved = false; this.logger.warn?.(`${PLUGIN_NAME}: metadata state could not be saved`, error) })
-    return this.saveChain.then(() => saved)
+    const epoch = ++this.saveEpoch
+    const result = new Promise<boolean>(resolve => { this.saveWaiters.push({ epoch, resolve }) })
+    this.startSavePump()
+    return result
+  }
+
+  private startSavePump(): void {
+    if (this.saveQueued || this.saveWaiters.length === 0) return
+    this.saveQueued = true
+    this.saveChain = this.saveChain.then(() => this.ready).then(async () => {
+      while (this.saveWaiters.length > 0) {
+        const epoch = this.saveEpoch
+        let saved = true
+        try {
+          await this.store.save(this.items, this.background.snapshot(), {
+            ...this.supervisorPolicyState(), deliveryLedger: this.deliveryLedger.snapshot(), revision: this.revision, automationRuns: this.automation.snapshot(),
+            deferredSources: [...this.deferredSources].map(([sessionRef, sourceSeq]) => ({ sessionRef, sourceSeq })), rescanAll: this.rescanAll,
+          })
+        } catch {
+          saved = false
+          this.logger.warn?.(`${PLUGIN_NAME}: metadata write failed; delivery authorization withheld`)
+        }
+        const failed = !saved
+        if (this.stateWriteFailed !== failed) { this.stateWriteFailed = failed; this.bumpRevision() }
+        for (let index = this.saveWaiters.length - 1; index >= 0; index--) {
+          const waiter = this.saveWaiters[index]!
+          if (waiter.epoch <= epoch) { this.saveWaiters.splice(index, 1); waiter.resolve(saved) }
+        }
+      }
+    }).catch(() => { for (const waiter of this.saveWaiters.splice(0)) waiter.resolve(false) })
+      .finally(() => { this.saveQueued = false; this.startSavePump() })
   }
 
   private async ingestBackground(settlement: BackgroundSettlement): Promise<void> {
@@ -2074,9 +2268,11 @@ export class DeepCanaryService {
     await this.ingest(signal)
   }
 
-  private onBackgroundProgress(sessionId: string, now: number): void {
+  private onBackgroundProgress(sessionId: string, now: number, meaningful = true): void {
     const session = this.sessions.get(sessionId)
     if (session === undefined || !session.running) return
+    session.lastEventAt = Math.max(session.lastEventAt, now)
+    if (!meaningful) return
     session.lastMeaningfulAt = Math.max(session.lastMeaningfulAt, now)
     if (!session.stalled) return
     session.stalled = false

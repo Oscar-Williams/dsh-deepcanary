@@ -28,5 +28,5 @@ export { PersistentSupervisor, SupervisorStore, supervisorSnapshotFor } from './
 export type { PersistentSupervisorOptions, PersistentSupervisorStatus, SupervisorHostStatus, SupervisorLease, SupervisorMetrics, SupervisorSessionState, SupervisorSnapshot, SupervisorState } from './supervisor.js';
 export { NOTIFICATION_EVIDENCE_SCHEMA_VERSION, evaluateNotificationEvidence, evaluateNotificationEvidenceBinding, isNotificationEvidence } from './notificationEvidence.js';
 export type { NotificationEvidence, NotificationEvidenceResult, NotificationEvidenceSource, NotificationPageVisibility, NotificationPermission } from './notificationEvidence.js';
-export declare function apply(ctx: Context, config?: DeepCanaryConfigInput | DeepCanaryRuntimeConfig): void;
+export declare function apply(ctx: Context, config?: DeepCanaryConfigInput | DeepCanaryRuntimeConfig): Promise<void>;
 //# sourceMappingURL=index.d.ts.map

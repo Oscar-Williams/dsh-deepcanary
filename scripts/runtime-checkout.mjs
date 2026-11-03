@@ -4,10 +4,18 @@ import { promisify } from 'node:util'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { createRequire } from 'node:module'
+import semver from 'semver'
 
 export const alpha13 = { version: '0.1.3-alpha.1', tag: 'dsh-v0.1.3-alpha.1', commit: 'd347e703908d0406b7a7ef80e3a0e594d86b2215' }
 export const rc020 = { version: '0.2.0-rc.2', tag: 'dsh-v0.2.0-rc.2', commit: '639ed015397290b3745d163aafe02ffee4aa3f84' }
 const run = promisify(execFile)
+export const supportedHostRange = '0.2.1-rc.5 || >=0.2.2-alpha.3'
+
+function assertSupported(version) {
+  if (!semver.satisfies(version, supportedHostRange, { includePrerelease: true })) {
+    throw new Error(`DSH ${version} does not satisfy ${supportedHostRange}.`)
+  }
+}
 
 /** Load the selected released runtime, from an npm installation or a source checkout. */
 export async function loadRuntime(root) {
@@ -15,13 +23,15 @@ export async function loadRuntime(root) {
   root = path.resolve(root)
   const manifest = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'))
   if (manifest.name === '@deepseek-ai/dsh-root') {
-    if (manifest.version !== rc020.version) throw new Error('Select a published runtime installation for this host version.')
-    return loadRuntimeCheckout(root, rc020)
+    assertSupported(manifest.version)
+    const tag = `dsh-v${manifest.version}`
+    const commit = (await run('git', ['rev-parse', `${tag}^{commit}`], { cwd: root, windowsHide: true })).stdout.trim()
+    return loadRuntimeCheckout(root, { version: manifest.version, tag, commit })
   }
   const require = createRequire(path.join(root, 'package.json'))
   const anchor = require.resolve('@deepseek-ai/dsh/package.json')
   const host = JSON.parse(await readFile(anchor, 'utf8'))
-  if (!['0.2.0-rc.2', '0.2.1-rc.1', '0.2.1-rc.2'].includes(host.version)) throw new Error('Unsupported runtime version; update the declared host contract first.')
+  assertSupported(host.version)
   const hostRequire = createRequire(anchor)
   const packages = new Map()
   const scoped = await readdir(path.join(root, 'node_modules', '@deepseek-ai'), { withFileTypes: true })

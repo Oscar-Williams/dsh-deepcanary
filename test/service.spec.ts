@@ -58,7 +58,8 @@ describe('DeepCanaryService', () => {
       const human = await service.ingest({ ...testSignal(), id: 'urgent-question', kind: 'HUMAN_QUESTION_PENDING', severityHint: 3 })
       for (let index = 0; index < 60; index += 1) await service.ingest({ ...testSignal(), id: `routine-${index}`, kind: 'TASK_COMPLETED',
         occurredAt: new Date(Date.now() + index + 1).toISOString(), dedupeKey: `routine-${index}` })
-      expect(service.snapshot().inbox).toHaveLength(61)
+      expect(service.snapshot().inbox).toHaveLength(1)
+      expect(service.snapshot().activity).toHaveLength(60)
       expect(service.snapshot().inbox[0]?.id).toBe(human?.id)
       service.snooze(human!.id, 10)
       expect(service.snapshot().inbox.some(item => item.id === human?.id)).toBe(false)
@@ -489,12 +490,12 @@ describe('DeepCanaryService', () => {
 
     const critical = await service.ingest({
       ...testSignal(),
-      id: 'completion-critical',
-      kind: 'TASK_COMPLETED',
-      dedupeKey: 'completion-critical',
+      id: 'approval-after-suppression',
+      kind: 'HUMAN_APPROVAL_REQUIRED',
+      dedupeKey: 'approval-after-suppression',
       occurredAt: new Date(testNow + 3).toISOString(),
       severityHint: 3,
-      evidence: [{ type: 'session-event', authority: 'runtime', ref: 'completion-critical', summary: 'completion requires review' }],
+      evidence: [{ type: 'session-event', authority: 'runtime', ref: 'approval-after-suppression', summary: 'completion requires review' }],
     })
     expect(critical?.level).toBe('C3')
     await service.dispose()
@@ -843,8 +844,8 @@ describe('DeepCanaryService', () => {
       service.start()
 
       const parent = { id: 'parent-session', header: { cwd: 'C:\\work' } }
-      const child = { id: 'child-session', header: { cwd: 'C:\\work', parentSession: parent.id } }
-      const secondChild = { id: 'second-child-session', header: { cwd: 'C:\\work', parentSession: parent.id } }
+      const child = { id: 'child-session', header: { cwd: 'C:\\work', parentSession: parent.id, origin: 'subagent' } }
+      const secondChild = { id: 'second-child-session', header: { cwd: 'C:\\work', parentSession: parent.id, origin: 'subagent' } }
       listeners.get('session/created')?.(parent)
       listeners.get('session/created')?.(child)
       listeners.get('session/event')?.(parent, { type: 'turn/start', seq: 0, data: {} })
@@ -1097,10 +1098,11 @@ describe('DeepCanaryService', () => {
     const service = new DeepCanaryService({ logger: {} } as never, { stateDir: directory, maxInboxItems: 50 })
     services.push(service)
     await service.ready
+    const initialRevision = service.status().revision
     await expect(service.dryRun({
       signal: { kind: 'TASK_COMPLETED', authority: 'runtime', healthy: 'true' as never },
     })).rejects.toThrow('dry-run.signal.healthy must be boolean')
-    expect(service.status().revision).toBe(0)
+    expect(service.status().revision).toBe(initialRevision)
     expect(service.inbox(10)).toHaveLength(0)
     await service.dispose()
     await rm(directory, { recursive: true, force: true })
@@ -1126,8 +1128,9 @@ describe('DeepCanaryService', () => {
     }))
     const results = await Promise.all(jobs)
     expect(results.filter(Boolean)).toHaveLength(250)
-    expect(service.snapshot().inbox).toHaveLength(50)
-    expect(service.snapshot().status.openInbox).toBe(50)
+    expect(service.snapshot().activity).toHaveLength(50)
+    expect(service.snapshot().inbox).toHaveLength(0)
+    expect(service.snapshot().status.openInbox).toBe(0)
     await service.dispose()
     await rm(directory, { recursive: true, force: true })
   })

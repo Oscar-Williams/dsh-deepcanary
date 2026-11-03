@@ -17,6 +17,8 @@ export interface SessionSnapshot {
     active: boolean;
     cwd?: string;
     startedAt: number;
+    executionStartSeq?: number;
+    currentTurn?: number;
     lastEventAt: number;
     /** Last event boundary that proves meaningful task progress. */
     lastMeaningfulAt?: number;
@@ -31,6 +33,12 @@ export interface SessionSnapshot {
     toolClass?: ToolClass;
     humanNeededReason?: 'approval' | 'question';
     humanNeededSeq?: number;
+    humanWaits?: Array<{
+        humanActionRef: string;
+        reason: 'approval' | 'question';
+        seq?: number;
+        time: number;
+    }>;
     /** Watermark-checked public timed-question projection, metadata only. */
     userQuestions?: UserQuestionFacts;
     toolFailures?: number;

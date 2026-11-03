@@ -1,13 +1,14 @@
 import type { PersistentSupervisorStatus } from './supervisor.js';
+import type { AutomationRun } from './adapters/automation.js';
 /** Stable reason codes emitted by DeepCanary providers. */
 export type ReasonCode = 'HUMAN_APPROVAL_REQUIRED' | 'HUMAN_QUESTION_PENDING' | 'HOST_UNREACHABLE' | 'HOST_SUSPECTED_STALL' | 'TOOL_FAILURE_LOOP' | 'NO_MEANINGFUL_PROGRESS' | 'SUBAGENT_PRESSURE' | 'CONTEXT_PRESSURE' | 'COMPACTION_OCCURRED' | 'TASK_COMPLETED' | 'TASK_FAILED' | 'TASK_ABORTED' | 'COMPLETION_SUSPICIOUS' | 'HOST_STALL_RECOVERED';
 /** Low-risk event classes that a user may silence persistently from the Inbox. */
 export type SuppressibleReasonCode = 'TASK_COMPLETED' | 'COMPACTION_OCCURRED' | 'SUBAGENT_PRESSURE';
 export declare const SUPPRESSIBLE_REASON_CODES: readonly SuppressibleReasonCode[];
 /** Version of the browser-facing state/action contract. */
-export declare const ATTENTION_PROTOCOL_VERSION = 2;
+export declare const ATTENTION_PROTOCOL_VERSION = 3;
 /** Version of the deterministic attention policy used to create verdicts. */
-export declare const ATTENTION_POLICY_VERSION = "attention-policy.v1";
+export declare const ATTENTION_POLICY_VERSION = "attention-policy.v2";
 /** Values safe to expose as interpolation parameters in localized copy. */
 export type MessageParams = Record<string, string | number | boolean>;
 export type FeedbackValue = 'useful' | 'not-relevant' | 'wrong-level' | 'already-resolved';
@@ -56,6 +57,7 @@ export interface CanarySignal {
     dedupeKey?: string;
     /** Optional root-cause key used to combine adjacent attention items. */
     bundleKey?: string;
+    task?: TaskContext;
     data: Record<string, string | number | boolean | undefined>;
 }
 export interface AttentionVerdict {
@@ -77,8 +79,19 @@ export interface AttentionVerdict {
 export type InboxStatus = 'open' | 'seen' | 'acknowledged' | 'snoozed' | 'muted' | 'recovered' | 'expired';
 /** Runtime task fact kept separate from the user's Inbox handling state. */
 export type TaskState = 'running' | 'waiting-human' | 'completed' | 'failed' | 'aborted' | 'disposed' | 'unknown';
+/** Opaque identities derived only from public owner and execution metadata. */
+export interface TaskContext {
+    taskRef: string;
+    executionGeneration: string;
+    kind: 'session' | 'subagent' | 'fork' | 'job' | 'automation';
+    parentTaskRef?: string;
+    runRef?: string;
+    humanActionRef?: string;
+    sourceSeq?: number;
+}
 export interface InboxItem extends AttentionVerdict {
     id: string;
+    task?: TaskContext;
     sessionId?: string;
     workspaceId?: string;
     /** Hashes retained across restart so live sessions can be re-associated without persisting raw IDs. */
@@ -120,6 +133,8 @@ export interface QuietHours {
     enabled: boolean;
     start: string;
     end: string;
+    /** Missing in older settings means the Host's local time zone. */
+    timeZone?: string;
 }
 export interface DeepCanaryConfig {
     stateDir: string;
@@ -195,6 +210,9 @@ export interface ReconciliationStatus {
     detail?: string;
 }
 export interface RuntimeStatus {
+    persistence?: {
+        state: 'ready' | 'write-failed';
+    };
     plugin: {
         name: string;
         version: string;
@@ -228,6 +246,7 @@ export interface RuntimeStatus {
 }
 export interface PublicInboxItem {
     id: string;
+    task?: TaskContext;
     sessionId?: string;
     occurredAt: string;
     level: AttentionLevel;
@@ -310,6 +329,16 @@ export interface PublicSnapshot {
     inbox: PublicInboxItem[];
     /** Pending items deliberately scheduled for a future time. */
     scheduled?: PublicInboxItem[];
+    activity?: PublicInboxItem[];
+    automation?: {
+        runs: AutomationRun[];
+        limited: boolean;
+    };
+    retention?: {
+        limit: number;
+        limited: boolean;
+        deferredSessions: number;
+    };
 }
 /** Version of the privacy-safe outcome record written by DeepCanary. */
 export declare const OUTCOME_RECEIPT_SCHEMA_VERSION: 1;

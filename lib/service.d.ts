@@ -6,13 +6,15 @@ import { OutcomeStore } from './outcome.js';
 import { PersistentSupervisor } from './supervisor.js';
 import type { CanarySignal, DeepCanaryConfig, DryRunRequest, DryRunResult, FeedbackValue, InboxItem, PublicInboxItem, PublicSettings, PublicSnapshot, OutcomeReceipt, OutcomeDeleteFilter, OutcomeReceiptInput, RuntimeStatus, SuppressibleReasonCode } from './types.js';
 declare const PLUGIN_NAME = "dsh-deepcanary";
-declare const PLUGIN_VERSION = "0.1.6-rc.4";
+declare const PLUGIN_VERSION = "0.1.8-rc.1";
 interface ActionReceipt {
     status: number;
     body: Record<string, unknown>;
     fingerprint: string;
 }
 export declare class DeepCanaryService {
+    private readonly automation;
+    private automationChain;
     private readonly background;
     private backgroundRegistry;
     private refreshBackground;
@@ -33,6 +35,9 @@ export declare class DeepCanaryService {
     private readonly budget;
     private readonly deliveryLedger;
     private readonly restoredAttention;
+    private readonly deferredSources;
+    private rescanAll;
+    private rescanning;
     private readonly pressureSeen;
     private readonly logger;
     private adapterSubscription;
@@ -48,12 +53,17 @@ export declare class DeepCanaryService {
     private settingsProvider;
     private settingsSubscription;
     private saveChain;
+    private saveQueued;
+    private saveEpoch;
+    private stateWriteFailed;
+    private readonly saveWaiters;
     private questionChain;
     private hydrated;
     private disposed;
     private disposePromise;
     private started;
     private revision;
+    private releaseWriter;
     private policyRestored;
     private readonly actionReceipts;
     private readonly outcomeReceipts;
@@ -168,6 +178,7 @@ export declare class DeepCanaryService {
     private find;
     private bumpRevision;
     private queueSave;
+    private startSavePump;
     private ingestBackground;
     private onBackgroundProgress;
     private updateExistingOutcome;

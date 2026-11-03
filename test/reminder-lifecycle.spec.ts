@@ -25,14 +25,16 @@ describe('scheduled reminder lifecycle', () => {
     try {
       await service.ready
       const now = Date.now()
-      const first = (await service.ingest({ ...signal(now, 'TASK_FAILED'), bundleKey: 'owned-outage', dedupeKey: 'suspected-outage' }))!
+      const first = (await service.ingest({ ...signal(now, 'HUMAN_QUESTION_PENDING'), severityHint: 2,
+        evidence: [{ type: 'tool-history', authority: 'heuristic', ref: 'question-tool', summary: 'A tool name suggests a question.' }],
+        bundleKey: 'owned-question', dedupeKey: 'suspected-question' }))!
       await service.performAction('before-escalation', first.id, 'notification-claim', claim(Date.now()))
       await service.performAction('delivered-c2', first.id, 'notification-delivery', {
-        ...delivered(first.id, Date.now()), titleKey: 'notification.title.TASK_FAILED',
+        ...delivered(first.id, Date.now()),
       })
       service.config.quietHours = { enabled: true, start: '00:00', end: '00:00' }
-      const escalated = await service.ingest({ ...signal(Date.now(), 'HOST_UNREACHABLE'), id: 'authoritative-outage',
-        severityHint: 3, bundleKey: 'owned-outage', dedupeKey: 'confirmed-outage' })
+      const escalated = await service.ingest({ ...signal(Date.now(), 'HUMAN_QUESTION_PENDING'), id: 'authoritative-question',
+        severityHint: 3, bundleKey: 'owned-question', dedupeKey: 'confirmed-question' })
       expect(escalated?.id).toBe(first.id)
       expect(service.snapshot().inbox[0]).toMatchObject({ level: 'C3', notificationGeneration: 1, notificationEligible: true })
       expect((await service.performAction('new-escalation', first.id, 'notification-claim', claim(Date.now(), 1))).body.result).toMatchObject({ outcome: 'granted' })

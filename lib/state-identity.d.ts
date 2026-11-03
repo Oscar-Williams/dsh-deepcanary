@@ -11,6 +11,8 @@ export declare function resolveStateIdentity(profile: {
 } | undefined, entry: string, custom: string): StateIdentity;
 /** Exclusive creation prevents two profiles from both adopting a custom directory. */
 export declare function claimStateDirectory(identity: StateIdentity): Promise<void>;
+/** Hold one writer for the complete Host lifecycle, including the last queued save. */
+export declare function claimStateWriter(identity: StateIdentity): Promise<() => Promise<void>>;
 /** Desktop adopts legacy metadata only; navigation stays disabled until Host reconciliation. */
 export declare function importLegacyInbox(identity: StateIdentity): Promise<void>;
 //# sourceMappingURL=state-identity.d.ts.map

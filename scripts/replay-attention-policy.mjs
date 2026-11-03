@@ -122,6 +122,7 @@ async function runCase(rawCase, configPatch, baseNow) {
       steps,
       finalInbox,
       finalInboxCount: finalInbox.length,
+      finalActivityCount: service.snapshot().activity?.length ?? 0,
       interruptBudget: service.status().delivery.interruptBudget,
     }
   } finally {
@@ -135,7 +136,8 @@ function expectedPass(actual, expected) {
   if (expected === undefined) return true
   if (!Array.isArray(expected.steps) || actual.steps.length !== expected.steps.length) return false
   if (!actual.steps.every((step, index) => equivalent(step, expected.steps[index]))) return false
-  return expected.finalInboxCount === undefined || actual.finalInboxCount === expected.finalInboxCount
+  return (expected.finalInboxCount === undefined || actual.finalInboxCount === expected.finalInboxCount)
+    && (expected.finalActivityCount === undefined || actual.finalActivityCount === expected.finalActivityCount)
 }
 
 const cases = fixture.cases.map(validateCase)

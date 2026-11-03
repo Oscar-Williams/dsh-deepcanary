@@ -1,7 +1,7 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile, unlink, rename, rmdir } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { homedir } from 'node:os'
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { MetadataStore } from './persistence.js'
 
 export interface StateIdentity { directory: string; owner: string; profile?: string; home?: string }
@@ -25,6 +25,64 @@ export async function claimStateDirectory(identity: StateIdentity): Promise<void
     if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
     const existing = JSON.parse(await readFile(file, 'utf8')) as { owner?: string }
     if (existing.owner !== identity.owner) throw new Error('DeepCanary state directory belongs to another profile/instance; shared writes refused')
+  }
+}
+
+/** Hold one writer for the complete Host lifecycle, including the last queued save. */
+export async function claimStateWriter(identity: StateIdentity): Promise<() => Promise<void>> {
+  const file = join(identity.directory, 'inbox-writer.json')
+  const token = randomUUID()
+  const lock = join(identity.directory, 'inbox-writer.lock')
+  const candidate = join(identity.directory, `inbox-writer.pending-${token}`)
+  const owner = { schemaVersion: 1, owner: identity.owner, pid: process.pid, token }
+  const readOwner = async (target: string): Promise<typeof owner> => {
+    const value = JSON.parse(await readFile(target, 'utf8')) as typeof owner
+    if (value.owner !== identity.owner || !Number.isSafeInteger(value.pid) || value.pid <= 0
+      || typeof value.token !== 'string' || !/^[a-f0-9-]{36}$/.test(value.token)) throw new Error('Invalid DeepCanary writer identity; original lock preserved')
+    return value
+  }
+  const alive = (pid: number): boolean => {
+    try { process.kill(pid, 0); return true } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ESRCH') return false
+      throw error
+    }
+  }
+  const removeOwnDirectory = async (target: string): Promise<void> => {
+    try {
+      if ((await readOwner(join(target, 'owner.json'))).token !== token) return
+      await unlink(join(target, 'owner.json')); await rmdir(target)
+    } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
+  }
+  // Publish a nonempty directory atomically. A stale directory is renamed to
+  // its own fixed, nonempty tombstone: a second stale reader cannot rename a
+  // replacement writer over that tombstone and steal the new claim.
+  await mkdir(candidate)
+  await writeFile(join(candidate, 'owner.json'), JSON.stringify(owner), { flag: 'wx', mode: 0o600 })
+  try {
+    try { await rename(candidate, lock) } catch {
+      const previous = await readOwner(join(lock, 'owner.json'))
+      if (alive(previous.pid)) throw new Error('Another live Host owns the DeepCanary ledger')
+      await rename(lock, join(identity.directory, `inbox-writer.stale-${previous.token}`))
+      await rename(candidate, lock)
+    }
+  } catch (error) { await removeOwnDirectory(candidate); throw error }
+  const claim = async (): Promise<void> => {
+    await writeFile(file, JSON.stringify(owner), { flag: 'wx', mode: 0o600 })
+  }
+  try {
+    try { await claim() } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
+      const previous = await readOwner(file)
+      if (alive(previous.pid)) throw new Error('Another live Host owns the DeepCanary ledger')
+      await unlink(file)
+      await claim()
+    }
+  } catch (error) { await removeOwnDirectory(lock); throw error }
+  return async () => {
+    const current = await readOwner(file)
+    if (current.token !== token) throw new Error('DeepCanary writer ownership changed before release')
+    await unlink(file)
+    await removeOwnDirectory(lock)
   }
 }
 

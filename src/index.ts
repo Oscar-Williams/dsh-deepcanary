@@ -33,9 +33,10 @@ export type { PersistentSupervisorOptions, PersistentSupervisorStatus, Superviso
 export { NOTIFICATION_EVIDENCE_SCHEMA_VERSION, evaluateNotificationEvidence, evaluateNotificationEvidenceBinding, isNotificationEvidence } from './notificationEvidence.js'
 export type { NotificationEvidence, NotificationEvidenceResult, NotificationEvidenceSource, NotificationPageVisibility, NotificationPermission } from './notificationEvidence.js'
 
-export function apply(ctx: Context, config?: DeepCanaryConfigInput | DeepCanaryRuntimeConfig): void {
+export async function apply(ctx: Context, config?: DeepCanaryConfigInput | DeepCanaryRuntimeConfig): Promise<void> {
   const service = new DeepCanaryService(ctx, config)
   service.start()
+  try { await service.ready } catch (error) { await service.dispose(); throw error }
   service.setRegisteredTools(registerTools(ctx, service))
   installWebRoutes(ctx, service)
 }

@@ -1,4 +1,4 @@
-import type { CanarySignal } from './types.js';
+import type { ReasonCode, CanarySignal } from './types.js';
 export interface SessionFacts {
     toolFailures: number;
     activeSubagents: number;
@@ -6,6 +6,7 @@ export interface SessionFacts {
     /** Last boundary that proves the task made meaningful progress. */
     lastMeaningfulAt?: number;
     startedAt: number;
+    executionStartSeq?: number;
     /** Number of tools that have been called without a matching result. */
     activeToolCount?: number;
     /** The class of the currently active/most recent tool, without its arguments. */
@@ -34,6 +35,9 @@ export interface SessionLike {
     header?: {
         cwd?: string;
         parentSession?: string;
+        origin?: 'subagent';
+        isSeeded?: boolean;
+        createdAt?: number;
     };
 }
 export interface SessionEventLike {
@@ -53,12 +57,16 @@ export declare function toolCallIdOf(data: Record<string, unknown>): string | un
 /** Whether an event is a bounded, structured progress boundary for liveness. */
 export declare function isMeaningfulSessionEvent(eventType: string, data?: Record<string, unknown>): boolean;
 export declare function signalsFromSessionEvent(session: SessionLike, event: SessionEventLike, facts: SessionFacts): CanarySignal[];
+export declare function humanActionRef(sessionId: string, kind: ReasonCode, data: Record<string, unknown>, seq?: number): string;
 /**
  * Recreate a Human Needed observation from an authoritative startup snapshot.
  * The event sequence remains an opaque evidence join key; no event payload is
  * copied into the signal or its persistence path.
  */
-export declare function signalFromAuthoritativeHumanWait(session: SessionLike, reason: 'approval' | 'question', eventSeq?: number, occurredAt?: number): CanarySignal;
+export declare function signalFromAuthoritativeHumanWait(session: SessionLike, reason: 'approval' | 'question', eventSeq?: number, occurredAt?: number, identity?: {
+    humanActionRef: string;
+    executionStartSeq?: number;
+}): CanarySignal;
 export declare function signalFromAgentError(payload: {
     agent?: {
         id?: string;

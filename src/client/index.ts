@@ -12,12 +12,17 @@ import { claimNotificationBatch } from './notification-dispatch.js'
 import { formatReasonMessage } from './message-text.js'
 import { notificationGeneration, notificationKey } from '../core/reminders.js'
 import { SettingsDraft } from '../settings-draft.js'
+import { usePanelLayout } from './use-panel-layout.js'
+import type { ResizeEdge } from './panel-layout.js'
+import type { ContextMenus, ContextMenuTarget, ContextMenuTargetMap } from '@deepseek-ai/dsh-client-ui-context-menu/client'
+import type { AutomationRun } from '../adapters/automation.js'
 import type { SessionNavigationContext } from './session-navigation.js'
 
 type Translate = (key: string, params?: Record<string, unknown>) => string
 
 type ClientItem = {
   id: string
+  task?: { taskRef: string; executionGeneration: string; kind: string; parentTaskRef?: string; humanActionRef?: string; runRef?: string }
   sessionId?: string
   occurredAt: string
   level: 'C0' | 'C1' | 'C2' | 'C3'
@@ -68,7 +73,7 @@ type ClientSettings = {
   bundleWindowSeconds: number
   longRunThresholdMinutes: number
   subagentPressure: 'relaxed' | 'standard' | 'strict'
-  quietHours: { enabled: boolean; start: string; end: string }
+  quietHours: { enabled: boolean; start: string; end: string; timeZone?: string }
   privacySafeSummary: boolean
   healthPollSeconds: number
   maxInboxItems: number
@@ -85,6 +90,7 @@ type ClientSnapshot = {
     openInbox: number
     sessions: number
     background?: { available: boolean; running: number; unknown: number; limited: boolean }
+    persistence?: { state: 'ready' | 'write-failed' }
     plugin: { state: string; version: string }
     revision?: number
     capabilities: { browserNotification: boolean; nativeToast: boolean; windowsInterop: string }
@@ -98,6 +104,9 @@ type ClientSnapshot = {
   settings: ClientSettings
   inbox: ClientItem[]
   scheduled?: ClientItem[]
+  activity?: ClientItem[]
+  automation?: { runs: AutomationRun[]; limited: boolean }
+  retention?: { limit: number; limited: boolean; deferredSessions: number }
 }
 
 type JumpResult = { available: boolean; sessionId?: string; url?: string; note: string }
@@ -111,6 +120,8 @@ type ActionNotice = {
 }
 
 type ClientContext = SessionNavigationContext & {
+  inject?: (services: string[], callback: (ctx: ClientContext) => void) => unknown
+  contextMenus?: ContextMenus
   effect: (setup: () => void | (() => void), label?: string) => unknown
   sessions: SessionNavigationContext['sessions'] & { list?: { subscribe?: (listener: () => void) => () => void } }
   locale: { register: (namespace: string, dictionaries: { zh: Record<string, string>; en: Record<string, string> }) => () => void }
@@ -149,6 +160,7 @@ type Controller = {
   toggle: () => void
   setTrigger: (element: HTMLButtonElement | null) => void
   setSize: (width: number, height: number) => void
+  select: (id?: string) => void
   action: (id: string, payload: Record<string, unknown>) => Promise<void>
   canNotifyItem: (item: ClientItem) => boolean
   claimDelivery: (id: string, expiresAt: string, generation: number) => Promise<'granted' | 'already-claimed' | 'already-complete' | 'exhausted' | 'unavailable'>
@@ -164,6 +176,7 @@ type Controller = {
   }) => Promise<void>
   openSession: (sessionId: string) => boolean
   hasHistoricalSession: (sessionId: string) => boolean
+  sessionTitle: (sessionId: string) => string | undefined
   jump: (id: string) => Promise<void>
 }
 
@@ -182,6 +195,41 @@ const MAX_HEIGHT = 720
 const AUTO_OPEN_REASONS = new Set(['HOST_UNREACHABLE', 'SUBAGENT_PRESSURE', 'HUMAN_APPROVAL_REQUIRED', 'HUMAN_QUESTION_PENDING'])
 
 const zh = {
+  "window.subagent": "子任务",
+  "window.fork": "分支会话",
+  "window.backgroundJob": "后台任务",
+  "window.automation": "自动化",
+  "window.session": "会话",
+  "window.linkedToParent": "已关联父任务",
+  "window.taskInbox": "任务提醒与动态",
+  "window.windowLayout": "窗口布局",
+  "window.layout": "布局",
+  "window.moveWithKeyboard": "键盘移动",
+  "window.resizeWithKeyboard": "键盘调整大小",
+  "window.dockLeft": "停靠左侧",
+  "window.dockRight": "停靠右侧",
+  "window.restoreFloating": "恢复浮动",
+  "window.resetLayout": "重置布局",
+  "window.restore": "恢复",
+  "window.expand": "展开",
+  "window.close": "关闭",
+  "window.arrowKeysAdjustShiftForLargerStepsEnterToCommitEscToCancel": "方向键调整 · Shift 加速 · Enter 确认 · Esc 撤销",
+  "window.inboxSections": "提醒分类",
+  "window.pending": "待处理",
+  "window.snoozed": "稍后",
+  "window.activity": "动态",
+  "window.nothingNeedsYourAttention": "暂时无需处理",
+  "window.noSnoozedReminders": "没有稍后提醒",
+  "window.noActivityYet": "还没有任务动态",
+  "window.updatesThatNeedYouWillAppearHere": "需要你时，提醒会出现在这里。",
+  "window.theLatestStateOfTheseItemsAppearsHere": "这里保留对应事项的最新状态。",
+  "window.resizeTaskList": "调整任务列表宽度",
+  "window.backToList": "返回列表",
+  "window.selectAnUpdate": "选择一条提醒",
+  "window.reviewItsStateManageTheReminderOrReturnToTheSession": "在这里查看状态、处理提醒，或返回对应会话。",
+  "window.resizeWindow": "调整窗口大小",
+  'settings.quietTimeZone': '时区（留空使用宿主时区）',
+  'item.notice.actionConflict': '状态已更新，请确认后重试。',
   'trigger.open': '打开 DeepCanary',
   'trigger.close': '关闭 DeepCanary',
   'trigger.label': 'DeepCanary 任务提醒',
@@ -189,6 +237,25 @@ const zh = {
   'panel.title': 'DeepCanary',
   'panel.subtitle': '任务提醒与动态',
   'panel.status.ready': '运行正常',
+  'panel.status.writeFailed': '状态保存失败，系统通知已暂停',
+  'panel.retentionLimited': '事项容量已满，部分宿主记录尚未读取。处理现有事项后将继续同步；完整记录请在宿主会话列表查看。',
+  'automation.delivered': '指令已送达，尚未确认执行',
+  'automation.running': '本次任务正在执行',
+  'automation.completed': '本次任务已完成',
+  'automation.failed': '本次任务执行失败',
+  'automation.aborted': '本次任务已取消',
+  'automation.unknown': '本次执行结果尚无法确认',
+  'automation.open': '查看对应会话',
+  'automation.limited': '自动化记录已达容量上限，请在宿主自动化任务中查看完整记录。',
+  'item.taskState': '任务状态：{state}',
+  'item.reminderHandled': '已处理这条提醒；宿主任务状态不受影响。',
+  'task.running': '正在运行',
+  'task.waiting-human': '等待人工处理',
+  'task.completed': '已完成',
+  'task.failed': '执行失败',
+  'task.aborted': '已取消',
+  'task.disposed': '会话已关闭',
+  'task.unknown': '尚无法确认',
   'panel.status.loading': '加载中',
   'panel.status.offline': '暂时无法同步',
   'panel.close': '关闭面板',
@@ -404,6 +471,41 @@ const zh = {
 } satisfies Record<string, string>
 
 const en = {
+  "window.subagent": "Subagent",
+  "window.fork": "Fork",
+  "window.backgroundJob": "Background job",
+  "window.automation": "Automation",
+  "window.session": "Session",
+  "window.linkedToParent": "Linked to parent",
+  "window.taskInbox": "Task inbox",
+  "window.windowLayout": "Window layout",
+  "window.layout": "Layout",
+  "window.moveWithKeyboard": "Move with keyboard",
+  "window.resizeWithKeyboard": "Resize with keyboard",
+  "window.dockLeft": "Dock left",
+  "window.dockRight": "Dock right",
+  "window.restoreFloating": "Restore floating",
+  "window.resetLayout": "Reset layout",
+  "window.restore": "Restore",
+  "window.expand": "Expand",
+  "window.close": "Close",
+  "window.arrowKeysAdjustShiftForLargerStepsEnterToCommitEscToCancel": "Arrow keys adjust · Shift for larger steps · Enter to commit · Esc to cancel",
+  "window.inboxSections": "Inbox sections",
+  "window.pending": "Pending",
+  "window.snoozed": "Snoozed",
+  "window.activity": "Activity",
+  "window.nothingNeedsYourAttention": "Nothing needs your attention",
+  "window.noSnoozedReminders": "No snoozed reminders",
+  "window.noActivityYet": "No activity yet",
+  "window.updatesThatNeedYouWillAppearHere": "Updates that need you will appear here.",
+  "window.theLatestStateOfTheseItemsAppearsHere": "The latest state of these items appears here.",
+  "window.resizeTaskList": "Resize task list",
+  "window.backToList": "Back to list",
+  "window.selectAnUpdate": "Select an update",
+  "window.reviewItsStateManageTheReminderOrReturnToTheSession": "Review its state, manage the reminder, or return to the session.",
+  "window.resizeWindow": "Resize window",
+  'settings.quietTimeZone': 'Time zone (empty uses Host time)',
+  'item.notice.actionConflict': 'State changed. Review the update and try again.',
   'trigger.open': 'Open DeepCanary',
   'trigger.close': 'Close DeepCanary',
   'trigger.label': 'DeepCanary task alerts',
@@ -411,6 +513,25 @@ const en = {
   'panel.title': 'DeepCanary',
   'panel.subtitle': 'Task alerts and updates',
   'panel.status.ready': 'Running normally',
+  'panel.status.writeFailed': 'State could not be saved; system notifications are paused',
+  'panel.retentionLimited': 'The Inbox is full; some Host records remain unread. Sync continues after existing items are handled. The Host session list retains the complete history.',
+  'automation.delivered': 'Instruction delivered; execution not yet confirmed',
+  'automation.running': 'This run is executing',
+  'automation.completed': 'This run completed',
+  'automation.failed': 'This run failed',
+  'automation.aborted': 'This run was cancelled',
+  'automation.unknown': 'The result of this run is not yet confirmed',
+  'automation.open': 'View the target session',
+  'automation.limited': 'Automation history has reached its limit. Open the Host automation manager for the complete history.',
+  'item.taskState': 'Task state: {state}',
+  'item.reminderHandled': 'This reminder is handled. The Host task is unchanged.',
+  'task.running': 'Running',
+  'task.waiting-human': 'Waiting for you',
+  'task.completed': 'Completed',
+  'task.failed': 'Failed',
+  'task.aborted': 'Cancelled',
+  'task.disposed': 'Session closed',
+  'task.unknown': 'Not yet confirmed',
   'panel.status.loading': 'Loading',
   'panel.status.offline': 'Sync temporarily unavailable',
   'panel.close': 'Close panel',
@@ -902,7 +1023,7 @@ function createController(ctx: ClientContext): Controller {
           loading: false,
           failed: false,
           lastSyncedAt: snapshot.generatedAt ?? new Date().toISOString(),
-          protocolUnsupported: typeof snapshot.schemaVersion === 'number' && snapshot.schemaVersion > 2,
+          protocolUnsupported: snapshot.schemaVersion !== 3,
         })
       } catch {
         if (!disposed) {
@@ -928,6 +1049,7 @@ function createController(ctx: ClientContext): Controller {
       else controller.open()
     },
     setTrigger: element => { trigger = element },
+    select: id => { publish({ selectedId: id }) },
     setSize: (width, height) => {
       const next = clampSize(width, height)
       persistSize(next.width, next.height)
@@ -935,7 +1057,12 @@ function createController(ctx: ClientContext): Controller {
     },
     openSession: sessionId => openAttentionSession(ctx, sessionId),
     hasHistoricalSession: sessionId => hasCatalogSession(ctx, sessionId),
+    sessionTitle: sessionId => {
+      const value = ctx.sessions.list?.getSnapshot?.().byId?.[sessionId]?.title
+      return typeof value === 'string' && value.trim() ? value : undefined
+    },
     action: async (id, payload) => {
+      if (state.protocolUnsupported) { showNotice({ id, kind: 'action-conflict', tone: 'error' }); return }
       if (state.pending.has(id)) return
       const nextPending = new Set(state.pending)
       nextPending.add(id)
@@ -944,8 +1071,11 @@ function createController(ctx: ClientContext): Controller {
         const response = await request('/api/dsh-deepcanary/action', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ id, requestId: makeRequestId(), ...payload }),
+          body: JSON.stringify({ id, schemaVersion: 3, expectedRevision: state.snapshot?.revision,
+            executionGeneration: [...(state.snapshot?.inbox ?? []), ...(state.snapshot?.scheduled ?? []), ...(state.snapshot?.activity ?? [])].find(item => item.id === id)?.task?.executionGeneration,
+            requestId: makeRequestId(), ...payload }),
         })
+        if (response?.status === 409) { await controller.refresh(); showNotice({ id, kind: 'action-conflict', tone: 'error' }); return }
         if (!response?.ok) throw new Error('action request failed')
         const body = await response.json() as { updated?: boolean; result?: { kind?: string; useful?: boolean; value?: string } }
         if (body.updated !== true) throw new Error('action was not applied')
@@ -967,15 +1097,17 @@ function createController(ctx: ClientContext): Controller {
         publish({ pending: finished })
       }
     },
-    canNotifyItem: item => !disposed && state.snapshot?.inbox.some(current => current.id === item.id
+    canNotifyItem: item => !disposed && !state.protocolUnsupported && state.snapshot?.inbox.some(current => current.id === item.id
       && notificationGeneration(current) === notificationGeneration(item) && current.notificationEligible !== false) === true,
     claimDelivery: async (id, expiresAt, generation) => {
+      if (state.protocolUnsupported) return 'unavailable'
       try {
         const response = await request('/api/dsh-deepcanary/action', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
             id,
+            schemaVersion: 3,
             action: 'notification-claim',
             requestId: makeRequestId(),
             notificationClientInstance: clientInstance,
@@ -998,13 +1130,14 @@ function createController(ctx: ClientContext): Controller {
         await request('/api/dsh-deepcanary/action', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ id, action: 'notification-delivery', requestId: makeRequestId(), ...payload }),
+          body: JSON.stringify({ id, schemaVersion: 3, action: 'notification-delivery', requestId: makeRequestId(), ...payload }),
         })
       } catch {
         // Notification telemetry is best effort; Inbox delivery remains authoritative.
       }
     },
     jump: async id => {
+      if (state.protocolUnsupported) { showNotice({ id, kind: 'action-conflict', tone: 'error' }); return }
       if (state.pending.has(id)) return
       const nextPending = new Set(state.pending)
       nextPending.add(id)
@@ -1013,7 +1146,7 @@ function createController(ctx: ClientContext): Controller {
         const response = await request('/api/dsh-deepcanary/action', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ id, action: 'jump', requestId: makeRequestId() }),
+          body: JSON.stringify({ id, schemaVersion: 3, expectedRevision: state.snapshot?.revision, action: 'jump', requestId: makeRequestId() }),
         })
         if (!response?.ok) throw new Error('jump request failed')
         const body = await response.json() as JumpResult | { result?: JumpResult }
@@ -1223,6 +1356,7 @@ function notificationBody(item: ClientItem, t: Translate): string {
 }
 
 function noticeText(notice: ActionNotice, t: Translate): string {
+  if (notice.kind === 'action-conflict') return translate(t, 'item.notice.actionConflict')
   if (notice.kind === 'feedback-recorded') {
     if (notice.value === 'wrong-level') return translate(t, 'item.feedbackWrongLevel')
     if (notice.value === 'already-resolved') return translate(t, 'item.feedbackAlreadyResolved')
@@ -1695,6 +1829,7 @@ function DeepCanarySettingsCard(props: SettingsCardProps): ReactNode {
         field(translate(t, 'settings.bundle'), createElement('input', { type: 'number', min: 0, max: 900, step: 1, value: current.bundleWindowSeconds, disabled, onChange: (event: { target: { value: string } }) => { edit('bundleWindowSeconds', Number(event.target.value)) } })),
         field(translate(t, 'settings.longRun'), createElement('input', { type: 'number', min: 1, max: 120, step: 1, value: current.longRunThresholdMinutes, disabled, onChange: (event: { target: { value: string } }) => { edit('longRunThresholdMinutes', Number(event.target.value)) } })),
       ),
+      field(translate(t, 'settings.quietTimeZone'), createElement('input', { type: 'text', value: current.quietHours.timeZone ?? '', disabled, placeholder: Intl.DateTimeFormat().resolvedOptions().timeZone, onChange: (event: { target: { value: string } }) => { edit('quietHours', { ...current.quietHours, timeZone: event.target.value }) } })),
       field(translate(t, 'settings.subagent'),
         createElement('select', { value: current.subagentPressure, disabled, onChange: (event: { target: { value: string } }) => { edit('subagentPressure', event.target.value as ClientSettings['subagentPressure']) } },
           ...(['relaxed', 'standard', 'strict'] as const).map(value => createElement('option', { key: value, value }, translate(t, ('settings.subagent.' + value) as LocaleKey))))),
@@ -1713,7 +1848,7 @@ function DeepCanarySettingsCard(props: SettingsCardProps): ReactNode {
         translate(t, 'settings.privacy')),
       createElement('div', { className: 'dsc-field-row' },
         field(translate(t, 'settings.healthPoll'), createElement('input', { type: 'number', min: 5, max: 300, step: 1, value: current.healthPollSeconds, disabled, onChange: (event: { target: { value: string } }) => { edit('healthPollSeconds', Number(event.target.value)) } })),
-        field(translate(t, 'settings.maxInbox'), createElement('input', { type: 'number', min: 50, max: 5000, step: 50, value: current.maxInboxItems, disabled, onChange: (event: { target: { value: string } }) => { edit('maxInboxItems', Number(event.target.value)) } })),
+        field(translate(t, 'settings.maxInbox'), createElement('input', { type: 'number', min: 50, max: 500, step: 50, value: current.maxInboxItems, disabled, onChange: (event: { target: { value: string } }) => { edit('maxInboxItems', Number(event.target.value)) } })),
       ),
       field(translate(t, 'settings.supervisorMode'),
         createElement('select', {
@@ -1845,6 +1980,9 @@ function itemCard(item: ClientItem, state: ControllerState, t: Translate, contro
       createElement('time', { className: 'dsc-card-time', dateTime: item.lastReminderAt ?? item.occurredAt }, formatTime(item.lastReminderAt ?? item.occurredAt)),
     ),
   ]
+  if (item.taskState) children.push(createElement('p', { className: 'dsc-card-suggestion', key: 'task-state' },
+    translate(t, 'item.taskState', { state: translate(t, `task.${item.taskState}`) })))
+  if (item.status === 'acknowledged') children.push(createElement('p', { className: 'dsc-card-suggestion', key: 'reminder-state' }, translate(t, 'item.reminderHandled')))
   if (item.snoozedUntil !== undefined) children.push(createElement('p', { className: 'dsc-scheduled-time', key: 'scheduled-at' },
     translate(t, 'item.scheduledAt', { time: new Intl.DateTimeFormat(chineseLocale() ? 'zh-CN' : 'en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(item.snoozedUntil)) })))
   else if (item.reminderPending === true) children.push(createElement('p', { className: 'dsc-card-suggestion', key: 'reminder-waiting' }, translate(t, 'item.reminderWaiting')))
@@ -1953,237 +2091,273 @@ function itemCard(item: ClientItem, state: ControllerState, t: Translate, contro
   }, ...children)
 }
 
-function DeepCanaryOverlay(props: { t: Translate; controller: Controller }): ReactNode {
+type OverlayProps = { t: Translate; controller: Controller; configForm?: ConfigForm<ClientSettings>;
+  getTriggerProps?: (target: ContextMenuTarget) => Record<string, unknown> }
+
+function ModernOverlay(props: OverlayProps & { useContextMenu: () => { getTriggerProps: (target: ContextMenuTarget) => Record<string, unknown> } }): ReactNode {
+  const { getTriggerProps } = props.useContextMenu()
+  return createElement(DeepCanaryOverlay, { ...props, getTriggerProps })
+}
+
+function OverlayEntry(props: OverlayProps & { useContextMenu?: () => { getTriggerProps: (target: ContextMenuTarget) => Record<string, unknown> } }): ReactNode {
+  return props.useContextMenu ? createElement(ModernOverlay, { ...props, useContextMenu: props.useContextMenu }) : createElement(DeepCanaryOverlay, props)
+}
+
+function DeepCanaryOverlay(props: OverlayProps): ReactNode {
   const state = useController(props.controller)
-  const [visibleItems, setVisibleItems] = useState(50)
-  const [visibleScheduled, setVisibleScheduled] = useState(10)
-  const selectedIndex = state.snapshot?.inbox.findIndex(item => item.id === state.selectedId) ?? -1
-  const scheduledIndex = state.snapshot?.scheduled?.findIndex(item => item.id === state.selectedId) ?? -1
-  useLayoutEffect(() => {
-    if (selectedIndex >= visibleItems) setVisibleItems(Math.ceil((selectedIndex + 1) / 50) * 50)
-    if (scheduledIndex >= visibleScheduled) setVisibleScheduled(Math.ceil((scheduledIndex + 1) / 10) * 10)
-  }, [selectedIndex, visibleItems, scheduledIndex, visibleScheduled])
+  const geometry = usePanelLayout(state.open)
+  const [tab, setTab] = useState<'pending' | 'snoozed' | 'activity'>('pending')
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [localMenu, setLocalMenu] = useState<{ id: string; x: number; y: number; trigger: HTMLElement }>()
+  const [visible, setVisible] = useState(50)
   const panelRef = useRef<HTMLElement>(null)
-  const closeRef = useRef<HTMLButtonElement>(null)
-  const positionedId = useRef<string | undefined>(undefined)
+  const listRef = useRef<HTMLDivElement>(null)
+  const scrolls = useRef({ pending: 0, snoozed: 0, activity: 0 })
+  const snapshot = state.snapshot
+  const groups = { pending: snapshot?.inbox ?? [], snoozed: snapshot?.scheduled ?? [], activity: snapshot?.activity ?? [] }
+  const taskGroups = new Map<string, ClientItem[]>()
+  for (const item of groups[tab]) {
+    const key = item.task?.parentTaskRef ?? item.task?.taskRef ?? item.sessionId ?? item.id
+    taskGroups.set(key, [...(taskGroups.get(key) ?? []), item])
+  }
+  const items = [...taskGroups.values()].flat()
+  const runs = tab === 'activity' ? [...(snapshot?.automation?.runs ?? [])].sort((a, b) => b.deliveredAt.localeCompare(a.deliveredAt)) : []
+  const selected = items.find(item => item.id === state.selectedId)
+  const wide = geometry.layout.rect.width >= 760
+  const { rect, split } = geometry.layout
+  const changeTab = (next: typeof tab): void => {
+    if (listRef.current) scrolls.current[tab] = listRef.current.scrollTop
+    setTab(next); setVisible(50); setSettingsOpen(false)
+  }
+  const dismissMenu = (): void => { localMenu?.trigger.focus(); setLocalMenu(undefined) }
+  const openLocalMenu = (item: ClientItem, trigger: HTMLElement, x: number, y: number): void => {
+    setLocalMenu({ id: item.id, trigger, x: Math.max(12, Math.min(window.innerWidth - 212, x)), y: Math.max(12, Math.min(window.innerHeight - 170, y)) })
+  }
+  useEffect(() => {
+    if (!localMenu) return
+    const dismiss = (event: globalThis.PointerEvent): void => {
+      if (!(event.target instanceof Element) || !event.target.closest('[data-deepcanary-local-menu]')) dismissMenu()
+    }
+    document.addEventListener('pointerdown', dismiss)
+    requestAnimationFrame(() => { panelRef.current?.querySelector<HTMLButtonElement>('[data-deepcanary-local-menu] button')?.focus() })
+    return () => document.removeEventListener('pointerdown', dismiss)
+  }, [localMenu])
+  useEffect(() => { if (!state.open) setLocalMenu(undefined) }, [state.open])
   useLayoutEffect(() => {
-    if (state.open) closeRef.current?.focus()
+    if (listRef.current) listRef.current.scrollTop = scrolls.current[tab]
+  }, [tab, state.open])
+  useLayoutEffect(() => {
+    if (state.open) panelRef.current?.focus({ preventScroll: true })
   }, [state.open])
   useEffect(() => {
-    if (!state.open || state.selectedId === undefined) {
-      positionedId.current = undefined
-      return
-    }
-    const focusLost = document.activeElement === document.body
-    if (positionedId.current === state.selectedId && !focusLost) return
-    const elements = panelRef.current?.querySelectorAll<HTMLElement>('[data-deepcanary-item]') ?? []
-    if (positionSelectedAttention(elements, state.selectedId)) {
-      positionedId.current = state.selectedId
-      if (focusLost) [...elements].find(element => element.dataset.deepcanaryItem === state.selectedId)?.focus({ preventScroll: true })
-    }
-  }, [state.open, state.selectedId, state.snapshot, visibleItems, visibleScheduled])
-  useEffect(() => {
-    if (!state.open) return
-    const onKeyDown = (event: globalThis.KeyboardEvent): void => {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        props.controller.close()
-      }
-    }
-    const onPointerDown = (event: globalThis.PointerEvent): void => {
-      const target = event.target
-      if (!(target instanceof Node)) return
-      if (panelRef.current?.contains(target)) return
-      if (target instanceof Element && target.closest('[data-deepcanary-trigger]') !== null) return
-      props.controller.close()
-    }
-    document.addEventListener('keydown', onKeyDown)
-    document.addEventListener('pointerdown', onPointerDown)
-    return () => {
-      document.removeEventListener('keydown', onKeyDown)
-      document.removeEventListener('pointerdown', onPointerDown)
-    }
-  }, [props.controller, state.open])
-  useEffect(() => {
-    if (state.snapshot !== undefined) void notify(state.snapshot, props.t, props.controller)
+    if (state.snapshot) void notify(state.snapshot, props.t, props.controller)
   }, [props.controller, props.t, state.snapshot, state.lastSyncedAt])
+  useEffect(() => {
+    if (!state.selectedId) return
+    const next = groups.pending.some(item => item.id === state.selectedId) ? 'pending'
+      : groups.snoozed.some(item => item.id === state.selectedId) ? 'snoozed'
+      : groups.activity.some(item => item.id === state.selectedId) ? 'activity' : undefined
+    if (next && next !== tab) changeTab(next)
+  }, [state.selectedId])
   if (!state.open) return null
-
-  const snapshot = state.snapshot
-  const statusState = state.failed || state.protocolUnsupported ? 'offline' : state.loading ? 'loading' : 'ready'
-  const statusText = state.failed
-    ? translate(props.t, 'panel.status.offline')
-    : state.protocolUnsupported
-      ? translate(props.t, 'panel.updateRequired')
-    : state.loading
-      ? translate(props.t, 'panel.status.loading')
-      : translate(props.t, 'panel.status.ready')
-  const items = snapshot?.inbox ?? []
-  const scheduled = snapshot?.scheduled ?? []
-  const panelStyle = {
-    '--dsc-width': state.width + 'px',
-    '--dsc-height': state.height + 'px',
-  } as CSSProperties
-  const body: ReactNode[] = []
-  if (snapshot !== undefined) {
-    const policy: ReactNode[] = []
-    const background = snapshot.status.background
-    if (background !== undefined && (background.running > 0 || background.unknown > 0 || background.limited)) {
-      body.push(createElement('p', { className: 'dsc-note', key: 'background' },
-        [background.running > 0 && translate(props.t, 'panel.background', { count: background.running }),
-          background.unknown > 0 && translate(props.t, 'panel.backgroundUnknown', { count: background.unknown }),
-          background.limited && translate(props.t, 'panel.backgroundLimited')].filter(Boolean).join(' · ')))
-    }
-    policy.push(createElement('p', { className: 'dsc-settings-hint', key: 'settings-location' }, translate(props.t, 'panel.settingsLocation')))
-    policy.push(createElement('p', { className: 'dsc-policy-summary', key: 'policy-hint' }, translate(props.t, 'panel.policyHint')))
-    if (snapshot.status.delivery !== undefined) {
-      policy.push(createElement('p', { className: 'dsc-settings-hint', key: 'delivery' }, deliveryText(snapshot, props.t)))
-    }
-    const suppressedReasonCodes = snapshot.settings.suppressedReasonCodes ?? []
-    if (suppressedReasonCodes.length > 0) policy.push(createElement('div', { className: 'dsc-suppressed-summary', key: 'suppressed' },
-      createElement('span', null, translate(props.t, 'panel.suppressed', {
-        types: suppressedReasonCodes.length === 0
-          ? translate(props.t, 'panel.suppressed.none')
-          : suppressedReasonCodes.map(reasonCode => suppressedTypeText(reasonCode, props.t)).join('、'),
-      })),
-      suppressedReasonCodes.length > 0 && createElement('div', { className: 'dsc-suppressed-actions' },
-        ...suppressedReasonCodes.map(reasonCode => actionButton(
-          translate(props.t, 'panel.restore'),
-          () => { void props.controller.action(reasonCode, { action: 'unsuppress', reasonCode }) },
-          state.pending.has(reasonCode),
-        )),
-      ),
-    ))
-    body.push(createElement('details', { className: 'dsc-policy-details', key: 'policy-details' },
-      createElement('summary', null, translate(props.t, 'panel.policyDetails')), ...policy))
-    if (state.protocolUnsupported) body.push(createElement('p', { className: 'dsc-note', key: 'protocol' }, translate(props.t, 'panel.updateRequired')))
-  }
-  if (state.failed && snapshot === undefined) {
-    body.push(createElement('div', { className: 'dsc-note', key: 'failed' },
-      createElement('strong', null, translate(props.t, 'state.failed')),
-      createElement('button', {
-        className: 'dsc-toolbar-button',
-        type: 'button',
-        onClick: () => { void props.controller.refresh() },
-      }, translate(props.t, 'state.retry'))))
-  } else if (state.loading && snapshot === undefined) {
-    body.push(createElement('p', { className: 'dsc-note', key: 'loading' },
-      translate(props.t, 'panel.status.loading')))
-  } else if (items.length === 0) {
-    body.push(createElement('div', { className: 'dsc-note', key: 'empty' },
-      createElement('strong', null, translate(props.t, 'panel.empty')),
-      createElement('span', null, scheduled.length > 0
-        ? translate(props.t, 'panel.emptyScheduled', { count: scheduled.length }) : translate(props.t, 'panel.emptyHint'))))
-  } else {
-    body.push(createElement('h3', { className: 'dsc-group-title', key: 'group' },
-      translate(props.t, 'panel.inbox')))
-    for (const item of items.slice(0, visibleItems)) {
-      body.push(itemCard(item, state, props.t, props.controller, state.selectedId === item.id))
-    }
-    if (items.length > visibleItems) body.push(createElement('button', {
-      key: 'more-items', type: 'button', className: 'dsc-toolbar-button', onClick: () => { setVisibleItems(value => value + 50) },
-    }, translate(props.t, 'panel.moreItems', { count: Math.min(50, items.length - visibleItems) })))
-  }
-  if (scheduled.length > 0) body.push(createElement('details', {
-    className: 'dsc-scheduled', key: 'scheduled', ...(items.length === 0 || scheduledIndex >= 0 ? { open: true } : {}),
-  }, createElement('summary', null, translate(props.t, 'panel.scheduled', { count: scheduled.length })),
-  createElement('p', { className: 'dsc-card-suggestion' }, translate(props.t, 'panel.scheduledHint')),
-  ...scheduled.slice(0, visibleScheduled).map(item => itemCard(item, state, props.t, props.controller, state.selectedId === item.id)),
-  scheduled.length > visibleScheduled ? createElement('button', {
-    type: 'button', className: 'dsc-toolbar-button', onClick: () => { setVisibleScheduled(value => value + 10) },
-  }, translate(props.t, 'panel.moreItems', { count: Math.min(10, scheduled.length - visibleScheduled) })) : null))
-  const notificationSupported = 'Notification' in globalThis
-  const notificationPermission = notificationSupported ? Notification.permission : 'unsupported'
-  const notificationBlocked = notificationPermission === 'denied'
+  const statusState = state.failed || state.protocolUnsupported || snapshot?.status.persistence?.state === 'write-failed' ? 'offline' : state.loading ? 'loading' : 'ready'
+  const statusText = translate(props.t, snapshot?.status.persistence?.state === 'write-failed' ? 'panel.status.writeFailed' : state.protocolUnsupported ? 'panel.updateRequired'
+    : state.failed ? 'panel.status.offline' : state.loading ? 'panel.status.loading' : 'panel.status.ready')
+  const layoutAction = (label: string, action: () => void): ReactNode => createElement('button', {
+    type: 'button', role: 'menuitem', onClick: (event: ReactMouseEvent<HTMLButtonElement>) => {
+      event.currentTarget.closest('details')?.removeAttribute('open'); action(); panelRef.current?.focus()
+    },
+  }, label)
+  const menuProps = (item: ClientItem): Record<string, unknown> => item.sessionId && props.getTriggerProps ? props.getTriggerProps({ kind: 'session', value: {
+      sessionId: item.sessionId as ContextMenuTargetMap['session']['sessionId'], displayTitle: reasonText(item, props.t),
+    } }) : {}
+  const row = (item: ClientItem, index: number): ReactNode => createElement('button', {
+    ...menuProps(item),
+    key: item.id, type: 'button', className: 'dsc-task-row', role: 'option', 'aria-selected': selected?.id === item.id,
+    'data-deepcanary-row': item.id, 'data-level': item.level,
+    onClick: () => { props.controller.select(item.id) },
+    onContextMenu: props.getTriggerProps ? menuProps(item).onContextMenu : (event: ReactMouseEvent<HTMLButtonElement>) => {
+      event.preventDefault(); openLocalMenu(item, event.currentTarget, event.clientX, event.clientY)
+    },
+    onKeyDown: (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+      const menuKeyDown = menuProps(item).onKeyDown
+      if (typeof menuKeyDown === 'function') menuKeyDown(event)
+      if (event.defaultPrevented) return
+      if (!props.getTriggerProps && (event.key === 'ContextMenu' || event.key === 'F10' && event.shiftKey)) {
+        event.preventDefault()
+        const rect = event.currentTarget.getBoundingClientRect()
+        openLocalMenu(item, event.currentTarget, rect.left + 20, rect.top + rect.height)
+        return
+      }
+      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
+      event.preventDefault()
+      const nextIndex = Math.max(0, Math.min(items.length - 1, index + (event.key === 'ArrowDown' ? 1 : -1)))
+      const next = items[nextIndex]
+      if (!next) return
+      if (nextIndex >= visible) setVisible(value => value + 50)
+      props.controller.select(next.id)
+      requestAnimationFrame(() => { listRef.current?.querySelectorAll<HTMLButtonElement>('[data-deepcanary-row]')[nextIndex]?.focus() })
+    },
+  }, createElement('span', { className: 'dsc-row-marker', 'aria-hidden': true }),
+    createElement('span', { className: 'dsc-row-copy' },
+      createElement('span', { className: 'dsc-row-title' }, reasonText(item, props.t)),
+      createElement('span', { className: 'dsc-row-meta' },
+        item.task?.kind === 'subagent' ? translate(props.t, 'window.subagent') : item.task?.kind === 'fork' ? translate(props.t, 'window.fork')
+          : item.task?.kind === 'job' ? translate(props.t, 'window.backgroundJob') : item.task?.runRef ? translate(props.t, 'window.automation')
+          : item.sessionId ? translate(props.t, 'window.session') : 'DeepCanary',
+        item.sessionId && props.controller.sessionTitle(item.sessionId) ? ' · ' + props.controller.sessionTitle(item.sessionId) : '',
+        item.task?.parentTaskRef ? ' · ' + translate(props.t, 'window.linkedToParent') : '',
+        item.status === 'snoozed' && item.snoozedUntil ? ' · ' + formatTime(item.snoozedUntil) : '')),
+    createElement('span', { className: 'dsc-row-time' }, formatTime(item.occurredAt)))
+  const selectedIndex = selected ? items.indexOf(selected) : -1
+  const shown = Math.max(visible, selectedIndex + 1)
+  const notificationSupported = 'Notification' in globalThis && window.isSecureContext
+  const permission = 'Notification' in globalThis ? Notification.permission : 'unsupported'
   return createElement('div', { className: 'dsc-overlay-root', 'data-deepcanary-overlay': true },
     createElement('section', {
-      ref: panelRef,
-      className: 'dsc-panel',
-      style: panelStyle,
-      role: 'dialog',
-      'aria-modal': false,
-      'aria-labelledby': 'dsc-panel-title',
-      'data-deepcanary-panel': true,
-      'data-open': true,
+      ref: panelRef, className: 'dsc-panel dsc-workbench', role: 'dialog', tabIndex: -1, 'aria-modal': false,
+      'aria-labelledby': 'dsc-panel-title', 'data-deepcanary-panel': true, 'data-wide': wide,
+      style: { left: rect.x, top: rect.y, width: rect.width, height: rect.height, '--dsc-list-width': split + 'px' } as CSSProperties,
+      onKeyDown: (event: ReactKeyboardEvent<HTMLElement>) => {
+        if (geometry.onKeyDown(event) || event.defaultPrevented || event.key !== 'Escape') return
+        if (localMenu) { dismissMenu(); event.preventDefault(); event.stopPropagation(); return }
+        const menu = panelRef.current?.querySelector('details[open]')
+        if (menu) { menu.removeAttribute('open'); event.preventDefault(); return }
+        if (settingsOpen) setSettingsOpen(false)
+        else if (!wide && selected) props.controller.select()
+        else props.controller.close()
+        event.preventDefault(); event.stopPropagation()
+      },
     },
-      createElement('header', { className: 'dsc-header' },
-        createElement('span', { className: 'dsc-heading' },
-          createElement('span', { className: 'dsc-title', id: 'dsc-panel-title' },
-            translate(props.t, 'panel.title')),
-          createElement('span', { className: 'dsc-subtitle' },
-            translate(props.t, 'panel.subtitle'))),
-        createElement('span', { className: 'dsc-header-count' }, String(snapshot?.status.openInbox ?? 0)),
-        createElement('button', {
-          ref: closeRef,
-          className: 'dsc-icon-button dsc-close',
-          type: 'button',
-          'data-deepcanary-close': true,
-          'aria-label': translate(props.t, 'panel.close'),
-          title: translate(props.t, 'panel.close'),
-          onClick: () => { props.controller.close() },
-        }, '×')),
-      createElement('div', { className: 'dsc-toolbar' },
-        createElement('span', { className: 'dsc-status', role: 'status', 'aria-live': 'polite', 'aria-atomic': true },
-          createElement('span', { className: 'dsc-status-dot', 'data-state': statusState, 'aria-hidden': true }),
-          statusText,
-           snapshot !== undefined && ' · ' + translate(props.t, 'panel.sessions', { count: snapshot.status.sessions }),
-           state.lastSyncedAt !== undefined && ' · ' + translate(props.t, 'panel.lastSynced', { time: formatTime(state.lastSyncedAt) }),
-           state.notice !== undefined && ' · ' + noticeText(state.notice, props.t)),
-        createElement('button', {
-          className: 'dsc-toolbar-button',
-          type: 'button',
-          disabled: state.loading,
-          'aria-label': translate(props.t, 'panel.refresh'),
-          onClick: () => { void props.controller.refresh() },
-        }, state.loading ? translate(props.t, 'panel.refreshing') : translate(props.t, 'panel.refresh')),
-        createElement('button', {
-          className: 'dsc-toolbar-button',
-          type: 'button',
-          disabled: !notificationSupported || notificationBlocked,
-          onClick: () => {
-            if (notificationSupported) {
-              void Notification.requestPermission().then(() => { void props.controller.refresh() })
-            }
-          },
-        }, !notificationSupported
-          ? translate(props.t, 'panel.notification.unavailable')
-          : notificationBlocked
-            ? translate(props.t, 'panel.notification.denied')
-            : notificationPermission === 'granted'
-            ? translate(props.t, 'panel.notification.enabled')
-            : translate(props.t, 'panel.notification.enable'))),
-      createElement('div', {
-        className: 'dsc-body',
-        role: 'region',
-        'aria-label': translate(props.t, 'panel.bodyLabel'),
-      }, ...body),
-      (() => {
-        const bounds = viewportBounds()
-        return createElement(ResizeHandle, {
-          axis: 'width',
-          value: state.width,
-          min: bounds.minWidth,
-          max: bounds.maxWidth,
-          label: translate(props.t, 'panel.resize.width'),
-          onResize: width => { props.controller.setSize(width, state.height) },
-        })
-      })(),
-      createElement(ResizeHandle, {
-        axis: 'height',
-        value: state.height,
-        min: viewportBounds().minHeight,
-        max: viewportBounds().maxHeight,
-        label: translate(props.t, 'panel.resize.height'),
-        onResize: height => { props.controller.setSize(state.width, height) },
-      }),
-    ),
-  )
+    localMenu && createElement('div', { className: 'dsc-local-context-menu', role: 'menu', 'data-deepcanary-local-menu': true,
+      style: { left: localMenu.x, top: localMenu.y },
+      onKeyDown: (event: ReactKeyboardEvent<HTMLDivElement>) => {
+        if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp' && event.key !== 'Home' && event.key !== 'End') return
+        const buttons = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('button')]
+        const index = buttons.indexOf(document.activeElement as HTMLButtonElement)
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1
+          : (index + (event.key === 'ArrowUp' ? -1 : 1) + buttons.length) % buttons.length
+        buttons[next]?.focus(); event.preventDefault(); event.stopPropagation()
+      } },
+      ...[
+        [translate(props.t, 'automation.open'), () => props.controller.jump(localMenu.id)],
+        [translate(props.t, 'item.snooze'), () => props.controller.action(localMenu.id, { action: 'snooze', minutes: 15 })],
+        [translate(props.t, 'item.acknowledge'), () => props.controller.action(localMenu.id, { action: 'acknowledge' })],
+      ].map(([label, action]) => createElement('button', { type: 'button', role: 'menuitem', key: label as string,
+        onClick: () => { if (items.some(item => item.id === localMenu.id)) void (action as () => unknown)(); dismissMenu() } }, label as string))),
+    createElement('header', { className: 'dsc-header dsc-window-titlebar',
+      onPointerDown: (event: ReactPointerEvent<HTMLElement>) => { geometry.startPointer(event) },
+      onDoubleClick: (event: ReactMouseEvent<HTMLElement>) => {
+        if (event.target instanceof Element && event.target.closest('button,summary,details')) return
+        geometry.mode(geometry.layout.mode === 'maximized' ? 'floating' : 'maximized')
+      } },
+      mark(),
+      createElement('div', { className: 'dsc-heading' },
+        createElement('h2', { className: 'dsc-title', id: 'dsc-panel-title' }, 'DeepCanary'),
+        createElement('span', { className: 'dsc-subtitle' }, translate(props.t, 'window.taskInbox'))),
+      createElement('details', { className: 'dsc-layout-menu' },
+        createElement('summary', { className: 'dsc-window-button', 'aria-label': translate(props.t, 'window.windowLayout') }, translate(props.t, 'window.layout')),
+        createElement('div', { role: 'menu', className: 'dsc-layout-actions' },
+          layoutAction(translate(props.t, 'window.moveWithKeyboard'), () => { geometry.beginKeyboard('move') }),
+          layoutAction(translate(props.t, 'window.resizeWithKeyboard'), () => { geometry.beginKeyboard('resize') }),
+          layoutAction(translate(props.t, 'window.dockLeft'), () => { geometry.mode('left') }),
+          layoutAction(translate(props.t, 'window.dockRight'), () => { geometry.mode('right') }),
+          layoutAction(translate(props.t, 'window.restoreFloating'), () => { geometry.mode('floating') }),
+          layoutAction(translate(props.t, 'window.resetLayout'), geometry.reset))),
+      createElement('button', { className: 'dsc-window-button', type: 'button',
+        onClick: () => { geometry.mode(geometry.layout.mode === 'maximized' ? 'floating' : 'maximized') } },
+        geometry.layout.mode === 'maximized' ? translate(props.t, 'window.restore') : translate(props.t, 'window.expand')),
+      createElement('button', { className: 'dsc-window-button', type: 'button', 'data-deepcanary-close': true,
+        onClick: props.controller.close, 'aria-label': translate(props.t, 'panel.close') }, translate(props.t, 'window.close'))),
+    geometry.editing && createElement('p', { className: 'dsc-keyboard-hint', role: 'status' },
+      translate(props.t, 'window.arrowKeysAdjustShiftForLargerStepsEnterToCommitEscToCancel')),
+    createElement('nav', { className: 'dsc-inbox-tabs', 'aria-label': translate(props.t, 'window.inboxSections') },
+      ...(['pending', 'snoozed', 'activity'] as const).map(value => createElement('button', {
+        key: value, type: 'button', className: 'dsc-inbox-tab', 'aria-current': tab === value && !settingsOpen ? 'page' : undefined,
+        onClick: () => { changeTab(value) },
+      }, value === 'pending' ? translate(props.t, 'window.pending') : value === 'snoozed' ? translate(props.t, 'window.snoozed') : translate(props.t, 'window.activity'),
+        createElement('span', { className: 'dsc-tab-count' }, String(groups[value].length)))),
+      createElement('button', { className: 'dsc-settings-link', type: 'button', 'aria-pressed': settingsOpen,
+        onClick: () => { setSettingsOpen(value => !value) } }, translate(props.t, 'panel.settings'))),
+    settingsOpen ? createElement('div', { className: 'dsc-settings-view' },
+      props.configForm ? createElement(DeepCanarySettingsCard, { t: props.t, configForm: props.configForm })
+        : createElement('p', null, translate(props.t, 'panel.settingsHint')))
+    : createElement('div', { className: 'dsc-workspace', 'data-detail': !!selected },
+      createElement('div', { className: 'dsc-task-list', ref: listRef, role: 'listbox', 'aria-label': translate(props.t, 'panel.bodyLabel'),
+        onScroll: () => { if (listRef.current) scrolls.current[tab] = listRef.current.scrollTop } },
+        snapshot?.retention?.limited && createElement('p', { className: 'dsc-note', role: 'status' }, translate(props.t, 'panel.retentionLimited')),
+        ...runs.slice(0, visible).map(run => createElement('button', { type: 'button', key: run.runRef, className: 'dsc-task-row',
+          'aria-label': translate(props.t, 'automation.open'), disabled: !props.controller.hasHistoricalSession(run.sessionId),
+          onClick: () => { props.controller.openSession(run.sessionId) } },
+          createElement('span', { className: 'dsc-row-copy' }, createElement('span', { className: 'dsc-row-title' }, translate(props.t, 'window.automation')),
+            createElement('span', { className: 'dsc-row-meta' }, translate(props.t, `automation.${run.phase}`))),
+          createElement('time', { className: 'dsc-row-time', dateTime: run.scheduledAt }, formatTime(run.scheduledAt)))),
+        tab === 'activity' && snapshot?.automation?.limited && createElement('p', { className: 'dsc-note', role: 'status' }, translate(props.t, 'automation.limited')),
+        state.loading && !snapshot ? createElement('p', { className: 'dsc-note' }, translate(props.t, 'panel.status.loading'))
+        : state.failed && !snapshot ? createElement('div', { className: 'dsc-note' },
+          createElement('strong', null, translate(props.t, 'state.failed')),
+          actionButton(translate(props.t, 'state.retry'), () => { void props.controller.refresh() }, false))
+        : !items.length && !runs.length ? createElement('div', { className: 'dsc-empty' },
+          createElement('strong', null, tab === 'pending' ? translate(props.t, 'window.nothingNeedsYourAttention')
+            : tab === 'snoozed' ? translate(props.t, 'window.noSnoozedReminders') : translate(props.t, 'window.noActivityYet')),
+          createElement('p', null, tab === 'pending' ? translate(props.t, 'window.updatesThatNeedYouWillAppearHere')
+            : translate(props.t, 'window.theLatestStateOfTheseItemsAppearsHere')))
+        : [...taskGroups.entries()].flatMap(([key, values]) => {
+          const rows = values.filter(item => items.indexOf(item) < shown)
+          if (!rows.length) return []
+          return [createElement('div', { key: 'group-' + key, className: 'dsc-task-group-label', role: 'presentation' },
+            (rows[0]?.sessionId ? props.controller.sessionTitle(rows[0].sessionId) ?? translate(props.t, 'window.session') : 'DeepCanary') + ' · ' + values.length),
+            ...rows.map(item => row(item, items.indexOf(item)))]
+        }),
+        items.length > shown && createElement('button', { type: 'button', className: 'dsc-load-more', onClick: () => { setVisible(value => value + 50) } },
+          translate(props.t, 'panel.moreItems', { count: Math.min(50, items.length - shown) }))),
+      wide && createElement('div', { className: 'dsc-splitter', role: 'separator', tabIndex: 0, 'aria-orientation': 'vertical',
+        'aria-label': translate(props.t, 'window.resizeTaskList'), 'aria-valuemin': 280, 'aria-valuemax': 340, 'aria-valuenow': split,
+        onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => { geometry.startPointer(event, undefined, true) },
+        onKeyDown: (event: ReactKeyboardEvent<HTMLDivElement>) => {
+          if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+            geometry.setSplit(split + (event.key === 'ArrowLeft' ? -1 : 1) * (event.shiftKey ? 20 : 8)); event.preventDefault()
+          }
+        } }),
+      createElement('div', { className: 'dsc-task-detail', key: selected?.id ?? 'none' },
+        selected ? createElement('div', null,
+          !wide && createElement('button', { type: 'button', className: 'dsc-back', onClick: () => { props.controller.select() } }, translate(props.t, 'window.backToList')),
+          itemCard(selected, state, props.t, props.controller, true))
+          : createElement('div', { className: 'dsc-detail-empty' },
+            createElement('strong', null, translate(props.t, 'window.selectAnUpdate')),
+            createElement('p', null, translate(props.t, 'window.reviewItsStateManageTheReminderOrReturnToTheSession'))))),
+    createElement('footer', { className: 'dsc-inbox-footer' },
+      createElement('details', { className: 'dsc-health-menu' },
+        createElement('summary', null, createElement('span', { className: 'dsc-status-dot', 'data-state': statusState }), statusText),
+        createElement('div', { className: 'dsc-health-popup' },
+          createElement('p', null, statusText),
+          state.lastSyncedAt && createElement('p', null, translate(props.t, 'panel.lastSynced', { time: formatTime(state.lastSyncedAt) })),
+          snapshot && createElement('p', null, deliveryText(snapshot, props.t)),
+          createElement('button', { className: 'dsc-toolbar-button', type: 'button', disabled: !notificationSupported || permission === 'denied' || permission === 'granted',
+            onClick: () => { void Notification.requestPermission().then(() => props.controller.refresh()) } },
+            translate(props.t, !notificationSupported ? 'panel.notification.unavailable' : permission === 'denied' ? 'panel.notification.denied'
+              : permission === 'granted' ? 'panel.notification.enabled' : 'panel.notification.enable')))),
+      createElement('span', { className: 'dsc-footer-notice', role: 'status', 'aria-live': 'polite' },
+        state.notice ? noticeText(state.notice, props.t) : snapshot ? translate(props.t, 'panel.sessions', { count: snapshot.status.sessions }) : ''),
+      createElement('button', { type: 'button', className: 'dsc-refresh-link', disabled: state.loading,
+        onClick: () => { if (snapshot?.status.persistence?.state === 'write-failed') void props.controller.action('', { action: 'retry' })
+          else void props.controller.refresh() } }, translate(props.t, 'panel.refresh'))),
+    ...(['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'] as ResizeEdge[]).map(edge => createElement('div', {
+      key: edge, className: 'dsc-resize-edge', 'data-edge': edge, role: 'separator', tabIndex: 0,
+      'aria-label': translate(props.t, 'window.resizeWindow') + ' (' + edge.toUpperCase() + ')',
+      'aria-valuetext': Math.round(rect.width) + ' × ' + Math.round(rect.height),
+      onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => { geometry.startPointer(event, edge) },
+      onKeyDown: (event: ReactKeyboardEvent<HTMLDivElement>) => {
+        if (event.key === 'Enter' || event.key === ' ') { geometry.beginKeyboard('resize'); panelRef.current?.focus(); event.preventDefault() }
+      },
+    }))))
 }
 
 export const inject = ['slots', 'locale', 'configForms', 'sessions']
 
 export function apply(ctx: ClientContext): void {
   const controller = createController(ctx)
+  const configForm = ctx.configForms.get<ClientSettings>(SETTINGS_NS)
   ctx.effect(() => injectStyles(), 'deepcanary: client styles')
   ctx.effect(() => {
     controller.start()
@@ -2202,15 +2376,43 @@ export function apply(ctx: ClientContext): void {
     name: 'shell.overlay',
     id: 'deepcanary-overlay',
     locale: NS,
-    inject: () => ({ controller }),
-  }, DeepCanaryOverlay))
+    inject: () => ({ controller, configForm }),
+  }, OverlayEntry))
 
-  const configForm = ctx.configForms.get<ClientSettings>(SETTINGS_NS)
-  ctx.effect(() => ctx.configForms.whileServed([SETTINGS_NS], () => ctx.slots.inject('settings.plugins.tab', () => ctx.slots.register({
-      name: 'settings.plugins.tab',
+  ctx.effect(() => ctx.configForms.whileServed([SETTINGS_NS], () => ctx.slots.inject('settings.section', () => ctx.slots.register({
+      name: 'settings.section',
       id: SETTINGS_NS,
       label: () => 'DeepCanary',
       locale: NS,
       inject: () => ({ configForm }),
     }, DeepCanarySettingsCard)) as () => void))
+
+  ctx.slots.inject('settings.section.icon', () => ctx.slots.register({ name: 'settings.section.icon', id: SETTINGS_NS }, mark))
+
+  let modernMenu = false
+  ctx.inject?.(['contextMenus'], scoped => {
+    modernMenu = true
+    scoped.effect(() => scoped.contextMenus!.register({
+      id: 'deepcanary.session', target: 'session', order: 60,
+      resolve: (target, signal) => signal.aborted ? [] : [{
+        id: 'open-inbox', label: fallbackTranslator(chineseLocale())('trigger.open'),
+        run: () => {
+          if (signal.aborted) return
+          const snapshot = controller.getState().snapshot
+          const item = [...(snapshot?.inbox ?? []), ...(snapshot?.scheduled ?? []), ...(snapshot?.activity ?? [])]
+            .find(item => item.sessionId === target.sessionId)
+          controller.open(item?.id)
+        },
+      }],
+    }), 'deepcanary: unified session menu')
+    scoped.effect(() => () => { modernMenu = false }, 'deepcanary: menu lifetime')
+  })
+  ctx.slots.inject('sidebar.workspaces.session.menu.item', () => ctx.slots.register({
+    name: 'sidebar.workspaces.session.menu.item', id: 'deepcanary-inbox', locale: NS,
+  }, (owner: { sessionId?: string; t: Translate }) => modernMenu ? null : createElement('button', {
+    type: 'button', className: 'dsc-menu-action', onClick: () => {
+      const item = controller.getState().snapshot?.inbox.find(item => item.sessionId === owner.sessionId)
+      controller.open(item?.id)
+    },
+  }, translate(owner.t, 'trigger.open'))))
 }

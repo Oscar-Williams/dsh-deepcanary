@@ -2,7 +2,7 @@
 
 ## Scope
 
-0.1.6-rc.4 development uses published DSH `0.2.1-rc.2` for WebUI and official Windows Desktop, release tag commit `687f282e8625c6b8d11ff58211a90524be2e4317`, with Cordis 4.0.5 and Schemastery 3.18.5. Record actual artifact/build identity separately from the tag. Select the actual installation with `DSH_RUNTIME`; use `typecheck:host`, `adapter:host`, `background:host`, `reminders:host`, `settings:host` and `connection:host`. Frozen-candidate verification installs the same package on both hosts and records each actual Host's behavior. Publication and remote CI require explicit user authorization.
+0.1.8 development uses DSH `0.2.2-alpha.3` (05b1cae8db6e674c5685101494d4eec24652424a) and fully supports `0.2.1-rc.5` (b830ec950faba0a46dda564be3e2d854afed94f1), on WebUI and Windows Desktop. Record actual Desktop build identity separately from the tag. Use `DSH_RUNTIME` for targeted Host contracts and `verify:candidate` for one aggregate verification against both actual installations. Install the same frozen tgz on all four combinations. Publication and remote CI require a later explicit user instruction.
 
 dsh-deepcanary is a standalone DeepSeek Harness external bundle. Keep its DSH package conventions separate from Codex plugin manifests: this repository intentionally does not add .codex-plugin/plugin.json.
 
@@ -10,7 +10,7 @@ The implementation must preserve these boundaries:
 
 - DSH runtime facts belong in providers; attention interpretation belongs in the deterministic core.
 - A provider may summarize facts, but it must not copy prompts, model output, tool arguments, credentials, or transcript content into local state.
-- C3 requires authoritative Host or Runtime evidence.
+- C3 requires current authoritative blocking human-interaction evidence. Connection loss, counts and tool failures cannot independently produce C3.
 - Background observation reads only public owner/lifecycle/count metadata. Labels, progress text, output and terminal detail remain with DSH. The Job Registry subscription declares both jobs and sessions dependencies.
 - User actions are limited to local metadata and navigation hints. Never add an automatic terminate, restart, approval, rejection, shell, or destructive tool.
 - Scheduled follow-up preserves the existing verdict and evidence. Persist generation-scoped claims before authorizing construction; retain current authority checks, bounded retries and default-mode runtime metadata in the existing Inbox file.

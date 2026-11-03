@@ -4,7 +4,7 @@ Bug reports, focused pull requests, and translations are welcome. For a substant
 
 ## Development
 
-Use Node.js `22.19+` within the 22.x line, or `24+`, matching DSH's supported range. Development dependencies and official Windows Desktop use released DSH `0.2.1-rc.2`.
+Use Node 24.9+ for DSH 0.2.2-alpha.3 development. RC5 compatibility also runs on Node 22.19+. Development dependencies follow alpha.3; the same plugin package supports RC5 Web and official Desktop.
 
 ```sh
 npm ci

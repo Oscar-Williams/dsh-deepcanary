@@ -8,6 +8,7 @@ import { loadRuntime } from './runtime-checkout.mjs'
 const runtime = await loadRuntime(process.env.DSH_RUNTIME)
 const { Context } = await runtime.importPackage('@deepseek-ai/cordis')
 const { SessionStore } = await runtime.importPackage('@deepseek-ai/dsh-session')
+const { SessionProjectionRegistry } = await runtime.importPackage('@deepseek-ai/dsh-session-projection')
 const { AgentRegistry } = await runtime.importPackage('@deepseek-ai/dsh-agent')
 const { LocalJobRegistry } = await runtime.importPackage('@deepseek-ai/dsh-jobs-local')
 const { DeepCanaryService } = await import('../lib/service.js')
@@ -28,6 +29,7 @@ async function check(name, predicate) {
 }
 try {
   fibers.push(await ctx.plugin(SessionStore))
+  fibers.push(await ctx.plugin(SessionProjectionRegistry))
   fibers.push(await ctx.plugin(AgentRegistry))
   fibers.push(await ctx.plugin(LocalJobRegistry))
   const session = ctx.sessions.prepare('contract-background-owner')
@@ -58,8 +60,8 @@ try {
   session.append('turn/start', { turn: 2 })
   session.append('turn/end', { turn: 2, reason: { kind: 'error' } })
   await delay(30)
-  assert.equal(service.inbox(30).filter(item => item.reasonCode === 'TASK_FAILED').length, 1)
-  checks.relatedForegroundFailureSharesInterrupt = true
+  assert.equal(service.inbox(30).filter(item => item.reasonCode === 'TASK_FAILED').length, 2)
+  checks.foregroundFailureRetainsOwnExecution = true
   const awaited = start()
   const waiting = ctx.jobs.wait(awaited.id, 1_000, session.id)
   awaited.resolve({ status: 'completed' })

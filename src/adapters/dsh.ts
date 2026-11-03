@@ -1,5 +1,5 @@
 import type { Context } from '@deepseek-ai/cordis'
-import { isMeaningfulSessionEvent, recordToolResult, toolCallIdOf, toolClassForName, toolClassForActiveTools } from '../providers.js'
+import { humanActionRef, isMeaningfulSessionEvent, recordToolResult, toolCallIdOf, toolClassForName, toolClassForActiveTools } from '../providers.js'
 import type { SessionEventLike, SessionLike, ToolClass, ToolFailureState, TurnState } from '../providers.js'
 import type { ReconciliationStatus } from '../types.js'
 import { readUserQuestionFacts } from './user-questions.js'
@@ -22,6 +22,8 @@ export interface SessionSnapshot {
   active: boolean
   cwd?: string
   startedAt: number
+  executionStartSeq?: number
+  currentTurn?: number
   lastEventAt: number
   /** Last event boundary that proves meaningful task progress. */
   lastMeaningfulAt?: number
@@ -36,6 +38,7 @@ export interface SessionSnapshot {
   toolClass?: ToolClass
   humanNeededReason?: 'approval' | 'question'
   humanNeededSeq?: number
+  humanWaits?: Array<{ humanActionRef: string; reason: 'approval' | 'question'; seq?: number; time: number }>
   /** Watermark-checked public timed-question projection, metadata only. */
   userQuestions?: UserQuestionFacts
   toolFailures?: number
@@ -306,7 +309,7 @@ export class ContextDshAdapter implements DshAdapter {
         listedSessions: 0,
         bufferedEvents: buffered.length,
         skippedBufferedEvents,
-        detail: error instanceof Error ? error.message : 'Authoritative session reconciliation failed.',
+        detail: 'Authoritative session reconciliation failed; inspect the Host diagnostics.',
       }
       this.reconciliationStatus = status
       return { ...status }
@@ -390,10 +393,14 @@ function snapshotFromSession(value: unknown, active: boolean): SessionSnapshot |
   if (id === undefined) return undefined
   const session = isRecord(value) ? value : {}
   const header = isRecord(session.header) ? session.header : {}
-  const events = sessionEvents(value)
+  const allEvents = sessionEvents(value)
+  const inherited = header.isSeeded === true ? safeInteger(session.inheritedEventCount) ?? 0 : 0
+  const events = allEvents?.slice(inherited)
   const now = Date.now()
   const createdAt = numberValue(header.createdAt) ?? now
   let startedAt = createdAt
+  let executionStartSeq: number | undefined
+  let currentTurn: number | undefined
   let lastEventAt = createdAt
   let lastMeaningfulAt: number | undefined
   let lastEventSeq: number | undefined
@@ -402,6 +409,7 @@ function snapshotFromSession(value: unknown, active: boolean): SessionSnapshot |
   let waitingForHuman = false
   let humanNeededReason: SessionSnapshot['humanNeededReason']
   let humanNeededSeq: number | undefined
+  const humanWaits = new Map<string, NonNullable<SessionSnapshot['humanWaits']>[number]>()
   const failures: ToolFailureState = { toolFailures: 0, sameToolFailures: 0 }
   let contextCompactions = 0
   let lastToolName: string | undefined
@@ -416,6 +424,8 @@ function snapshotFromSession(value: unknown, active: boolean): SessionSnapshot |
     if (seq !== undefined) lastEventSeq = seq
     if (event.ignorable === true || type === undefined) continue
     const data = isRecord(event.data) ? event.data : {}
+    const eventTurn = safeInteger(data.turn)
+    if (currentTurn !== undefined && eventTurn !== undefined && eventTurn < currentTurn) continue
     if (time !== undefined && isMeaningfulSessionEvent(type, data)) lastMeaningfulAt = time
     if (type === 'turn/start') {
       running = true
@@ -423,6 +433,9 @@ function snapshotFromSession(value: unknown, active: boolean): SessionSnapshot |
       waitingForHuman = false
       humanNeededReason = undefined
       humanNeededSeq = undefined
+      humanWaits.clear()
+      executionStartSeq = seq
+      currentTurn = eventTurn
       startedAt = time ?? startedAt
       failures.toolFailures = 0
       failures.sameToolFailures = 0
@@ -450,11 +463,18 @@ function snapshotFromSession(value: unknown, active: boolean): SessionSnapshot |
       waitingForHuman = true
       humanNeededReason = /ask[-_ ]?user|question|clarif/i.test(`${type} ${observedToolName ?? ''} ${String(data.kind ?? '')}`) ? 'question' : 'approval'
       humanNeededSeq = seq
+      const ref = humanActionRef(id, humanNeededReason === 'question' ? 'HUMAN_QUESTION_PENDING' : 'HUMAN_APPROVAL_REQUIRED', data, seq)
+      humanWaits.set(ref, { humanActionRef: ref, reason: humanNeededReason, ...(seq === undefined ? {} : { seq }), time: time ?? createdAt })
     }
     if (humanResolved) {
-      waitingForHuman = false
-      humanNeededReason = undefined
-      humanNeededSeq = undefined
+      const reason = type === 'approval/decided' ? 'HUMAN_APPROVAL_REQUIRED' : 'HUMAN_QUESTION_PENDING'
+      humanWaits.delete(humanActionRef(id, reason, data))
+      // An explicit session-wide boundary is distinct from one call settling.
+      if (callId === undefined && data.id === undefined && (data.humanNeeded === false || data.requiresApproval === false)) humanWaits.clear()
+      const remaining = [...humanWaits.values()].at(-1)
+      waitingForHuman = remaining !== undefined
+      humanNeededReason = remaining?.reason
+      humanNeededSeq = remaining?.seq
     }
     if (type === 'tool/call') {
       if (callId === undefined || !activeTools.has(callId)) activeToolCount += 1
@@ -478,22 +498,26 @@ function snapshotFromSession(value: unknown, active: boolean): SessionSnapshot |
       waitingForHuman = false
       humanNeededReason = undefined
       humanNeededSeq = undefined
+      humanWaits.clear()
     }
   }
   const cwd = typeof header.cwd === 'string' && header.cwd.length > 0 ? header.cwd : undefined
-  const eventCount = events?.length
+  const eventCount = allEvents?.length
   return {
     sessionId: id,
     active,
     ...(cwd === undefined ? {} : { cwd }),
     startedAt,
+    ...(executionStartSeq === undefined ? {} : { executionStartSeq }),
+    ...(currentTurn === undefined ? {} : { currentTurn }),
     lastEventAt,
     ...(lastMeaningfulAt === undefined ? {} : { lastMeaningfulAt }),
-    ...(lastEventSeq === undefined ? {} : { lastEventSeq }),
+    ...(lastEventSeq === undefined && allEvents?.length ? { lastEventSeq: allEvents.length - 1 } : lastEventSeq === undefined ? {} : { lastEventSeq }),
     ...(eventCount === undefined ? {} : { eventCount }),
     running,
     turnState,
     waitingForHuman,
+    humanWaits: [...humanWaits.values()],
     activeToolCount,
     toolClass,
     ...(humanNeededReason === undefined ? {} : { humanNeededReason }),
@@ -526,13 +550,14 @@ function applyEventToSnapshot(snapshots: Map<string, SessionSnapshot>, event: De
   if (snapshot !== undefined && event.type === 'session/event' && isRecord(event.event)) {
     const occurredAt = numberValue(event.event.time)
     const seq = safeInteger(event.event.seq)
-    if (occurredAt !== undefined) snapshot.lastEventAt = occurredAt
-    if (occurredAt !== undefined && isMeaningfulSessionEvent(
+    const currentEvent = seq === undefined || snapshot.lastEventSeq === undefined || seq >= snapshot.lastEventSeq
+    if (occurredAt !== undefined && currentEvent) snapshot.lastEventAt = occurredAt
+    if (occurredAt !== undefined && currentEvent && isMeaningfulSessionEvent(
       typeof event.event.type === 'string' ? event.event.type : '',
       isRecord(event.event.data) ? event.event.data : {},
     )) snapshot.lastMeaningfulAt = occurredAt
     if (seq !== undefined) {
-      snapshot.lastEventSeq = seq
+      snapshot.lastEventSeq = Math.max(snapshot.lastEventSeq ?? -1, seq)
       if (snapshot.eventCount !== undefined) snapshot.eventCount = Math.max(snapshot.eventCount, seq + 1)
     }
   }

@@ -1,62 +1,33 @@
-# Development and verification
+# Development
 
-## Current lane
+Use the repository's package lock and Node 24.9+ for alpha.3 development. RC5 compatibility also has a Node 22.19+ check. Keep Host runtimes, fixed upstream sources, test homes, private logs and published artifacts in their designated workspaces.
 
-DeepCanary 0.1.6-rc.4 uses released DSH 0.2.1-rc.2 on WebUI and official Windows Desktop. Direct development packages are pinned, with the npm lockfile owning the toolchain. Use Node 22.19+ in the 22.x line or Node 24+. DSH checkouts use their own pinned pnpm workflow.
+The current pinned upstream references are alpha.3 05b1cae8db6e674c5685101494d4eec24652424a and RC5 b830ec950faba0a46dda564be3e2d854afed94f1. Actual Desktop build identity is recorded independently.
 
 ```sh
 npm ci
-npm run verify:environment
-npm run typecheck
-npm run typecheck:tests
-npm test
+npm exec -- vitest run test/execution-boundaries.spec.ts
 npm run build
-npm run verify:distribution
-npm run pack:check
 ```
 
-The repository tracks `lib/` so DSH can consume a Git tag directly. Every source change needs a matching build; CI compares generated output with committed bytes.
+During implementation, run only the test or script affected by the edit. Tracked lib must match source. Repair failures at their cause and run the affected regression before continuing.
 
-Set `DSH_RUNTIME` to the selected published runtime installation (a directory with `node_modules/@deepseek-ai/dsh`) or the existing built Desktop source checkout, then run:
+After features are complete, stage intended new implementation files so the input digest includes them, then run one aggregate verification:
 
 ```sh
-npm run typecheck:host
-npm run adapter:host
-npm run background:host
-npm run reminders:host
-npm run settings:host
-npm run connection:host
+npm run verify:candidate -- --alpha-runtime /absolute/alpha3-runtime --rc5-runtime /absolute/rc5-runtime
 ```
 
-The Session contract exercises question timeout, accepted replies, parallel long tools and public failure metadata. The background contract uses released Session, Agent and Local Job registries with a controlled owner carrier to exercise healthy silence, waiter semantics, exact ownership and missed-outcome recovery. Settings checks use public revision-aware forms. Connection checks use the actual Host transport with ephemeral test authentication: 401/403 admission, authorized version, legacy-route removal, malformed and chunked request limits, path privacy and scoped registration disposal.
+It runs application and test types, the complete test suite, one build, policy replay and both actual Host contract lanes. Unchanged successful gates are reused by input and runtime identity; a changed input invalidates the relevant evidence.
 
-## Device work
-
-The reminder contract uses released Session and question projections with a controlled deadline clock. It checks scheduled ownership, C3 revalidation, stale-generation rejection, renderer arbitration, default-mode restart continuity and answer closure. These controlled cases supply regression evidence for the new capability.
-
-Use independent homes/profile state and candidate ports. Preserve an existing service and active work. WebUI development can attach Playwright to the user's existing Edge; Desktop targeted common-code checks use the official application. Current package bytes, actual loaded module and source identity must agree after a restart. Separate installation-file comparison from runtime observation.
-
-Follow [feedback calibration](feedback-calibration.md) for necessary sequential development tasks. Record natural, controlled, replay and unknown cohorts according to their facts. Repeated controlled runs add regression coverage within their own scope. Keep private raw artifacts local.
-
-## Freeze and publish
-
-Commit the reviewed source and generated output first. With a clean tracked snapshot, freeze once:
+After committing reviewed source, documentation and synchronized lib:
 
 ```sh
-node scripts/freeze-local-candidate.mjs 0.1.6-rc.4
-node scripts/verify-installed-candidate.mjs output/releases/0.1.6-rc.4/local-candidate.json <isolated-home> web <local-receipt.json>
+node scripts/freeze-local-candidate.mjs 0.1.8-rc.1
 ```
 
-The freezer binds the committed source and refuses an existing artifact. Installation verification checks the manifest, archive identity and every installed file. Repeat for the separate Desktop profile and observe actual loading.
+The freeze performs package preparation, Git/public-content scans, package whitelist checks and hash calculation once. It creates output/releases/0.1.8-rc.1/dsh-deepcanary-0.1.8-rc.1.tgz and local-candidate.json. Never replace these bytes. A later fix increments the RC.
 
-Scan the staged snapshot, every pending push commit and the actual archive. The scanner reports locations and categories without matched values:
+Install that exact tgz through each actual Host. verify-installed-candidate.mjs compares the installed package to the frozen file manifest; behavioral acceptance still requires the real application. Record actual loaded versions and distinguish source-built unsigned Desktop from official signed Desktop.
 
-```sh
-node scripts/scan-publication.mjs staged
-node scripts/scan-publication.mjs commits origin/main..HEAD
-node scripts/scan-publication.mjs package <frozen-package.tgz>
-```
-
-[Release checklist](release-checklist.md) governs CI, immutable prerelease assets, npm byte verification and dist-tags. Publishing requires explicit authorization. Historical alpha.5/alpha.13 scripts reproduce their named artifacts and retain those historical identities.
-
-`gate:stable` reports evidence sufficiency and does not publish or automatically adopt policy. Windows-only development, native notification coverage and experimental Supervisor remain separately bounded.
+The acceptance matrix is alpha.3/RC5 × Web/Desktop, with separate homes and profiles. Daily data is upgraded only after this matrix passes and after its configuration/state backup. A local commit or freeze does not authorize GitHub push, remote CI, Release or npm publication.

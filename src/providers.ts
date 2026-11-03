@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import type { ReasonCode, CanarySignal, EvidenceRef } from './types.js'
+import type { ReasonCode, CanarySignal, EvidenceRef, TaskContext } from './types.js'
 
 export interface SessionFacts {
   toolFailures: number
@@ -8,6 +8,7 @@ export interface SessionFacts {
   /** Last boundary that proves the task made meaningful progress. */
   lastMeaningfulAt?: number
   startedAt: number
+  executionStartSeq?: number
   /** Number of tools that have been called without a matching result. */
   activeToolCount?: number
   /** The class of the currently active/most recent tool, without its arguments. */
@@ -54,7 +55,7 @@ export function recordToolResult(state: ToolFailureState, data: Record<string, u
 
 export interface SessionLike {
   id: string
-  header?: { cwd?: string; parentSession?: string }
+  header?: { cwd?: string; parentSession?: string; origin?: 'subagent'; isSeeded?: boolean; createdAt?: number }
 }
 
 export interface SessionEventLike {
@@ -139,6 +140,19 @@ function signal(
   bundleKey?: string,
 ): CanarySignal {
   const sessionId = session?.id
+  const task: TaskContext | undefined = sessionId === undefined ? undefined : {
+    taskRef: metadataRef(`session:${sessionId}`),
+    executionGeneration: metadataRef(`execution:${sessionId}:${facts?.executionStartSeq ?? facts?.startedAt ?? session?.header?.createdAt ?? 0}`),
+    kind: session?.header?.origin === 'subagent' ? 'subagent' : session?.header?.isSeeded ? 'fork' : 'session',
+    ...(session?.header?.origin === 'subagent' && session.header.parentSession !== undefined
+      ? { parentTaskRef: metadataRef(`session:${session.header.parentSession}`) } : {}),
+    ...(event?.seq === undefined ? {} : { sourceSeq: event.seq }),
+  }
+  const human = kind === 'HUMAN_QUESTION_PENDING' || kind === 'HUMAN_APPROVAL_REQUIRED'
+  if (human && task !== undefined) {
+    task.humanActionRef = humanActionRef(sessionId!, kind, event?.data ?? {}, event?.seq)
+    bundleKey = `${sessionId}:human:${task.humanActionRef}`
+  }
   const eventRef = event?.type ? `${event.type}:${event.seq ?? 'na'}` : kind
   const id = `${kind.toLowerCase()}-${shortHash(`${sessionId ?? 'host'}:${eventRef}:${event?.time ?? Date.now()}`)}`
   return {
@@ -151,8 +165,9 @@ function signal(
     ...(session?.header?.cwd ? { workspaceId: shortHash(session.header.cwd) } : {}),
     ...(severityHint !== undefined ? { severityHint } : {}),
     evidence: [item],
-    dedupeKey: `${kind}:${sessionId ?? 'host'}:${event?.type ?? 'probe'}:${String(data.toolName ?? '')}${(kind === 'HUMAN_QUESTION_PENDING' || kind === 'HUMAN_APPROVAL_REQUIRED') && event?.seq !== undefined ? `:${event.seq}` : ''}`,
+    dedupeKey: `${kind}:${sessionId ?? 'host'}:${task?.executionGeneration ?? 'host'}:${event?.type ?? 'probe'}:${String(data.toolName ?? '')}${(kind === 'HUMAN_QUESTION_PENDING' || kind === 'HUMAN_APPROVAL_REQUIRED') && event?.seq !== undefined ? `:${event.seq}` : ''}`,
     ...(bundleKey ? { bundleKey } : {}),
+    ...(task === undefined ? {} : { task }),
     data: {
       ...data,
       ...(facts ? {
@@ -200,7 +215,7 @@ export function signalsFromSessionEvent(session: SessionLike, event: SessionEven
           { ...visibilityData, backgroundJobs: facts.backgroundJobs ?? 0 }, 1)
         // Keep the child-derived identity for dedupe, but collect ordinary
         // short-lived child results at their parent's navigation target.
-        const parentId = session.header?.parentSession
+        const parentId = session.header?.origin === 'subagent' ? session.header.parentSession : undefined
         result.push(parentId === undefined ? completion : {
           ...completion,
           sessionId: parentId,
@@ -259,6 +274,16 @@ export function signalsFromSessionEvent(session: SessionLike, event: SessionEven
   return result
 }
 
+function metadataRef(value: string): string {
+  return createHash('sha256').update(value).digest('hex').slice(0, 16)
+}
+
+export function humanActionRef(sessionId: string, kind: ReasonCode, data: Record<string, unknown>, seq?: number): string {
+  const identity = kind === 'HUMAN_APPROVAL_REQUIRED' && typeof data.id === 'string' ? data.id
+    : toolCallIdOf(data) ?? data.requestId ?? seq ?? 'snapshot'
+  return metadataRef(`${sessionId}:${kind}:${identity}`)
+}
+
 /**
  * Recreate a Human Needed observation from an authoritative startup snapshot.
  * The event sequence remains an opaque evidence join key; no event payload is
@@ -269,20 +294,27 @@ export function signalFromAuthoritativeHumanWait(
   reason: 'approval' | 'question',
   eventSeq?: number,
   occurredAt = Date.now(),
+  identity?: { humanActionRef: string; executionStartSeq?: number },
 ): CanarySignal {
   const kind: ReasonCode = reason === 'approval' ? 'HUMAN_APPROVAL_REQUIRED' : 'HUMAN_QUESTION_PENDING'
   const eventRef = `authoritative-human-wait:${eventSeq ?? 'snapshot'}`
-  return signal(
+  const result = signal(
     'session',
     kind,
     session,
     { type: eventRef, ...(eventSeq === undefined ? {} : { seq: eventSeq }), time: occurredAt },
-    undefined,
+    identity?.executionStartSeq === undefined ? undefined : { toolFailures: 0, activeSubagents: 0,
+      startedAt: occurredAt, lastEventAt: occurredAt, executionStartSeq: identity.executionStartSeq },
     evidence('session-event', 'runtime', eventRef, 'DSH authoritative session history reports an unresolved human interaction boundary.'),
     {},
     3,
     `${session.id}:human-needed`,
   )
+  if (identity && result.task) {
+    result.task.humanActionRef = identity.humanActionRef
+    result.bundleKey = `${session.id}:human:${identity.humanActionRef}`
+  }
+  return result
 }
 
 export function signalFromAgentError(payload: { agent?: { id?: string }; turn?: number; step?: number }): CanarySignal {

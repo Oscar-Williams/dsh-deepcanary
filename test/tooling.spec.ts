@@ -141,9 +141,12 @@ describe('locked dependency environment', () => {
     const root = await fixture()
     const changed = { ...manifest, devDependencies: { '@deepseek-ai/dsh-session': '0.1.3-alpha.1' } }
     await put(root, 'package.json', JSON.stringify(changed))
-    await put(root, 'package-lock.json', JSON.stringify({ name: changed.name, version: changed.version, packages: { '': changed, 'node_modules/@deepseek-ai/dsh-session': { version: '0.1.3-alpha.1' } } }))
+    const lock = JSON.parse(await readFile(path.join(root, 'package-lock.json'), 'utf8'))
+    lock.packages[''] = changed
+    lock.packages['node_modules/@deepseek-ai/dsh-session'] = { version: '0.1.3-alpha.1' }
+    await put(root, 'package-lock.json', JSON.stringify(lock))
     await put(root, 'node_modules/@deepseek-ai/dsh-session/package.json', JSON.stringify({ version: '0.1.3-alpha.1' }))
-    await expect(invoke(root, 'verify-environment.mjs', 'await subject.verifyEnvironment(process.cwd())')).rejects.toThrow('DSH 0.2.1-rc.2 development runtime')
+    await expect(invoke(root, 'verify-environment.mjs', 'await subject.verifyEnvironment(process.cwd())')).rejects.toThrow('DSH 0.2.2-alpha.3 development runtime')
   })
 
   it.each(['22.18.0', '23.1.0'])('rejects unsupported DSH development Node %s', async version => {
