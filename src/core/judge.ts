@@ -37,6 +37,9 @@ function levelFor(signal: CanarySignal): { level: AttentionLevel; matchedRules: 
   } else if (signal.kind === 'HUMAN_QUESTION_PENDING' && authoritative && signal.severityHint === 3) {
     matchedRules.push('human.question-blocking-c3')
     level = 'C3'
+  } else if (signal.kind === 'TASK_ABORTED' && authoritative && signal.data.userCancelled === true) {
+    matchedRules.push('task.user-cancelled-c1')
+    level = 'C1'
   } else if (signal.data.userViewing === true && signal.severityHint !== 0) {
     matchedRules.push('context.user-viewing-downgrade')
     level = 'C1'
@@ -137,7 +140,8 @@ function authoritySummary(signal: CanarySignal): PolicyDecisionTrace['authorityS
 export function judgeSignal(signal: CanarySignal): AttentionVerdict {
   const classification = levelFor(signal)
   const level = classification.level
-  const suggestedAction = suggestionFor(signal.kind)
+  const userCancelled = classification.matchedRules.includes('task.user-cancelled-c1')
+  const suggestedAction = userCancelled ? undefined : suggestionFor(signal.kind)
   const messageParams = messageParamsFor(signal)
   const why = signal.data.backgroundJob === true ? signal.evidence[0]?.summary ?? 'DSH reported a background task outcome.'
     : signal.kind === 'TASK_COMPLETED'
@@ -167,7 +171,8 @@ export function judgeSignal(signal: CanarySignal): AttentionVerdict {
     action,
     confidence: confidenceFor(signal, level),
     reasonCode: signal.kind,
-    messageKey: signal.data.backgroundJob === true && (signal.kind === 'TASK_COMPLETED' || signal.kind === 'TASK_FAILED')
+    messageKey: userCancelled ? 'item.reason.TASK_CANCELLED_BY_USER'
+      : signal.data.backgroundJob === true && (signal.kind === 'TASK_COMPLETED' || signal.kind === 'TASK_FAILED')
       ? `item.reason.BACKGROUND_${signal.kind}${signal.data.catchup === true ? '_CATCHUP' : ''}`
       : signal.kind === 'TASK_COMPLETED' && typeof signal.data.backgroundJobs === 'number' && signal.data.backgroundJobs > 0
       ? 'item.reason.TURN_COMPLETED_BACKGROUND'

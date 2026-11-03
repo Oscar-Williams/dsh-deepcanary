@@ -23,10 +23,10 @@ It runs application and test types, the complete test suite, one build, policy r
 After committing reviewed source, documentation and synchronized lib:
 
 ```sh
-node scripts/freeze-local-candidate.mjs 0.1.8-rc.1
+node scripts/freeze-local-candidate.mjs 0.1.8-rc.2
 ```
 
-The freeze performs package preparation, Git/public-content scans, package whitelist checks and hash calculation once. It creates output/releases/0.1.8-rc.1/dsh-deepcanary-0.1.8-rc.1.tgz and local-candidate.json. Never replace these bytes. A later fix increments the RC.
+The freeze performs package preparation, Git/public-content scans, package whitelist checks and hash calculation once. It creates output/releases/0.1.8-rc.2/dsh-deepcanary-0.1.8-rc.2.tgz and local-candidate.json. Never replace these bytes. A later fix increments the RC.
 
 Install that exact tgz through each actual Host. verify-installed-candidate.mjs compares the installed package to the frozen file manifest; behavioral acceptance still requires the real application. Record actual loaded versions and distinguish source-built unsigned Desktop from official signed Desktop.
 

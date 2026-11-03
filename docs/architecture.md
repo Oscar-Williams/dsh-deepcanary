@@ -12,6 +12,8 @@ An automation receipt identifies a schedule occurrence, target Session and deliv
 
 Timed questions use the Host's userQuestions projection. Open is blocking C3; continued is C1; an accepted answer closes that call. Enqueued input does not count as accepted execution. Host task state, reminder handling and delivery state remain separate.
 
+An explicit `turn/end` outcome with `reason.kind = aborted` and nested `reason.kind = user` is quiet C1 Activity. Unknown aborts remain C2. An error code named ABORTED does not establish user cancellation.
+
 ## Persistence and actions
 
 MetadataStore writes schema 2 atomically and migrates schema 1 without replacing the reminder state machine. It preserves schedules, notification generations, dedupe, budgets and claims. Invalid JSON or unsupported data remains untouched and prevents silent activation with an empty ledger.

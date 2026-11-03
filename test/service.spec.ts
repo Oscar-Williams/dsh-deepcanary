@@ -28,6 +28,24 @@ afterEach(async () => {
 })
 
 describe('DeepCanaryService', () => {
+  it('retains user cancellation in Activity across restart without authorizing a notification', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'deepcanary-user-cancel-'))
+    const service = new DeepCanaryService({ logger: {} } as never, { stateDir: directory })
+    services.push(service)
+    try {
+      await service.ready
+      const stopped = await service.ingest({ ...testSignal(), id: 'user-cancel', kind: 'TASK_ABORTED', data: { userCancelled: true } })
+      expect(service.snapshot().inbox).toEqual([])
+      expect(service.snapshot().activity).toMatchObject([{ id: stopped?.id, level: 'C1', taskState: 'aborted', notificationEligible: false }])
+      await service.dispose()
+      const restored = new DeepCanaryService({ logger: {} } as never, { stateDir: directory })
+      services.push(restored)
+      await restored.ready
+      expect(restored.snapshot().inbox).toEqual([])
+      expect(restored.snapshot().activity).toMatchObject([{ id: stopped?.id, level: 'C1', taskState: 'aborted', notificationEligible: false }])
+      await restored.dispose()
+    } finally { await service.dispose(); await rm(directory, { recursive: true, force: true }) }
+  })
   it.each([
     { reason: 'interrupted', taskState: 'aborted' },
     { reason: 'error', taskState: 'failed' },

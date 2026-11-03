@@ -1,5 +1,7 @@
 # Security and privacy
 
+User-cancellation classification reads only the two public outcome enums. It does not inspect cancellation explanations, tool errors or command text.
+
 DeepCanary performs local reminder metadata changes and public navigation. It does not approve, reject, restart, terminate, execute a shell command, or answer a question on the user's behalf.
 
 All /api/dsh-deepcanary routes use the Host's authenticated connection.fetch registry. There is no unauthenticated WebServer fallback. Request bodies are bounded; protocol 3 requires action identity and revision checks. Claims and callbacks are fenced by notification generation.

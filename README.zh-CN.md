@@ -8,7 +8,7 @@ DeepSeek Harness 的本地任务提醒插件。需要你处理时及时提醒，
 
 支持 **DSH 0.2.1-rc.5 或 >=0.2.2-alpha.3**。以 alpha.3 为开发主线，RC5 使用相同功能和界面，不再兼容更早版本。后续宿主按开放的版本范围准入；未实际运行的版本不列为已验证。
 
-`0.1.8-rc.1` 当前是本地候选版，尚未创建 GitHub Release 或发布 npm。
+`0.1.8-rc.2` 当前是本地候选版，尚未创建 GitHub Release 或发布 npm。
 
 ## 任务收件箱
 
@@ -16,7 +16,7 @@ DeepSeek Harness 的本地任务提醒插件。需要你处理时及时提醒，
 
 [截图来源与样本说明](docs/ui-captures.md)。
 
-- **待处理**显示正在等待人工处理的事项及需要关注的异常。普通完成与上下文压缩进入**动态**；主动安排的提醒保留在**稍后**。
+- **待处理**显示正在等待人工处理的事项及需要关注的异常。普通完成、上下文压缩和明确的用户取消进入**动态**；主动安排的提醒保留在**稍后**。
 - 宽屏采用列表与详情分栏，窄屏在两者间切换，保留选择、草稿和滚动位置。
 - 拖动标题栏可移动窗口，八个方向均可缩放；支持调整分栏、贴边、展开、恢复与重置。默认 880×640，可视区域允许时最小 360×320，布局只保存在当前设备。
 - 从“布局”菜单进入键盘移动或缩放：方向键调整，Shift 加大步长，Enter 确认，Esc 取消。关闭面板后焦点返回入口。
@@ -37,7 +37,7 @@ schema 2 保留并迁移已有事项、稍后安排、预算和通知认领。�
 WebUI 使用所选宿主的 CLI 和明确的 profile：
 
 ```sh
-dsh plugin --profile web add ./dsh-deepcanary-0.1.8-rc.1.tgz --registry=https://registry.npmjs.org/
+dsh plugin --profile web add ./dsh-deepcanary-0.1.8-rc.2.tgz --registry=https://registry.npmjs.org/
 dsh web
 ```
 

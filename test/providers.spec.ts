@@ -32,6 +32,18 @@ describe('runtime providers', () => {
     }, facts)).toEqual([])
   })
 
+  it('selects explicit user cancellation without reading failure text or treating other aborts as user actions', () => {
+    const event = { type: 'turn/end', seq: 5, data: { reason: { kind: 'aborted', reason: { kind: 'user' } } } }
+    expect(signalsFromSessionEvent(session, event, facts)).toMatchObject([{ kind: 'TASK_ABORTED', severityHint: 1, data: { userCancelled: true } }])
+    for (const kind of ['parent', 'disposed', 'hook', 'legacy']) {
+      const signals = signalsFromSessionEvent(session, { ...event, data: { reason: { kind: 'aborted', reason: { kind } } } }, facts)
+      expect(signals).toMatchObject([{ kind: 'TASK_ABORTED', severityHint: 2 }])
+      expect(signals[0]?.data.userCancelled).toBeUndefined()
+    }
+    expect(signalsFromSessionEvent(session, { ...event, data: { reason: { kind: 'error', failure: { code: 'ABORTED' } } } }, facts))
+      .toMatchObject([{ kind: 'TASK_FAILED', severityHint: 2 }])
+  })
+
   it('converts DSH turn and tool facts into stable signals', () => {
     expect(signalsFromSessionEvent(session, { type: 'turn/end', seq: 4, time: 2_000, data: { reason: 'blocked' } }, facts)[0]).toMatchObject({ kind: 'HUMAN_QUESTION_PENDING', source: 'session' })
     expect(signalsFromSessionEvent(session, { type: 'tool/result', seq: 5, time: 2_100, data: { error: { code: 'EFAIL' } } }, facts)[0]).toMatchObject({ kind: 'TOOL_FAILURE_LOOP', source: 'tool' })

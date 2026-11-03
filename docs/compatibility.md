@@ -21,6 +21,7 @@ The alpha.3 Host requires Node >=24.9.0; RC5 also accepts Node 22.19+. The plugi
 | Menus | alpha.3 unified context menu; RC5 public session slots and the Inbox's keyboard/context menu |
 | Settings | Shared revision-aware ConfigForm; alpha.3 settings.section.icon is optional and disposable |
 | Notifications | Public renderer capability only; no private Electron bridge or invented wake API |
+| User cancellation | Both Hosts' explicit aborted/user outcome becomes quiet Activity; abnormal stops retain their inspection alert |
 
 The declared range admits later DSH releases without an upper bound or whitelist. A future release is verified only after actual installation and runtime checks. Newly optional services cannot be imported as hard runtime dependencies on RC5.
 

@@ -369,6 +369,7 @@ const zh = {
   'item.reason.TURN_COMPLETED_BACKGROUND.summary': '本轮回复已结束，仍有后台任务继续运行。',
   'item.reason.TASK_FAILED': '会话报告执行失败。',
   'item.reason.TASK_ABORTED': '会话被中止，可能需要确认是否继续。',
+  'item.reason.TASK_CANCELLED_BY_USER': '任务已按你的指令停止。',
   'item.reason.COMPLETION_SUSPICIOUS': '任务看似完成，但最终证据仍值得检查。',
   'item.reason.HOST_STALL_RECOVERED': '会话已重新产生事件。',
   'item.reason.unknown': '检测到需要关注的运行时事件。',
@@ -645,6 +646,7 @@ const en = {
   'item.reason.TURN_COMPLETED_BACKGROUND.summary': 'This reply ended; background work is still running.',
   'item.reason.TASK_FAILED': 'The session reported a failure.',
   'item.reason.TASK_ABORTED': 'The session was aborted and may need a follow-up decision.',
+  'item.reason.TASK_CANCELLED_BY_USER': 'You stopped this task.',
   'item.reason.COMPLETION_SUSPICIOUS': 'The task looks complete, but its final evidence is worth checking.',
   'item.reason.HOST_STALL_RECOVERED': 'The session has started producing events again.',
   'item.reason.unknown': 'A runtime event needs your attention.',
@@ -1987,7 +1989,7 @@ function itemCard(item: ClientItem, state: ControllerState, t: Translate, contro
     translate(t, 'item.scheduledAt', { time: new Intl.DateTimeFormat(chineseLocale() ? 'zh-CN' : 'en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(item.snoozedUntil)) })))
   else if (item.reminderPending === true) children.push(createElement('p', { className: 'dsc-card-suggestion', key: 'reminder-waiting' }, translate(t, 'item.reminderWaiting')))
   if (item.notificationExhausted === true) children.push(createElement('p', { className: 'dsc-card-suggestion', key: 'notification-exhausted' }, translate(t, 'item.notificationExhausted')))
-  if (item.reasonCode !== 'TASK_COMPLETED') children.push(createElement('p', { className: 'dsc-card-suggestion', key: 'suggestion' },
+  if (item.reasonCode !== 'TASK_COMPLETED' && item.messageKey !== 'item.reason.TASK_CANCELLED_BY_USER') children.push(createElement('p', { className: 'dsc-card-suggestion', key: 'suggestion' },
     translate(t, 'item.suggestion', { text: suggestionText(item, t) })))
   if (item.bundleCount > 1) {
     children.push(createElement('small', { className: 'dsc-card-suggestion', key: 'events' },

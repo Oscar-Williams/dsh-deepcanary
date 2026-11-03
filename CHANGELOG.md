@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.8-rc.2 — local candidate
+
+- Keep an explicit Host `aborted → user` outcome in Activity without an interrupt or resume prompt. Unknown aborts and interruptions remain C2; execution failures carrying an `ABORTED` error code remain failures.
+- Preserve the original rc.1 artifact. This candidate includes the same dual-host Inbox, durable reminders and native navigation.
+
 ## 0.1.8-rc.1 — local candidate
 
 - Use one package and UI on DSH 0.2.2-alpha.3 and 0.2.1-rc.5, with an open range for later Host releases and no older-version fallback.

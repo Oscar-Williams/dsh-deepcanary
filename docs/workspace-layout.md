@@ -4,7 +4,7 @@
 
 | Item | Version or identity |
 | --- | --- |
-| Current local candidate | 0.1.8-rc.1; unpublished |
+| Current local candidate | 0.1.8-rc.2; unpublished |
 | Publication channels | unchanged by this local implementation |
 | Development Host | DSH 0.2.2-alpha.3, pinned source 05b1cae8db6e674c5685101494d4eec24652424a |
 | Compatibility Host | DSH 0.2.1-rc.5, pinned source b830ec950faba0a46dda564be3e2d854afed94f1 |

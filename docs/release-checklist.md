@@ -1,5 +1,7 @@
 # Local candidate and publication
 
+After a frozen candidate changes, preserve its artifact and increment the RC. For rc.2, check explicit user cancellation stays in Activity on both real Hosts and still stays quiet after restart. Reuse unaffected layout and notification evidence with its original candidate identity.
+
 1. Complete core reliability, task organization, Inbox interactions and settings. Repair discovered defects in the current step; preserve valid historical data.
 2. Run verify:candidate once for the final inputs. Include RC5 on Node 22, privacy, migration, cancellation, concurrent actions, notification claims and automation Session reuse. Re-run a gate only when a change or failure invalidates it.
 3. Capture the implemented UI with the same real Host sample content in light/dark themes, 1440/1024/360 px, 200% zoom, keyboard and touch. Verify all window interactions and scoped load behavior.

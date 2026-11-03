@@ -68,7 +68,7 @@ import type {
 import { ATTENTION_POLICY_VERSION, ATTENTION_PROTOCOL_VERSION as PROTOCOL_VERSION, SUPPRESSIBLE_REASON_CODES } from './types.js'
 
 const PLUGIN_NAME = 'dsh-deepcanary'
-const PLUGIN_VERSION = '0.1.8-rc.1'
+const PLUGIN_VERSION = '0.1.8-rc.2'
 const SETTINGS_NAMESPACE = 'deepcanary'
 const DEFAULT_MUTE_MINUTES = 60
 const ORPHAN_GRACE_MS = 30_000
@@ -2087,7 +2087,8 @@ export class DeepCanaryService {
   }
 
   private isPending(item: InboxItem, now: number): boolean {
-    if (item.level === 'C1' && (item.reasonCode === 'TASK_COMPLETED' || item.reasonCode === 'COMPACTION_OCCURRED')
+    if (item.level === 'C1' && (item.reasonCode === 'TASK_COMPLETED' || item.reasonCode === 'COMPACTION_OCCURRED'
+      || item.reasonCode === 'TASK_ABORTED' && item.decisionTrace?.matchedRules.includes('task.user-cancelled-c1'))
       && notificationGeneration(item) === 0) return false
     if (item.status === 'open' || item.status === 'seen') return true
     if (item.status !== 'snoozed' || item.snoozedUntil === undefined) return false

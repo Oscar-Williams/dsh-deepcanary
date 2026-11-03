@@ -18,6 +18,12 @@ function signal(overrides: Partial<CanarySignal>): CanarySignal {
 }
 
 describe('attention judge', () => {
+  it('keeps authoritative user cancellation quiet while preserving unexpected abort alerts', () => {
+    expect(judgeSignal(signal({ kind: 'TASK_ABORTED', data: { userCancelled: true } })))
+      .toMatchObject({ level: 'C1', action: 'INBOX', messageKey: 'item.reason.TASK_CANCELLED_BY_USER', decisionTrace: { matchedRules: ['task.user-cancelled-c1'] } })
+    expect(judgeSignal(signal({ kind: 'TASK_ABORTED' }))).toMatchObject({ level: 'C2', action: 'INTERRUPT' })
+    expect(judgeSignal(signal({ kind: 'TASK_FAILED', data: { userCancelled: true } }))).toMatchObject({ level: 'C2', action: 'INTERRUPT' })
+  })
   it('keeps normal completion quiet but visible in the inbox', () => {
     expect(judgeSignal(signal({ kind: 'TASK_COMPLETED', severityHint: 1 }))).toMatchObject({ level: 'C1', action: 'INBOX' })
   })
