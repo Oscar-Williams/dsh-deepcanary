@@ -6,7 +6,7 @@
 
 ## 准备环境
 
-使用 Git、npm 和 Node 24.9 及以上版本。开发宿主为 DSH alpha.3，同时支持 RC5。
+请准备 Git、npm 和 Node.js 24.9 或更高版本。使用 DSH `0.2.2-alpha.3` 开发，涉及 DSH 接口的改动也要在 `0.2.1-rc.5` 中检查。
 
 ```sh
 git clone https://github.com/Oscar-Williams/dsh-deepcanary.git
@@ -18,27 +18,27 @@ npm ci
 
 ## 修改与检查
 
-运行覆盖本次行为的测试。
+提交前运行完整测试。开发时，可以把相关测试文件的路径传给 Vitest，只运行该文件。
 
 ```sh
+npm test
 npm exec -- vitest run test/settings-migration.spec.ts
 npm run build
 ```
 
-示例检查设置迁移。修复可复现的缺陷时，补充回归测试，必要时覆盖恢复过程。源码变更需一并提交生成的 `lib/`，DSH 从 Git 标签安装时会使用其中的分发文件。
+修改 `src/` 后，请构建并将生成的 `lib/` 与源码一并提交。DSH 从 Git 标签安装时直接使用这些文件，用户无需编译 TypeScript。
 
-提交前运行与改动有关的检查。宿主集成或包行为变化按[开发说明](docs/development.zh-CN.md)执行集中验证；文档变更检查链接、双语对应关系和渲染效果。
+修复可复现的缺陷时，请添加回归测试。涉及 DSH 接口的改动按开发指南检查。修改文档时，运行 `npm run verify:docs` 并检查两个语言版本。参见[开发指南](docs/development.zh-CN.md)。
 
 ## 设计边界
 
-- Provider 选择 DSH 公开事实，确定性核心负责提醒判定。
-- C3 必须来自当前有效的权威问答或审批。
-- 保留任务归属、去重、静默时段、预算及恢复行为。
-- 提示词、会话正文、工具参数、凭据和原始失败文本不得进入提醒账本。
-- 使用宿主认证路由、revision 检查、有界状态和安全的 DOM 渲染。
-- 任务执行、审批和回答由 DSH 原生流程处理。
+- 在适配器中通过 DSH 公开接口读取会话和任务状态，再由 `src/core/` 中的规则确定提醒等级。
+- 仅当 DSH 确认某个未回答的问题或待处理的审批阻塞任务时，才设为 C3。
+- 只保存恢复提醒和返回会话所需的元数据。提示词、对话正文、工具参数、原始报错和凭据应留在提醒文件之外。
+- 使用 DSH 认证路由，写入前核对预期版本。限制保留的记录量，并安全地渲染文本。
+- 在 DeepCanary 中查看提醒或打开会话，在 DSH 中执行任务、回答问题和处理审批。
 
-修改相关契约前，阅读[架构](docs/architecture.zh-CN.md)和 [DSH 公开接口](docs/dsh-surface-audit.zh-CN.md)。
+[架构](docs/architecture.zh-CN.md) · [DSH 公开接口](docs/dsh-surface-audit.zh-CN.md)
 
 ## 报告问题
 

@@ -10,18 +10,13 @@ Remove credentials, authentication URLs, and private conversation content from a
 
 ## Supported versions
 
-Security fixes target the current 0.1.8 release line. Use the newest published version in that line and a DSH version accepted by its compatibility declaration. Older DeepCanary release lines receive no separate backports.
+| DeepCanary | DSH | Security updates |
+| --- | --- | --- |
+| `0.1.9-rc.1` | `0.2.1-rc.5` or `>=0.2.2-alpha.3` | Current |
+| Earlier releases | See the documentation for that release | Upgrade to the current release |
 
-The [changelog](CHANGELOG.md) identifies dependency and security fixes. [Compatibility](docs/compatibility.md) lists supported hosts and actual verification scope.
+Install the current release to receive security fixes. Keep your DSH data directory and profile when upgrading. [Update instructions](README.md#update-or-remove) · [Changelog](CHANGELOG.md) · [Compatibility](docs/compatibility.md).
 
 ## Data and permissions
 
-DeepCanary runs inside DSH and uses its authenticated public services. Its actions manage reminder metadata and return to native DSH interfaces. Conversation content and credentials stay outside the reminder ledger.
-
-Profile data and notification previews can still reveal information about your work. Protect access to the host and its profile, and choose system notification settings appropriate to your environment.
-
-See [Data and privacy](docs/security.md) for stored fields, transport, migration, and delivery behavior.
-
-## Update safely
-
-Use the DSH plugin manager or the matching host CLI. Download release files from this repository or the npm package and verify supplied checksums. Keep the existing home and profile when upgrading.
+DeepCanary reads task state through authenticated DSH APIs and keeps reminder metadata in your DSH profile. The reminder files can reveal when you worked and which sessions needed your attention. Restrict access to the profile and review your system's notification preview settings. [Data and privacy](docs/security.md).

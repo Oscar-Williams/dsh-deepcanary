@@ -46,7 +46,7 @@ export async function verifyDocs(availableFiles) {
   const documents = new Map(await Promise.all(files.map(async file => [file, await readFile(path.join(root, file), 'utf8') ])))
   for (const [file, markdown] of documents) {
     if (/(?:[CF]:[\\/]Agent_Related|C:[\\/]Users[\\/]Oscar)/i.test(markdown)) throw new Error(`Local workspace path in public documentation: ${file}`)
-    if (file !== 'README.en.md' && !file.endsWith('.zh-CN.md')) {
+    if (!file.endsWith('.zh-CN.md')) {
       const counterpart = file.replace(/\.md$/, '.zh-CN.md')
       if (!documents.has(counterpart)) throw new Error(`Missing Chinese document: ${counterpart}`)
       if (!documentationLinks(markdown, file).includes(path.posix.basename(counterpart))) throw new Error(`Missing language navigation: ${file}`)

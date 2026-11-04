@@ -19,4 +19,3 @@
 - [源码与工作区](workspace-layout.zh-CN.md)：源码、运行时和生成产物。
 - [发布指南](release-checklist.zh-CN.md)：冻结包与发布流程。
 - [路线图](roadmap.zh-CN.md)：已实现功能和后续方向。
-- [截图说明](ui-captures.zh-CN.md)：README 中的界面与示例。

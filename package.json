@@ -1,6 +1,6 @@
 {
   "name": "dsh-deepcanary",
-  "version": "0.1.8-rc.4",
+  "version": "0.1.9-rc.1",
   "description": "Know when your DeepSeek Harness tasks need you. Local alerts, quiet notifications, and a task inbox.",
   "type": "module",
   "repository": {
@@ -26,7 +26,6 @@
     "lib",
     "cordis.patch.yml",
     "README.md",
-    "README.en.md",
     "README.zh-CN.md",
     "CONTRIBUTING.md",
     "CONTRIBUTING.zh-CN.md",
@@ -52,12 +51,9 @@
     "docs/roadmap.zh-CN.md",
     "docs/security.md",
     "docs/security.zh-CN.md",
-    "docs/ui-captures.md",
-    "docs/ui-captures.zh-CN.md",
     "docs/workspace-layout.md",
     "docs/workspace-layout.zh-CN.md",
     "assets",
-    "screenshots.json",
     "LICENSE"
   ],
   "keywords": [
@@ -68,7 +64,12 @@
     "attention-management",
     "agent-observability",
     "human-in-the-loop",
-    "ai-agent"
+    "ai-agent",
+    "deepseek harness",
+    "ai agent",
+    "deepcanary",
+    "task-inbox",
+    "notifications"
   ],
   "dsh": {
     "bundle": {

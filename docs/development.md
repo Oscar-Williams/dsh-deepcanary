@@ -56,7 +56,7 @@ npm run verify:distribution
 Commit reviewed source, documentation, and `lib/`, then freeze the version in `package.json`.
 
 ```sh
-node scripts/freeze-local-candidate.mjs 0.1.8-rc.4
+node scripts/freeze-local-candidate.mjs 0.1.9-rc.1
 ```
 
 The output directory contains one tgz, its file manifest, checksums, and local validation metadata. Keep generated reports outside Git. See the [release guide](release-checklist.md) for publication.

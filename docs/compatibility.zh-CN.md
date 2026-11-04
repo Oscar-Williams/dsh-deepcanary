@@ -2,7 +2,7 @@
 
 [English](compatibility.md) · [安装](../README.zh-CN.md#安装)
 
-DeepCanary 0.1.8 在以下宿主中使用同一个包和界面。
+DeepCanary 0.1.9 在 WebUI 和 Windows 桌面版中使用同一个安装包。
 
 | DSH 版本 | WebUI | Windows 桌面版 | WebUI 的 Node.js 要求 |
 | --- | --- | --- | --- |

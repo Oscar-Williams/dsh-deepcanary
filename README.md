@@ -15,154 +15,153 @@ DeepCanary groups task updates in **Pending**, **Snoozed**, and **Activity**. It
 
 <p align="center"><img src="assets/deepcanary-panel-en.png" width="880" alt="DeepCanary inbox with task list and details"></p>
 
-[Install](#install) · [Use](#use) · [Notifications](#notifications) · [Update or remove](#update-or-remove) · [Compatibility](#compatibility) · [Troubleshooting](#troubleshooting)
+[Install](#install) · [Use](#use) · [Notifications](#notifications) · [Update or remove](#update-or-remove) · [Compatibility](#compatibility) · [Troubleshooting](#troubleshooting) · [Security](#security-and-privacy) · [Contributing](#contributing) · [Acknowledgments](#acknowledgments) · [License](#license)
 
 ## Install
 
-**0.1.8-rc.4** is available as a GitHub prerelease. Install the release package below to use this version. The npm badge shows the version currently available from npm.
-
-Use **DSH 0.2.1-rc.5 or >=0.2.2-alpha.3**. Desktop includes its runtime. For WebUI, DeepCanary accepts Node `^22.19.0 || >=24.0.0`; DSH alpha.3 requires Node 24.9 or later. Follow the [DSH installation guide](https://github.com/deepseek-ai/deepseek-harness#readme) if you need to install the host.
+DeepCanary **0.1.9-rc.1** requires DSH `0.2.1-rc.5` or `0.2.2-alpha.3` and later. Check the [Node.js requirements for WebUI](#compatibility) before installing. Windows Desktop includes its own runtime. [Install DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness#readme).
 
 ### Windows Desktop
 
-1. Open **Plugins → Add plugin** in DSH.
-2. Paste this package URL and install it.
-
-   ```text
-   https://github.com/Oscar-Williams/dsh-deepcanary/releases/download/v0.1.8-rc.4/dsh-deepcanary-0.1.8-rc.4.tgz
-   ```
-3. Follow the manager's activation or restart prompt.
-4. Open **DeepCanary** from the sidebar.
+1. Open **Plugins → Add plugin → Install a third-party plugin**.
+2. Enter `dsh-deepcanary@0.1.9-rc.1` under **Package name or address** and choose **Install**.
+3. Follow any restart prompt, then open **DeepCanary** from the left sidebar.
 
 ### WebUI
 
-Stop the WebUI server, then install into the profile you normally use.
-
-Run installation, updates, and removal with the same `DSH_HOME` as that host. Set a custom home first; in PowerShell:
-
-```powershell
-$env:DSH_HOME = "<existing DSH home>"
-```
-
-Use the directory your host already uses.
+Stop the running DSH WebUI server. Run these commands in your terminal.
 
 ```sh
-dsh plugin --profile web add https://github.com/Oscar-Williams/dsh-deepcanary/releases/download/v0.1.8-rc.4/dsh-deepcanary-0.1.8-rc.4.tgz --registry=https://registry.npmjs.org/
+dsh plugin --profile web add dsh-deepcanary@0.1.9-rc.1 --registry=https://registry.npmjs.org/
 dsh web
 ```
 
-Replace `web` in both commands if you use another profile.
+Open **DeepCanary** from the sidebar once WebUI starts.
 
 <details>
-<summary>Install an offline package or use the Desktop CLI</summary>
+<summary>Use a custom DSH data directory or profile</summary>
 
-Download `dsh-deepcanary-0.1.8-rc.4.tgz` and `SHA256SUMS` from the [release](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.8-rc.4). In PowerShell, calculate the hash and compare it with the matching line in `SHA256SUMS`.
+If you start DSH with another profile, replace `web` in both commands with that name. If your launch command sets `DSH_HOME`, set it to the same directory in your terminal before installing, updating, or removing the plugin.
+
+PowerShell
 
 ```powershell
-Get-FileHash ./dsh-deepcanary-0.1.8-rc.4.tgz -Algorithm SHA256
+$env:DSH_HOME = "<existing DSH data directory>"
 ```
 
-For WebUI, stop its server and run the following from the download directory.
+Bash or Zsh
 
 ```sh
-dsh plugin --profile web add ./dsh-deepcanary-0.1.8-rc.4.tgz --registry=https://registry.npmjs.org/
+export DSH_HOME="<existing DSH data directory>"
+```
+
+</details>
+
+<details>
+<summary>Install from a downloaded package</summary>
+
+Download the tgz and `SHA256SUMS` from the [GitHub release](https://github.com/Oscar-Williams/dsh-deepcanary/releases/tag/v0.1.9-rc.1). Run one of these commands from the download directory and compare the result with the package entry in `SHA256SUMS`.
+
+```powershell
+Get-FileHash ./dsh-deepcanary-0.1.9-rc.1.tgz -Algorithm SHA256
+```
+
+```sh
+shasum -a 256 ./dsh-deepcanary-0.1.9-rc.1.tgz
+```
+
+For WebUI, stop the server and run the commands below from the download directory. The package manager may still download dependencies from npm.
+
+```sh
+dsh plugin --profile web add ./dsh-deepcanary-0.1.9-rc.1.tgz --registry=https://registry.npmjs.org/
 dsh web
 ```
 
-For Desktop CLI installation, exit through **Application → Quit**. Open PowerShell in `resources/runtime/cli/bin` inside the DSH application directory. If Desktop uses a custom home, set it first in that session:
+For Windows Desktop, open DSH once to initialize its profile, then choose **Application → Quit**. Open PowerShell in `resources/runtime/cli/bin` under the application directory. If you use a custom `DSH_HOME`, set it as shown above. Replace the placeholder with the full path to the downloaded package, run the command, and reopen DSH.
 
 ```powershell
-$env:DSH_HOME = "<existing DSH home>"
+.\dsh.cmd plugin --profile desktop add "<full path to dsh-deepcanary-0.1.9-rc.1.tgz>" --registry=https://registry.npmjs.org/
 ```
-
-Then install using the downloaded package's full path:
-
-```powershell
-.\dsh.cmd plugin --profile desktop add "<full-path-to-dsh-deepcanary-0.1.8-rc.4.tgz>" --registry=https://registry.npmjs.org/
-```
-
-Reopen DSH. The application's plugin manager already selects its own home and profile.
 
 </details>
 
 ## Use
 
-| View | Contents |
+| View | What you'll find |
 | --- | --- |
 | **Pending** | Questions, approvals, and task updates that need attention |
-| **Snoozed** | Reminders you have scheduled for later |
-| **Activity** | Routine completions, context compaction, and tasks you explicitly stopped |
+| **Snoozed** | Reminders scheduled for later |
+| **Activity** | Routine completions, context compaction, and tasks you stopped |
 
-Select a reminder to read its details. **Open in DSH** opens its session. Answer questions and handle approvals through DSH's native controls. **Acknowledge** clears the reminder; **Snooze** schedules it for later.
+Select a reminder to see its details. Use the DSH button to open the session and reply or approve there. Choose **More actions → Acknowledge** to clear the reminder from Pending, or **Snooze** to schedule it for later.
 
-Drag the title bar to move the panel. Resize any edge or corner, drag the divider between list and detail, or use **Layout** to dock, expand, restore, or reset it. The default size is 880×640 and adapts to the visible area. Layout is saved on the current device.
+Drag the title bar to move the panel and drag any edge or corner to resize it. Drag the divider to adjust the list width. The **Layout** menu lets you dock, expand, restore, or reset the panel. DeepCanary remembers the layout on this device. In narrow windows, the list keeps its scroll position when you return from a reminder.
 
-For keyboard movement or resizing, choose the action from **Layout**. Arrow keys adjust the panel, Shift increases the step, Enter confirms, and Escape cancels. Narrow layouts preserve your selection and draft when switching between list and detail.
+For keyboard control, choose move or resize from **Layout**. Use the arrow keys to adjust the panel, hold Shift for larger steps, press Enter to confirm, or press Escape to cancel.
 
 ## Notifications
 
-Open the inbox and select **Alert settings**. Allow the DSH site's notifications in your browser, and allow Edge or DeepSeek Harness notifications in Windows.
-
-Keep a DSH page or the Desktop application running. Background pages and hidden Desktop windows can receive notifications. Fully quitting DSH stops the plugin. Windows Do Not Disturb, quiet hours, and browser permissions affect whether a system banner appears.
+Open **Alert settings** from the inbox. Set the minimum alert level, quiet hours, and the hourly limit for C2 interruptions. C3 reminders can still appear during quiet hours and after the C2 limit is reached.
 
 | Level | Meaning |
 | --- | --- |
-| **C3** | A task is currently waiting for an answer or approval |
-| **C2** | An abnormal state needs checking |
-| **C1** | An update is available for review in Activity |
+| **C3** | DSH is waiting for an answer or approval before it can continue |
+| **C2** | An error or unusual task state needs checking |
+| **C1** | A routine update is available in Activity |
 
-Click a notification to return to its reminder and session. A reminder's delivery or acknowledgment does not finish the DSH task.
+In WebUI, allow notifications for your DSH site and leave a DSH tab open. In Windows, allow notifications from your browser or DeepSeek Harness. The desktop app can receive notifications while minimized or hidden if it is still running.
+
+Click a notification to return to the reminder and session. Respond to questions and approvals in DSH to continue the task.
 
 ## Update or remove
 
-For Desktop, use **Plugins** to replace DeepCanary with the package URL above or uninstall it, then follow any restart prompt.
+To replace an earlier version on Windows Desktop, uninstall DeepCanary from **Plugins**, then add `dsh-deepcanary@0.1.9-rc.1` in the same DSH app. Follow any restart prompts. To remove the plugin, stop after uninstalling.
 
-For WebUI, stop the server before updating.
+For WebUI, stop the server and repeat the [installation commands](#webui). Use the same DSH data directory and profile to keep your settings and reminders.
+
+To remove DeepCanary from WebUI, stop the server, run the following command, then restart WebUI. Replace `web` if you use another profile.
 
 ```sh
-dsh plugin --profile web add https://github.com/Oscar-Williams/dsh-deepcanary/releases/download/v0.1.8-rc.4/dsh-deepcanary-0.1.8-rc.4.tgz --registry=https://registry.npmjs.org/
-dsh web
+dsh plugin --profile web remove dsh-deepcanary
 ```
-
-To uninstall from that profile, stop the server and run `dsh plugin --profile web remove dsh-deepcanary`.
-
-Keep the host's existing home and profile when updating. Reminders and settings are stored there. If the manager requires removal before replacement, remove the plugin and then add the new package.
 
 ## Compatibility
 
-The same package has been exercised on **RC5 and alpha.3, each on WebUI and Windows Desktop**. The alpha.3 Desktop test uses an unsigned build from fixed source; RC5 uses the official application. The declared range accepts later DSH releases. [Compatibility](docs/compatibility.md) lists actual coverage.
+| Tested DSH version | Platforms | Node.js for WebUI |
+| --- | --- | --- |
+| `0.2.1-rc.5` | WebUI and Windows Desktop | `^22.19.0 \|\| >=24.0.0` |
+| `0.2.2-alpha.3` | WebUI and Windows Desktop | `>=24.9.0` |
+
+Later DSH versions can install this package. Check the Node.js requirement for your DSH version. [Compatibility details](docs/compatibility.md).
 
 ## Troubleshooting
 
 | Problem | What to check |
 | --- | --- |
-| DeepCanary is missing | Confirm it appears in the current host's **Plugins** page and that installation used its home and profile. Restart if requested. |
-| Installation is rejected | Check your DSH version and [compatibility requirements](docs/compatibility.md). |
-| npm installs an older version | Use the GitHub package URL above for this prerelease. npm releases can follow a different schedule. |
-| Package download fails | Check the GitHub release URL, network, and proxy settings. Dependencies use the selected npm registry. |
-| No system banner appears | Check notification permissions, Windows Do Not Disturb, reminder settings, and whether DSH is running. |
-| A session cannot be opened | The session may have been removed or may be unavailable to this host. Inspect the reminder in the inbox. |
-| The panel is awkwardly sized | Choose **Layout → Reset layout**. |
-| A save fails | Use the retry control in the inbox status area and retain the existing state files. |
+| DeepCanary is missing | Check **Plugins** in the DSH app you use. For WebUI, confirm the data directory and profile match your launch command. Restart if prompted. |
+| DSH installs an older version | Enter `dsh-deepcanary@0.1.9-rc.1` and use the official npm registry, `https://registry.npmjs.org/`. |
+| Installation is rejected | Check the DSH and Node.js versions in [Compatibility](#compatibility). |
+| No system banner appears | Check that DSH is running, then check browser permission, Windows Do Not Disturb, and [alert settings](#notifications). |
+| A session cannot be opened | Check whether the session still appears in your current DSH app. You can still read the reminder in the inbox. |
+| The panel is hard to reach | Select **Layout → Reset layout**. |
+| Reminder state cannot be saved | Click **Refresh status** in the inbox to retry. If it fails again, check that the account running DSH can write to its profile directory. |
 
-Report ordinary bugs through [GitHub Issues](https://github.com/Oscar-Williams/dsh-deepcanary/issues). Include versions, platform, and steps to reproduce, with private content removed.
+For ordinary bugs, include your DSH and DeepCanary versions, operating system, and steps to reproduce. Remove private content before posting. [Report an issue](https://github.com/Oscar-Williams/dsh-deepcanary/issues).
 
 ## Security and privacy
 
-DeepCanary stores reminder metadata in your DSH profile and uses local rules to decide when to notify you. Conversation text, prompts, answers, tool arguments, and raw failure text stay outside its reminder ledger. See [data and privacy](docs/security.md).
+DeepCanary saves reminder metadata in your DSH data directory and uses local rules to decide when to notify you. Read about the files it saves and how notifications use them. [Data and privacy](docs/security.md).
 
-Report vulnerabilities through the private channel described in [Security](SECURITY.md).
+Use the private reporting channel for vulnerabilities. [Security policy](SECURITY.md).
 
 ## Contributing
 
-See [Contributing](CONTRIBUTING.md) for setup, focused tests, documentation, and pull requests. The [documentation index](docs/README.md) links to architecture, host integration, and release guidance.
+See how to set up the project, run tests, and submit a change. [Contributing](CONTRIBUTING.md) · [Documentation](docs/README.md).
 
 ## Acknowledgments
 
-Thanks to [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) for the host and plugin APIs, and to the [dsh.works plugin directory](https://github.com/dshworks/awesome-dsh-plugins) and [Awesome DeepSeek Harness Plugins](https://github.com/jqueryscript/awesome-dsh-plugins) for listing DeepCanary.
+Thanks to the DeepSeek Harness team for the plugin APIs, and to the community directories that list DeepCanary. [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) · [dsh.works plugin directory](https://github.com/dshworks/awesome-dsh-plugins) · [Awesome DeepSeek Harness Plugins](https://github.com/jqueryscript/awesome-dsh-plugins).
 
 ## License
 
-[MIT](LICENSE), copyright © 2026 Oscar Williams. You may use, modify, and distribute the software under the license, including its copyright and permission notice.
-
-[Screenshot details](docs/ui-captures.md)
+Licensed under the [MIT License](LICENSE). Copyright © 2026 Oscar Williams.

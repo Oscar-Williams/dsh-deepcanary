@@ -2,6 +2,12 @@
 
 [简体中文](CHANGELOG.zh-CN.md)
 
+## 0.1.9-rc.1 — 2026-11-04
+
+- Install the current package through npm from Windows Desktop or WebUI. GitHub provides a downloadable package and checksum.
+- Clarify DSH and Node.js requirements, custom data directories, notification settings, and how to recover from a failed save.
+- Update the contribution and security guides, add package search terms, and remove redundant screenshot and README files.
+
 ## 0.1.8-rc.4 — 2026-11-04
 
 - Publish the 0.1.8 interface and reliability improvements as a GitHub prerelease, with one package for RC5 and alpha.3 on WebUI and Windows Desktop.

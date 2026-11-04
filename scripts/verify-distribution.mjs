@@ -10,7 +10,7 @@ const execFileAsync = promisify(execFile)
 const manifest = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'))
 const required = [
   'lib/index.js', 'lib/index.d.ts', 'lib/client.js', 'lib/service.js',
-  'cordis.patch.yml', 'LICENSE', 'screenshots.json',
+  'cordis.patch.yml', 'LICENSE',
   'assets/deepcanary-panel-en.png', 'assets/deepcanary-panel-zh.png',
   ...manifest.files.filter(file => file.endsWith('.md')),
 ]
@@ -35,7 +35,7 @@ const packed = new Set(JSON.parse(stdout)[0]?.files?.map(file => file.path) ?? [
 for (const file of required) if (!packed.has(file)) throw new Error(`Required package file is absent: ${file}`)
 await verifyDocs(packed)
 for (const file of packed) {
-  if (/^(?:benchmark|src|test|tests|node_modules|output|scripts|\.git|设计思路)(?:\/|\\)/i.test(file) || /设计指南|设计方案|制作建议/.test(file)) {
+  if (/^(?:benchmark|src|test|tests|node_modules|output|scripts|\.git|设计思路)(?:\/|\\)/i.test(file) || /设计指南|设计方案|制作建议|(?:^|\/)(?:AGENTS\.md|screenshots\.json)$/.test(file)) {
     throw new Error(`Private or development file entered the package: ${file}`)
   }
   if (['lib/client.d.ts', 'lib/client.d.ts.map', 'lib/client.js.map', 'lib/client/index.js'].includes(file)) throw new Error(`Stale client output entered the package: ${file}`)

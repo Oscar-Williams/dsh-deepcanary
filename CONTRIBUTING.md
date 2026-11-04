@@ -6,7 +6,7 @@ Bug reports, documentation improvements, translations, and focused patches are w
 
 ## Set up
 
-Use Git, npm, and Node 24.9 or later. DSH alpha.3 is the development host; RC5 remains a supported host.
+Use Git, npm, and Node.js 24.9 or later. Develop against DSH `0.2.2-alpha.3` and check changes to DSH integration on `0.2.1-rc.5` as well.
 
 ```sh
 git clone https://github.com/Oscar-Williams/dsh-deepcanary.git
@@ -18,27 +18,27 @@ Create an isolated DSH home and profile for tests. Keep daily conversations, cre
 
 ## Make and check a change
 
-Run the test that exercises the behavior you changed.
+Run the full suite before submitting. While working on a change, pass the relevant test file to Vitest.
 
 ```sh
+npm test
 npm exec -- vitest run test/settings-migration.spec.ts
 npm run build
 ```
 
-The example checks settings migration. Use a regression for a reproduced defect, including recovery when relevant. Commit generated `lib/` with source changes; DSH uses that distribution when installing a Git tag.
+After editing `src/`, run the build and commit the generated `lib/` with your source changes. DSH uses those files when installing from a Git tag, so users can install without a TypeScript build.
 
-Before submitting, run the checks relevant to your change. For changes to host integration or package behavior, follow the aggregate validation in [Development](docs/development.md). Documentation changes need valid links, matching translations, and readable rendering.
+Add a regression test when fixing a reproducible bug. Use the development guide for changes that affect DSH integration. For documentation, run `npm run verify:docs` and check both languages. [Development guide](docs/development.md).
 
 ## Design boundaries
 
-- Providers select public DSH facts; the deterministic core decides attention.
-- C3 requires a current authoritative question or approval.
-- Preserve task ownership, deduplication, quiet hours, budgets, and recovery.
-- Keep prompts, conversation text, tool arguments, credentials, and raw failure text out of the reminder ledger.
-- Use authenticated host routes, revision checks, bounded state, and safe DOM rendering.
-- Keep task execution, approvals, and answers in DSH's native flow.
+- Read session and task state through public DSH APIs in the adapters. Use rules in `src/core/` to determine the reminder level from that state.
+- Assign C3 only when DSH confirms that an unanswered question or pending approval is blocking progress.
+- Store only the metadata needed to restore reminders and return to sessions. Keep prompts, conversation text, tool arguments, raw errors, and credentials out of the reminder files.
+- Use DSH's authenticated routes and check the expected revision before applying an update. Keep retained state bounded and render text safely.
+- Show reminders and open sessions from DeepCanary. Handle task execution, answers, and approvals in DSH.
 
-See [Architecture](docs/architecture.md) and [Public DSH interfaces](docs/dsh-surface-audit.md) when changing those contracts.
+[Architecture](docs/architecture.md) · [Public DSH interfaces](docs/dsh-surface-audit.md)
 
 ## Report a bug
 
@@ -52,6 +52,6 @@ Keep private data, credentials, host profiles, and local process logs out of the
 
 ## Documentation and translation
 
-English documents use the base filename; Chinese counterparts use `.zh-CN.md`. Keep language navigation and command examples aligned. Preserve code identifiers, version strings, and CLI option spelling.
+English documents use the base filename. Add `.zh-CN.md` for the Simplified Chinese version. Keep language navigation and command examples aligned. Preserve code identifiers, version strings, and CLI option spelling.
 
 User instructions belong in the READMEs. Put implementation details and contributor commands in the documentation directory. The project uses the [MIT license](LICENSE).

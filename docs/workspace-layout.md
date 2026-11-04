@@ -15,7 +15,7 @@
 | `benchmark/` | Regression inputs and schemas used by development tools |
 | `output/` | Ignored build output, candidate packages, and local reports |
 
-Keep DSH installations, source checkouts, profiles, and credentials outside this repository. Each test profile has its own state. Use existing project instructions when choosing a local test directory.
+Use a separate DSH data directory for testing so it has its own profile, credentials, and reminder state.
 
 ## Versions
 

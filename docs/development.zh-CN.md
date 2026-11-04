@@ -56,7 +56,7 @@ npm run verify:distribution
 提交审阅后的源码、文档和 `lib/`，再冻结 `package.json` 中的版本。
 
 ```sh
-node scripts/freeze-local-candidate.mjs 0.1.8-rc.4
+node scripts/freeze-local-candidate.mjs 0.1.9-rc.1
 ```
 
 输出目录包含唯一 tgz、文件清单、校验值和本地验证元数据。生成的报告保留在 Git 之外，发布步骤见[发布指南](release-checklist.zh-CN.md)。

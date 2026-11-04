@@ -2,7 +2,7 @@
 
 [简体中文](compatibility.zh-CN.md) · [Installation](../README.md#install)
 
-DeepCanary 0.1.8 uses one package and interface across the following hosts.
+DeepCanary 0.1.9 uses the same package on WebUI and Windows Desktop.
 
 | DSH version | WebUI | Windows Desktop | Node.js for WebUI |
 | --- | --- | --- | --- |

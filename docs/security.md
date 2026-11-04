@@ -2,36 +2,27 @@
 
 [简体中文](security.zh-CN.md) · [Security policy](../SECURITY.md) · [Documentation](README.md)
 
-## Stored data
+## Where data is stored
 
-DeepCanary stores reminder metadata in the selected DSH profile. It includes identifiers needed to return to sessions, hashed joins, reason codes, task and reminder states, snooze times, budgets, and bounded delivery records.
+By default, DeepCanary stores data in `profiles/<profile>/state/deepcanary/` inside your DSH data directory. The default directory for DSH data is `~/.dsh`. If you set `DSH_HOME`, start from that directory instead.
 
-Session titles are resolved from the running host for display. Conversation text, prompts, answers, tool arguments, model output, credentials, and raw failure text are excluded from the reminder ledger. Tool failures contribute a tool name, a safe error category, or an exit code.
+- `inbox.json` contains reminder states and times, session identifiers for navigation, task references, snooze schedules, notification limits, and recent delivery records.
+- `suppressions.json` stores the types of reminders you have muted.
+- `outcomes.json` records feedback on reminders and whether the corresponding task recovered.
+- DeepCanary asks DSH for the current session title when displaying a reminder. It leaves titles, conversation text, prompts, answers, tool arguments, model output, credentials, and raw error messages out of the inbox file.
 
-Treat profile data as private. Metadata and identifiers can describe work even without conversation text.
+Keep the DSH directory private. Session identifiers and timestamps can still reveal information about your work.
 
-## Local decisions and actions
+## Access and updates
 
-Reminder decisions use deterministic local rules. A current authoritative question or approval is required for C3. Explicit user cancellation uses the public outcome enums.
+The inbox uses requests to the same DSH origin. DSH checks the request origin and authentication before routing it to `/api/dsh-deepcanary/`. DeepCanary limits JSON writes to 32,000 bytes and checks that a reminder still matches the state shown in the browser before changing it.
 
-Plugin actions acknowledge, snooze, mute, or annotate reminders and navigate to DSH. Task execution, question answers, and approval decisions use DSH's native flow.
+Each profile has its own reminder files. Pages connected to the same running profile share them. DeepCanary saves a record of each delivery attempt before it requests a system notification. After a restart, it uses the saved records to avoid repeating alerts.
 
-## Authentication and concurrency
-
-Routes under `/api/dsh-deepcanary/` use DSH's authenticated Connection Fetch registry. Write bodies are bounded. Protocol 3 checks request identity, revision, and execution generation; notification callbacks also carry their notification generation.
-
-One host owns each ledger. Pages connected to that host share state. Different profiles keep separate ledgers.
-
-## Persistence and migration
-
-The store writes schema 2 atomically and preserves schedules, budgets, and delivery claims. Existing valid data is migrated. Invalid or unsupported data is retained and reported as an activation error.
-
-A notification claim must be saved before construction is authorized. Failed saves pause authorization and expose a retry.
+If a save fails, check that the account running DSH can write to its profile directory, then click **Refresh status** in the inbox. DeepCanary pauses system alerts while it cannot save their state.
 
 ## Notifications
 
-Notification bodies use localized summaries. Windows and browser permissions control where they are displayed. A banner can be visible outside the DSH window, including on a lock screen if system settings allow it.
+System banners display localized summaries. Depending on your browser and operating system settings, a banner can appear outside DSH or on the lock screen. Adjust system notification previews if you work with sensitive tasks.
 
-Construction, delivery, visibility, and click are recorded separately. Notification delivery never finishes the underlying task.
-
-To report a vulnerability, use the private channel in [Security](../SECURITY.md). Ordinary reports should include only the minimum information needed to reproduce the problem.
+Use the private reporting form for vulnerabilities. [Security policy](../SECURITY.md).

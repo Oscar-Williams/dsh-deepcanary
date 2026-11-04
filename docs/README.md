@@ -19,4 +19,3 @@
 - [Source and workspace layout](workspace-layout.md): source, runtimes, and generated artifacts.
 - [Release guide](release-checklist.md): freezing a package and publishing it.
 - [Roadmap](roadmap.md): delivered features and further work.
-- [Screenshot details](ui-captures.md): the interface and samples shown in the READMEs.
