@@ -1,41 +1,36 @@
 # Contributing to DeepCanary
 
-Bug reports, focused pull requests, and translations are welcome. For a substantial behavior change, open an issue first so the expected runtime signal, user benefit, and compatibility scope are clear.
+Bug reports, focused patches, and translations are welcome. For a substantial change, open an issue describing the task, the current behavior, and the result you want.
 
 ## Development
 
-Use Node 24.9+ for DSH 0.2.2-alpha.3 development. RC5 compatibility also runs on Node 22.19+. Development dependencies follow alpha.3; the same plugin package supports RC5 Web and official Desktop.
+Use Node 24.9 or later and the committed npm lockfile. Develop against DSH 0.2.2-alpha.3 and retain RC5 compatibility.
 
 ```sh
 npm ci
-npm run typecheck
-npm run typecheck:tests
-npm test
+npm exec -- vitest run test/execution-boundaries.spec.ts
 npm run build
-npm run verify:distribution
 ```
 
-Commit generated `lib/` changes with their source changes. DSH can install the repository's Git tag without running the TypeScript toolchain, so CI rejects stale output. Builds validate the installed compiler and bundler against the lockfile.
-
-For a different DSH revision, use the isolated checks in the [development guide](docs/development.md). Do not mix generated output or evidence from different runtime checkouts.
+Choose tests for the behavior you change. Commit generated `lib/` with source changes. Before freezing a candidate, use the aggregate checks in the [development guide](docs/development.md).
 
 ## Design boundaries
 
-- Keep DSH runtime facts in adapters/providers and attention interpretation in the deterministic core.
-- Highest-severity (C3) decisions require host or runtime authority. A heuristic or model summary cannot supply that authority.
-- Preserve deduplication, grouping, budgets, quiet hours, recovery, and bounded state.
-- Keep persisted data limited to allowlisted metadata. Session/workspace references are hashed; a bounded local session handle is allowed only for navigation. Never persist prompts, transcripts, tool arguments, workspace paths, or credentials.
-- Register HTTP routes with the authenticated public Connection API, retain same-origin/no-store responses, and render untrusted values with safe DOM APIs.
-- Do not add shell, arbitrary file-write, process-control, approval, or rejection capabilities.
+- Providers read public DSH facts. The deterministic core decides attention.
+- C3 requires a current authoritative question or approval.
+- Preserve task ownership, deduplication, budgets, quiet hours, recovery, and bounded state.
+- Persist only permitted metadata. Keep prompts, transcripts, tool arguments, credentials, and raw failure text out of the reminder ledger.
+- Use authenticated Connection Fetch routes and safe DOM rendering.
+- Keep approvals, question answers, process control, and task execution in DSH's native flow.
 
-## Tests and documentation
+## Documentation
 
-Add focused tests for the behavior you change, including healthy and recovery paths. Update AttentionGold fixtures when event mappings or policy change. Tests must use platform-appropriate paths and must not depend on a contributor's home directory or private runtime state.
+Keep the [English](README.md) and [Chinese](README.zh-CN.md) installation steps aligned. Use the main README for user tasks and developer documentation for implementation details. `README.en.md` remains a link for existing references.
 
-Keep [English](README.md) and [Chinese](README.zh-CN.md) user instructions aligned. The main README is English; `README.en.md` remains a compatibility link for existing references. Put implementation details in developer documentation and describe visible changes in the changelog.
+Describe visible changes in the changelog. Update compatibility and the public-interface reference when host contracts change. Preserve historical release identities.
 
-## Pull requests
+## Submit a change
 
-Explain the problem, the user-visible change, relevant DSH APIs, and tests run. Update the [surface audit](docs/dsh-surface-audit.md) and [compatibility matrix](docs/compatibility.md) when those contracts change. Never include private session data, credentials, local runtime profiles, or generated observation logs.
+Explain the problem, the resulting behavior, and relevant validation. Include a regression when it exercises an actual failure. Keep private session data, credentials, runtime profiles, and local observation logs out of Git.
 
-Reports of suspected security issues should omit exploit payloads containing private data. Start from the boundaries described in [security and privacy](docs/security.md).
+Report suspected security issues without private payloads. The project's data and action boundaries are described in [Security and privacy](docs/security.md).

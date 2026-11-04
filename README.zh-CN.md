@@ -1,54 +1,97 @@
 # DeepCanary
 
-DeepSeek Harness 的本地任务提醒插件。需要你处理时及时提醒，正常工作时保持安静，回来后进入正确会话。
+[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的任务提醒插件。查看需要处理的任务，安排稍后提醒，并返回对应会话。
 
-[English](README.md) · [开发说明](docs/development.md) · [兼容性](docs/compatibility.md)
-
-## 0.1.8 候选版
-
-支持 **DSH 0.2.1-rc.5 或 >=0.2.2-alpha.3**。以 alpha.3 为开发主线，RC5 使用相同功能和界面，不再兼容更早版本。后续宿主按开放的版本范围准入；未实际运行的版本不列为已验证。
-
-`0.1.8-rc.2` 当前是本地候选版，尚未创建 GitHub Release 或发布 npm。
-
-## 任务收件箱
+[English](README.md) · [兼容性](docs/compatibility.md) · [更新记录](CHANGELOG.md)
 
 ![DeepCanary 任务收件箱](assets/deepcanary-panel-zh.png)
 
-[截图来源与样本说明](docs/ui-captures.md)。
+## 使用要求
 
-- **待处理**显示正在等待人工处理的事项及需要关注的异常。普通完成、上下文压缩和明确的用户取消进入**动态**；主动安排的提醒保留在**稍后**。
-- 宽屏采用列表与详情分栏，窄屏在两者间切换，保留选择、草稿和滚动位置。
-- 拖动标题栏可移动窗口，八个方向均可缩放；支持调整分栏、贴边、展开、恢复与重置。默认 880×640，可视区域允许时最小 360×320，布局只保存在当前设备。
-- 从“布局”菜单进入键盘移动或缩放：方向键调整，Shift 加大步长，Enter 确认，Esc 取消。关闭面板后焦点返回入口。
-- “已处理”只关闭这条提醒。审批和问答仍使用宿主原生流程；返回会话前重新核验目标。
+DeepCanary 0.1.8 支持 **DSH 0.2.1-rc.5 和 0.2.2-alpha.3**，适用于 WebUI 和 Windows 桌面版，两版使用相同的插件和界面。版本声明也接受后续 DSH 更新，实际验证范围见[兼容性说明](docs/compatibility.md)。
 
-## 提醒与恢复
-
-只有当前权威审批或阻塞问答可以产生 C3。定时问答结束前台等待后降为安静的 C1 后续事项，迟到回复只关闭对应问题。断线与工具失败保留为 C2 检查提示。静默时段、去重和滚动 C2 预算控制打扰。
-
-会话执行、Job、子代理及每次自动化运行分别标识。自动化投递回执只证明指令送达，完成状态必须来自对应执行；普通 fork 独立于子代理呈现。
-
-schema 2 保留并迁移已有事项、稍后安排、预算和通知认领。同一账本只有一个 Host 写入，同 Host 的多个页面同步，独立 profile 相互隔离。保存失败时暂停通知授权并提供重试；损坏或未知数据保留原件，明确报告激活错误。
+WebUI 使用所选 DSH 版本要求的 Node.js。DeepCanary 支持 Node 22.19 及以上的 22.x 版本，或 Node 24 及以上版本；alpha.3 要求 Node 24.9 及以上版本。桌面版使用应用自带的运行时。
 
 ## 安装
 
-使用本地交付的唯一冻结 tgz，并核对随附 SHA-256。Desktop 通过**插件 → 添加插件**选择该文件，按管理器反馈完成激活或重启。
+当前候选版本为 **0.1.8-rc.3**。使用随附的 `.tgz` 文件，并核对其 SHA-256 校验值。已发布的下载文件见 [GitHub Releases](https://github.com/Oscar-Williams/dsh-deepcanary/releases)。
 
-WebUI 使用所选宿主的 CLI 和明确的 profile：
+### WebUI
+
+先停止 WebUI 服务，再把候选包安装到平时启动 DSH 所用的 profile。以下命令使用标准 `web` profile，候选文件位于当前目录。
 
 ```sh
-dsh plugin --profile web add ./dsh-deepcanary-0.1.8-rc.2.tgz --registry=https://registry.npmjs.org/
+dsh plugin --profile web add ./dsh-deepcanary-0.1.8-rc.3.tgz --registry=https://registry.npmjs.org/
 dsh web
 ```
 
-通过 npm 启动 alpha.3 时显式选择 `@deepseek-ai/dsh@0.2.2-alpha.3`，RC5 选择 `@deepseek-ai/dsh@0.2.1-rc.5`。Desktop profile 由应用管理；使用其管理器，或在应用完全退出后使用应用自带 CLI。
+使用自定义 profile 时，将两条命令中的 `web` 换成它的名称，并沿用原来的 `DSH_HOME`。
 
-更新已有安装时采用管理器支持的更新操作。若要求先移除再添加，保留 home、profile 和状态，仅替换插件包，随后确认实际加载版本，不使用版本豁免。
+尚未安装 DSH 时，先按其[安装说明](https://github.com/deepseek-ai/deepseek-harness#readme)安装。使用预发布渠道时，明确选择本插件支持的宿主版本。
 
-## 通知与隐私
+### Windows 桌面版
 
-通知取决于当前渲染器的公开能力与权限。拒绝权限、没有页面、隐藏窗口和退出应用的覆盖范围各不相同；认领成功或构造成功不代表用户已看见通知，通知送达也不代表任务完成。
+1. 从 DSH 的**应用 → 退出**正常关闭应用。
+2. 在 DSH 安装目录下的 `resources/runtime/cli/bin` 中打开 PowerShell。
+3. 将下方路径替换为候选文件的实际完整路径，然后执行命令。
 
-插件仅保存有界元数据、哈希关联、结构化状态和安全原因码，不保存提示词、答案、工具参数、模型输出或原始失败文本。存储与认证边界见[安全说明](docs/security.md)。
+```powershell
+.\dsh.cmd plugin --profile desktop add "<dsh-deepcanary-0.1.8-rc.3.tgz 的完整路径>" --registry=https://registry.npmjs.org/
+```
 
-[架构](docs/architecture.md) · [交付检查](docs/release-checklist.md) · [更新记录](CHANGELOG.md)
+重新打开 DSH，在**插件**页面确认 DeepCanary 已出现。使用该桌面应用自带的 CLI，确保操作的是它所管理的 profile。
+
+本候选版发布到 npm 后，也可在**插件 → 添加插件**中填写 `dsh-deepcanary@0.1.8-rc.3`。npm 当前可用版本见[包页面](https://www.npmjs.com/package/dsh-deepcanary)。
+
+### 更新或卸载
+
+使用同一命令和 profile 安装新的候选文件。若管理器要求先移除再替换，仅移除插件后重新添加，保留原 home 和 profile，以便继续使用已有提醒和设置。
+
+卸载 WebUI 中的插件时，先停止服务，再执行 `dsh plugin --profile web remove dsh-deepcanary`。桌面版可在**插件**页面卸载，也可退出应用后用 `.\dsh.cmd` 执行对应命令。
+
+## 使用收件箱
+
+点击侧边栏的 **DeepCanary**。
+
+| 分类 | 显示内容 |
+| --- | --- |
+| 待处理 | 正在等待回答或审批的事项，以及需要关注的任务变化 |
+| 稍后 | 已安排在指定时间再次提醒的事项 |
+| 动态 | 普通完成、上下文压缩，以及你主动停止的任务 |
+
+选择一条提醒查看详情。点击**跳转到 DSH**进入对应会话，在 DSH 原生界面中回答问题或处理审批。**已处理**关闭这条提醒，**稍后提醒**为它安排下一次提醒时间。
+
+宽屏下，列表和详情并排显示；窄屏下可在两者之间切换，保留选择和草稿。
+
+拖动标题栏可以移动面板，拖动任一边缘或角落可以调整大小，分栏也可拖动调整。**布局**菜单提供停靠、恢复和重置。默认尺寸为 880×640，面板会适应较小的可视区域，并在当前设备保存布局。
+
+从**布局**菜单进入键盘移动或调整大小后，用方向键调整，按住 Shift 加大步长，Enter 确认，Esc 取消。
+
+## 启用通知
+
+打开收件箱，点击**提醒设置**。在浏览器中允许 DSH 站点发送通知，并在 Windows 中允许 Edge 或 DeepSeek Harness 显示通知。
+
+保留 DSH 网页或桌面应用运行，后台网页和隐藏的桌面窗口也可收到提醒。完全退出 DSH 后，插件随之停止。Windows“勿扰”和浏览器权限会影响系统横幅显示。
+
+C3 表示任务正在等待回答或审批，C2 提示检查异常状态，普通 C1 更新进入动态。静默时段和提醒频率可在设置中调整。
+
+## 数据与隐私
+
+提醒和设置保存在所选 DSH profile 中。连接同一运行中宿主的页面共享收件箱，Web 与 Desktop profile 分别保存提醒状态。
+
+DeepCanary 保存任务标识、提醒状态、稍后安排和通知记录，不保存会话正文、提示词、答案、工具参数或原始失败文本。提醒判定使用本地规则，详见[安全与隐私说明](docs/security.md)。
+
+## 常见问题
+
+| 问题 | 处理方法 |
+| --- | --- |
+| 找不到 DeepCanary | 在当前应用的**插件**页面确认已安装，核对安装时使用的 profile，然后重启 DSH。 |
+| 安装被拒绝 | 对照[兼容性说明](docs/compatibility.md)检查 DSH 版本。 |
+| 没有系统横幅 | 检查浏览器与 Windows 通知权限、“勿扰”、提醒设置，以及 DSH 是否仍在运行。 |
+| 无法返回会话 | 会话可能已删除，或已不在当前宿主可访问的范围中。可先回到收件箱查看提醒。 |
+| 面板尺寸不合适 | 选择**布局 → 重置布局**。 |
+| 保存失败 | 使用收件箱状态区域的重试按钮，报告问题时保留已有状态文件。 |
+
+可通过 [GitHub Issues](https://github.com/Oscar-Williams/dsh-deepcanary/issues)报告可复现的问题，附上 DSH 与 DeepCanary 版本、平台和操作步骤，并移除凭据及私密会话内容。
+
+[文档目录](docs/README.md) · [参与开发](CONTRIBUTING.md) · [截图说明](docs/ui-captures.md) · [MIT 许可证](LICENSE)

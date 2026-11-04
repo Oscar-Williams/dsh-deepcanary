@@ -20,16 +20,10 @@ The implementation must preserve these boundaries:
 ## Commands
 
     npm ci
-    npm run verify:environment
-    npm run typecheck
-    npm run typecheck:tests
-    npm test
+    npm exec -- vitest run test/execution-boundaries.spec.ts
     npm run build
-    npm run verify:distribution
-    npm run verify:release-receipt
-    npm run quality:report
-    npm run benchmark:attention
-    npm pack --dry-run
+
+Select the test affected by the edit. Once the intended changes are complete, run `verify:candidate` against the alpha.3 and RC5 runtime directories, then check distribution and freeze the committed version. Reuse successful unchanged results. `scripts/ci-browser-smoke.mjs` emits the browser flow used by CI and reads the expected version from package.json.
 
 For current device work, use the released runtime and commands in README and docs/development.md. The `/api/dsh-deepcanary/*` routes require Host authentication. Historical alpha scripts remain available for reproducing their original receipts.
 

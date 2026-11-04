@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.8-rc.3 — release preparation
+
+- Rewrite the English and Chinese installation guides with profile-specific WebUI and Desktop commands, first-use steps, notification settings, updates, and troubleshooting.
+- Update compatibility, public-interface, acceptance, and roadmap documents for the implemented 0.1.8 behavior. Replace outdated Desktop notification limitations with the observed running-application scope.
+- Record actual Edge browser zoom at 200% and a real background Web notification, click return, and question closure. Task and reminder behavior is unchanged from rc.2.
+
 ## 0.1.8-rc.2 — local candidate
 
 - Keep an explicit Host `aborted → user` outcome in Activity without an interrupt or resume prompt. Unknown aborts and interruptions remain C2; execution failures carrying an `ABORTED` error code remain failures.

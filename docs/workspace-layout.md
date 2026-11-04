@@ -4,8 +4,8 @@
 
 | Item | Version or identity |
 | --- | --- |
-| Current local candidate | 0.1.8-rc.2; unpublished |
-| Publication channels | unchanged by this local implementation |
+| Current local candidate | 0.1.8-rc.3; publication prepared locally |
+| Publication channels | explicit prerelease tag selected before publication; current registry tags recorded in the release handoff |
 | Development Host | DSH 0.2.2-alpha.3, pinned source 05b1cae8db6e674c5685101494d4eec24652424a |
 | Compatibility Host | DSH 0.2.1-rc.5, pinned source b830ec950faba0a46dda564be3e2d854afed94f1 |
 | Desktop artifacts | alpha.3 unsigned local build; RC5 official signed distribution; actual build commits recorded in device acceptance |

@@ -1,28 +1,34 @@
-# Host compatibility
+# Compatibility
 
-DeepCanary 0.1.8 uses one package for DSH 0.2.2-alpha.3 and 0.2.1-rc.5, on WebUI and Windows Desktop.
+DeepCanary 0.1.8 uses the same package on these hosts.
 
-```json
-"engines": {
-  "node": "^22.19.0 || >=24.0.0",
-  "dsh": "0.2.1-rc.5 || >=0.2.2-alpha.3"
-}
-```
+| DSH version | WebUI | Windows Desktop | WebUI Node.js requirement |
+| --- | --- | --- | --- |
+| 0.2.1-rc.5 | Verified | Official application verified | ^22.19.0 or >=24.0.0 |
+| 0.2.2-alpha.3 | Verified | Fixed source build verified | >=24.9.0 |
 
-The alpha.3 Host requires Node >=24.9.0; RC5 also accepts Node 22.19+. The plugin emits ES2022. Host services are supplied by the Host, without installing a second service graph through plugin peers.
+The alpha.3 Desktop build uses source commit `05b1cae8db6e674c5685101494d4eec24652424a` and is unsigned. The tested official RC5 Desktop reports build commit `d4db512a969fccf0c5cc7ec8fe38e9c1d27af916`. The RC5 source tag is `b830ec950faba0a46dda564be3e2d854afed94f1`.
 
-| Contract | Shared behavior and adapter boundary |
+The package declares `engines.dsh = "0.2.1-rc.5 || >=0.2.2-alpha.3"`. Later releases can install without a whitelist change. A release is added to this verification table after actual use. Older DSH versions fall outside the supported range.
+
+## Interface and notifications
+
+Both hosts provide Pending, Snoozed, Activity, settings, session return, and the same window controls. alpha.3 adds its unified context menu and settings icon. RC5 uses its public session slots and the inbox menu.
+
+Web notifications require permission for the DSH origin and a running page. Desktop notifications require a running application. Minimized and hidden Desktop operation, system notifications, and return to the corresponding reminder have been observed. Fully exiting the application stops its host and renderer.
+
+Actual Edge browser zoom at 200% was checked at a 772×330 CSS viewport, with the panel and its controls inside the visible area. Zoom was restored to 100%. Trusted touch input was exercised through browser emulation. Physical touchscreen hardware and other operating systems have separate coverage.
+
+## Host integration
+
+| Area | Integration |
 | --- | --- |
-| Session events | Public snapshots and sequence watermarks; fork inheritance is excluded from new observations |
-| Projections | Await registration before inspecting its resolved shape; RC5 disposer and alpha.3 asynchronous handle both release on unload |
-| Jobs | Public owner, lifecycle, counts and settlement; subscription depends on both jobs and sessions |
-| Questions | Watermark-checked userQuestions projection, exact call identity and open/continued/settled state |
-| Automation | RC5 Session binding and alpha.3 target-session receipts normalize to schedule occurrence + admitted message + execution boundary |
-| Menus | alpha.3 unified context menu; RC5 public session slots and the Inbox's keyboard/context menu |
-| Settings | Shared revision-aware ConfigForm; alpha.3 settings.section.icon is optional and disposable |
-| Notifications | Public renderer capability only; no private Electron bridge or invented wake API |
-| User cancellation | Both Hosts' explicit aborted/user outcome becomes quiet Activity; abnormal stops retain their inspection alert |
+| Sessions | Public snapshots, lifecycle events, and sequence watermarks |
+| Questions and approvals | Public authoritative state, exact call identity, and independent closure |
+| Jobs and subagents | Native ownership, lifecycle, and settlement |
+| Automation | Schedule occurrence, delivered message, and matching execution boundary |
+| Settings | Revision checks through the host's ConfigForm |
+| Transport | Authenticated Connection Fetch routes |
+| Cleanup | Disposers release registrations, subscriptions, and effects |
 
-The declared range admits later DSH releases without an upper bound or whitelist. A future release is verified only after actual installation and runtime checks. Newly optional services cannot be imported as hard runtime dependencies on RC5.
-
-Current local acceptance is tracked separately from the declaration. A source-built alpha.3 Desktop is an unsigned local build, not evidence for an official signed alpha.3 installer. Immutable older receipts describe their own versions.
+The plugin supplies no second DSH service graph. Optional alpha.3 services are loaded by capability so RC5 can import the package. Developer details are in [Public DSH surfaces](dsh-surface-audit.md).
