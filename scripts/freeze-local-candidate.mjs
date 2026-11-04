@@ -31,4 +31,5 @@ const receipt = { schemaVersion: 2, status: 'frozen-local-unpublished-candidate'
   files: audit.files, treeDigest: audit.treeDigest, scan: { git: gitScan, uniqueContents: scanner.count() },
   publication: 'not-performed', deviceAcceptance: 'pending-four-host-installations' }
 await writeFile(path.join(directory, 'local-candidate.json'), JSON.stringify(receipt, null, 2) + '\n', { flag: 'wx' })
+await writeFile(path.join(directory, 'SHA256SUMS'), `${receipt.sha256}  ${path.basename(artifact)}\n`, { flag: 'wx' })
 console.log(JSON.stringify({ artifact, sha256: receipt.sha256, integrity: receipt.integrity, bytes: bytes.length, status: receipt.status }, null, 2))

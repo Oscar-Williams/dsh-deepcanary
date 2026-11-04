@@ -2,7 +2,7 @@
 
 ## Scope
 
-0.1.8 development uses DSH `0.2.2-alpha.3` (05b1cae8db6e674c5685101494d4eec24652424a) and fully supports `0.2.1-rc.5` (b830ec950faba0a46dda564be3e2d854afed94f1), on WebUI and Windows Desktop. Record actual Desktop build identity separately from the tag. Use `DSH_RUNTIME` for targeted Host contracts and `verify:candidate` for one aggregate verification against both actual installations. Install the same frozen tgz on all four combinations. Publication and remote CI require a later explicit user instruction.
+Development uses DSH `0.2.2-alpha.3` (05b1cae8db6e674c5685101494d4eec24652424a) and supports `0.2.1-rc.5` (b830ec950faba0a46dda564be3e2d854afed94f1), on WebUI and Windows Desktop. Use `DSH_RUNTIME` for targeted host contracts and `verify:candidate` for aggregate verification against both installations. Install the same frozen tgz on all four combinations. Follow the user's publication instructions.
 
 dsh-deepcanary is a standalone DeepSeek Harness external bundle. Keep its DSH package conventions separate from Codex plugin manifests: this repository intentionally does not add .codex-plugin/plugin.json.
 
@@ -14,8 +14,7 @@ The implementation must preserve these boundaries:
 - Background observation reads only public owner/lifecycle/count metadata. Labels, progress text, output and terminal detail remain with DSH. The Job Registry subscription declares both jobs and sessions dependencies.
 - User actions are limited to local metadata and navigation hints. Never add an automatic terminate, restart, approval, rejection, shell, or destructive tool.
 - Scheduled follow-up preserves the existing verdict and evidence. Persist generation-scoped claims before authorizing construction; retain current authority checks, bounded retries and default-mode runtime metadata in the existing Inbox file.
-- Historical receipts retain their exact plugin and Host identities. Current checks use the latest released runtime available for the affected surface.
-- Dogfood task intent is separate from capture provenance. User-facing review coverage counts only unique final delivery units with explicit visible-delivery evidence; review source/basis/confidence and unknown visibility remain explicit and never imply usefulness automatically.
+- Keep test reports, host profiles, credentials, and process records outside Git and the published package.
 
 ## Commands
 
@@ -25,14 +24,12 @@ The implementation must preserve these boundaries:
 
 Select the test affected by the edit. Once the intended changes are complete, run `verify:candidate` against the alpha.3 and RC5 runtime directories, then check distribution and freeze the committed version. Reuse successful unchanged results. `scripts/ci-browser-smoke.mjs` emits the browser flow used by CI and reads the expected version from package.json.
 
-For current device work, use the released runtime and commands in README and docs/development.md. The `/api/dsh-deepcanary/*` routes require Host authentication. Historical alpha scripts remain available for reproducing their original receipts.
+Use the commands in README and docs/development.md. The `/api/dsh-deepcanary/*` routes require host authentication.
 
 The repository tracks the built `lib/` output because DSH installs a public Git tag without running this repository's TypeScript toolchain. Every source change must therefore be followed by `npm run build`, and CI must fail if the committed `lib/` output is stale.
-
-The paused historical WSL2 verification lane uses the isolated Conda environment named `dsh-deepcanary`. Keep its DSH profile home separate from the environment directory when running end-to-end checks.
 
 ## Documentation
 
 Use `docs/workspace-layout.md` for version and artifact identities. Verification consumes a frozen tgz from `output/releases/<version>/` or an explicit path; never repack a published version, silently use a historical profile, or promote an npm-package smoke to source-checkout evidence. Post-release tooling changes on main do not change immutable release bytes.
 
-When behavior changes, keep README.md (English), README.zh-CN.md (Chinese), CHANGELOG.md, docs/architecture.md, docs/compatibility.md, docs/security.md, and docs/release-checklist.md consistent. Separate implemented behavior from planned work. Use the official runtime tag and exact command sequence when describing installation.
+Keep current English and Chinese documents aligned. Run `npm run verify:docs` after editing links or examples. Keep implemented behavior distinct from planned work, and describe installation with the actual package channel and host commands.

@@ -1,36 +1,57 @@
-# Contributing to DeepCanary
+# Contributing
 
-Bug reports, focused patches, and translations are welcome. For a substantial change, open an issue describing the task, the current behavior, and the result you want.
+[简体中文](CONTRIBUTING.zh-CN.md) · [Documentation](docs/README.md)
 
-## Development
+Bug reports, documentation improvements, translations, and focused patches are welcome. For a substantial feature, open an issue describing the task and the behavior you want.
 
-Use Node 24.9 or later and the committed npm lockfile. Develop against DSH 0.2.2-alpha.3 and retain RC5 compatibility.
+## Set up
+
+Use Git, npm, and Node 24.9 or later. DSH alpha.3 is the development host; RC5 remains a supported host.
 
 ```sh
+git clone https://github.com/Oscar-Williams/dsh-deepcanary.git
+cd dsh-deepcanary
 npm ci
-npm exec -- vitest run test/execution-boundaries.spec.ts
+```
+
+Create an isolated DSH home and profile for tests. Keep daily conversations, credentials, and reminder state outside the repository. [Development](docs/development.md) explains how to select actual host runtimes.
+
+## Make and check a change
+
+Run the test that exercises the behavior you changed.
+
+```sh
+npm exec -- vitest run test/settings-migration.spec.ts
 npm run build
 ```
 
-Choose tests for the behavior you change. Commit generated `lib/` with source changes. Before freezing a candidate, use the aggregate checks in the [development guide](docs/development.md).
+The example checks settings migration. Use a regression for a reproduced defect, including recovery when relevant. Commit generated `lib/` with source changes; DSH uses that distribution when installing a Git tag.
+
+Before submitting, run the checks relevant to your change. For changes to host integration or package behavior, follow the aggregate validation in [Development](docs/development.md). Documentation changes need valid links, matching translations, and readable rendering.
 
 ## Design boundaries
 
-- Providers read public DSH facts. The deterministic core decides attention.
+- Providers select public DSH facts; the deterministic core decides attention.
 - C3 requires a current authoritative question or approval.
-- Preserve task ownership, deduplication, budgets, quiet hours, recovery, and bounded state.
-- Persist only permitted metadata. Keep prompts, transcripts, tool arguments, credentials, and raw failure text out of the reminder ledger.
-- Use authenticated Connection Fetch routes and safe DOM rendering.
-- Keep approvals, question answers, process control, and task execution in DSH's native flow.
+- Preserve task ownership, deduplication, quiet hours, budgets, and recovery.
+- Keep prompts, conversation text, tool arguments, credentials, and raw failure text out of the reminder ledger.
+- Use authenticated host routes, revision checks, bounded state, and safe DOM rendering.
+- Keep task execution, approvals, and answers in DSH's native flow.
 
-## Documentation
+See [Architecture](docs/architecture.md) and [Public DSH interfaces](docs/dsh-surface-audit.md) when changing those contracts.
 
-Keep the [English](README.md) and [Chinese](README.zh-CN.md) installation steps aligned. Use the main README for user tasks and developer documentation for implementation details. `README.en.md` remains a link for existing references.
+## Report a bug
 
-Describe visible changes in the changelog. Update compatibility and the public-interface reference when host contracts change. Preserve historical release identities.
+Include the DSH and DeepCanary versions, operating system, reproduction steps, expected behavior, and observed result. Use a small sample with private content removed. Report vulnerabilities through [Security](SECURITY.md).
 
-## Submit a change
+## Submit a pull request
 
-Explain the problem, the resulting behavior, and relevant validation. Include a regression when it exercises an actual failure. Keep private session data, credentials, runtime profiles, and local observation logs out of Git.
+Keep the change focused. Explain the problem, resulting behavior, and checks run. Update the changelog and relevant documentation, including its Chinese counterpart. Screenshots help when a visible interaction changes.
 
-Report suspected security issues without private payloads. The project's data and action boundaries are described in [Security and privacy](docs/security.md).
+Keep private data, credentials, host profiles, and local process logs out of the patch. Follow the existing code style and package lock.
+
+## Documentation and translation
+
+English documents use the base filename; Chinese counterparts use `.zh-CN.md`. Keep language navigation and command examples aligned. Preserve code identifiers, version strings, and CLI option spelling.
+
+User instructions belong in the READMEs. Put implementation details and contributor commands in the documentation directory. The project uses the [MIT license](LICENSE).

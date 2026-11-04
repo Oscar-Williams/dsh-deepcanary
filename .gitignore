@@ -1,4 +1,7 @@
 node_modules/
+output/
+benchmark/*-receipt*.json
+benchmark/*-report.json
 lib-test/
 coverage/
 *.tgz

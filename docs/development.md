@@ -1,45 +1,62 @@
 # Development
 
-Use Node 24.9 or later, npm, and the committed package lock. The development host is DSH 0.2.2-alpha.3. Keep an actual RC5 runtime for compatibility checks.
+[简体中文](development.zh-CN.md) · [Contributing](../CONTRIBUTING.md)
 
-Host runtimes, source checkouts, test homes, and private records belong outside the plugin repository. Keep each test profile separate from daily data.
+Use Node 24.9 or later, npm, and the committed lockfile. The development host is DSH 0.2.2-alpha.3. Retain an actual RC5 installation for compatibility checks.
 
-## Make a change
+## Prepare the source
 
 ```sh
+git clone https://github.com/Oscar-Williams/dsh-deepcanary.git
+cd dsh-deepcanary
 npm ci
-npm exec -- vitest run test/execution-boundaries.spec.ts
+```
+
+Keep host runtimes, test homes, and credentials outside the repository. Use separate profiles for development and daily work.
+
+## Test and build
+
+Choose the test affected by your change.
+
+```sh
+npm exec -- vitest run test/settings-migration.spec.ts
 npm run build
 ```
 
-Choose the test that exercises your change. The example checks execution boundaries. Fix a failure at its source, run the affected regression, then continue implementation.
+The build checks direct dependency versions, compiles TypeScript, and bundles the client as a DSH module factory. Commit generated `lib/` with source changes.
 
-Commit generated `lib/` with source changes. DSH can install the Git tag directly, so the repository includes its distribution.
+## Check both hosts
 
-## Verify the candidate
-
-When the intended changes are complete, run the aggregate entry once with the actual runtime directories.
+Prepare runtime directories that contain `node_modules/@deepseek-ai/dsh`. Pass their actual paths to the aggregate entry.
 
 ```sh
 npm run verify:candidate -- --alpha-runtime /absolute/alpha3-runtime --rc5-runtime /absolute/rc5-runtime
 ```
 
-It checks types, the test suite, the build, policy replay, and contracts against both hosts. Results are cached by input and runtime identity. Run a check again when a relevant change or failure invalidates it.
+It checks application and test types, the test suite, the build, policy replay, and contracts against both hosts. Results are cached by input and runtime identity.
 
-Check user flows in the real host. The [acceptance guide](dual-host-acceptance.md) describes which observations establish installation, behavior, and notification delivery. Reuse existing results for unchanged behavior with their original version identity.
+For one host contract, set `DSH_RUNTIME` to the relevant runtime directory and run the corresponding `:host` script. On PowerShell, for example:
 
-## Freeze the package
-
-After reviewing and committing source, documentation, and `lib/`, run the freezer for the version in `package.json`.
-
-```sh
-node scripts/freeze-local-candidate.mjs 0.1.8-rc.3
+```powershell
+$env:DSH_RUNTIME = "<absolute path to the runtime directory>"
+npm run settings:host
 ```
 
-It creates `output/releases/0.1.8-rc.3/dsh-deepcanary-0.1.8-rc.3.tgz` and `local-candidate.json`. The sidecar records the source commit, validation, public file manifest, and checksums.
+Use the host's CLI or manager to install the built package into an isolated profile. Run real interface checks for changed behavior. [Web and Desktop acceptance](dual-host-acceptance.md) explains the cases.
 
-The freezer checks the package whitelist and scans package contents and new Git blobs. Keep this artifact unchanged. Increment the RC before changing package contents.
+## Prepare a package
 
-Install the frozen file through the intended host's manager or CLI. Use `verify-installed-candidate.mjs` to compare the installation with the frozen manifest. Confirm the loaded plugin version after a cold start.
+Check documentation and distribution after the final changes.
 
-Publication instructions are in the [release checklist](release-checklist.md).
+```sh
+npm run verify:docs
+npm run verify:distribution
+```
+
+Commit reviewed source, documentation, and `lib/`, then freeze the version in `package.json`.
+
+```sh
+node scripts/freeze-local-candidate.mjs 0.1.8-rc.4
+```
+
+The output directory contains one tgz, its file manifest, checksums, and local validation metadata. Keep generated reports outside Git. See the [release guide](release-checklist.md) for publication.

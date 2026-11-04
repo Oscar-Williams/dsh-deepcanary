@@ -1,31 +1,22 @@
 # Documentation
 
+[简体中文](README.zh-CN.md)
+
 ## Install and use
 
-- [English README](../README.md) and [简体中文](../README.zh-CN.md) cover installation, the inbox, notifications, updates, and common problems.
-- [Compatibility](compatibility.md) lists supported DSH versions and actual platform coverage.
-- [Security and privacy](security.md) explains stored data and allowed actions.
-- [Changelog](../CHANGELOG.md) records changes by version.
-- [Screenshot details](ui-captures.md) identify the running UI and sample content.
+- [Getting started](../README.md): installation, the inbox, notifications, updates, and troubleshooting.
+- [Compatibility](compatibility.md): supported hosts and tested platforms.
+- [Security and privacy](security.md): stored data, permissions, and notification behavior.
+- [Changelog](../CHANGELOG.md): changes by version.
 
-## Develop and release
+## Contribute
 
-- [Contributing](../CONTRIBUTING.md) describes contributions and design boundaries.
-- [Development](development.md) covers focused tests, host contracts, and builds.
-- [Architecture](architecture.md) explains task identity, persistence, actions, and delivery.
-- [Public DSH interfaces](dsh-surface-audit.md) maps the host services used by the plugin.
-- [Web and Desktop acceptance](dual-host-acceptance.md) describes real-host observations and their scope.
-- [Versions and workspace layout](workspace-layout.md) locates source, packages, and release records.
-- [Release checklist](release-checklist.md) covers freezing, publication, and artifact identity.
-- [Roadmap](roadmap.md) describes the basis for further work.
-
-## Evaluation records
-
-These documents retain the context of their recorded samples and versions.
-
-- [Evaluation protocol](dogfood-protocol.md)
-- [Feedback and offline calibration](feedback-calibration.md)
-- [Failure taxonomy](failure-taxonomy.md)
-- [Offline evaluation](offline-evaluation.md)
-
-Schemas and historical receipts are in the repository's [benchmark directory](https://github.com/Oscar-Williams/dsh-deepcanary/tree/main/benchmark). Public downloads are listed in [GitHub Releases](https://github.com/Oscar-Williams/dsh-deepcanary/releases) and [npm](https://www.npmjs.com/package/dsh-deepcanary).
+- [Contributing](../CONTRIBUTING.md): setup, bug reports, and pull requests.
+- [Development](development.md): focused tests, builds, and host contracts.
+- [Architecture](architecture.md): task identity, persistence, actions, and delivery.
+- [Public DSH interfaces](dsh-surface-audit.md): host services used by the plugin.
+- [Web and Desktop testing](dual-host-acceptance.md): checks for changes that need a real host.
+- [Source and workspace layout](workspace-layout.md): source, runtimes, and generated artifacts.
+- [Release guide](release-checklist.md): freezing a package and publishing it.
+- [Roadmap](roadmap.md): delivered features and further work.
+- [Screenshot details](ui-captures.md): the interface and samples shown in the READMEs.

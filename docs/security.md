@@ -1,17 +1,37 @@
-# Security and privacy
+# Data and privacy
 
-User-cancellation classification reads only the two public outcome enums. It does not inspect cancellation explanations, tool errors or command text.
+[简体中文](security.zh-CN.md) · [Security policy](../SECURITY.md) · [Documentation](README.md)
 
-DeepCanary performs local reminder metadata changes and public navigation. It does not approve, reject, restart, terminate, execute a shell command, or answer a question on the user's behalf.
+## Stored data
 
-All /api/dsh-deepcanary routes use the Host's authenticated connection.fetch registry. There is no unauthenticated WebServer fallback. Request bodies are bounded; protocol 3 requires action identity and revision checks. Claims and callbacks are fenced by notification generation.
+DeepCanary stores reminder metadata in the selected DSH profile. It includes identifiers needed to return to sessions, hashed joins, reason codes, task and reminder states, snooze times, budgets, and bounded delivery records.
 
-Persistent state contains opaque Session identities needed for navigation, hashed joins, reason codes, structured task and reminder states, budgets and bounded delivery records. Local profile paths and credentials stay outside the package and repository.
+Session titles are resolved from the running host for display. Conversation text, prompts, answers, tool arguments, model output, credentials, and raw failure text are excluded from the reminder ledger. Tool failures contribute a tool name, a safe error category, or an exit code.
 
-Tool failure collection reads only public tool identity and structured outcome metadata. It does not copy, truncate or hash error.message, raw tool output, command arguments, prompts, answers, model output or trajectory text. This includes alpha.3's preserved raw failed-tool results.
+Treat profile data as private. Metadata and identifiers can describe work even without conversation text.
 
-A save must succeed before notification construction is authorized. A failed save exposes an error and pauses authorization until retry succeeds. Corrupt or unknown metadata remains intact; migration logic is repaired for valid historical structures rather than discarding them.
+## Local decisions and actions
 
-The package uses a public file whitelist. The freeze command scans package contents and new Git blobs, records file hashes and one immutable tgz. Device installation checks consume that manifest. Browser authentication URLs and automation tokens remain in process memory and never enter public documentation, screenshots or package files.
+Reminder decisions use deterministic local rules. A current authoritative question or approval is required for C3. Explicit user cancellation uses the public outcome enums.
 
-Notification text uses localized safe summaries. OS/renderer delivery and visibility have explicit evidence levels; a constructor return value is not a visibility guarantee.
+Plugin actions acknowledge, snooze, mute, or annotate reminders and navigate to DSH. Task execution, question answers, and approval decisions use DSH's native flow.
+
+## Authentication and concurrency
+
+Routes under `/api/dsh-deepcanary/` use DSH's authenticated Connection Fetch registry. Write bodies are bounded. Protocol 3 checks request identity, revision, and execution generation; notification callbacks also carry their notification generation.
+
+One host owns each ledger. Pages connected to that host share state. Different profiles keep separate ledgers.
+
+## Persistence and migration
+
+The store writes schema 2 atomically and preserves schedules, budgets, and delivery claims. Existing valid data is migrated. Invalid or unsupported data is retained and reported as an activation error.
+
+A notification claim must be saved before construction is authorized. Failed saves pause authorization and expose a retry.
+
+## Notifications
+
+Notification bodies use localized summaries. Windows and browser permissions control where they are displayed. A banner can be visible outside the DSH window, including on a lock screen if system settings allow it.
+
+Construction, delivery, visibility, and click are recorded separately. Notification delivery never finishes the underlying task.
+
+To report a vulnerability, use the private channel in [Security](../SECURITY.md). Ordinary reports should include only the minimum information needed to reproduce the problem.

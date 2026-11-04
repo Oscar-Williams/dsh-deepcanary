@@ -1,39 +1,37 @@
-# Web and Desktop acceptance
+# Web and Desktop testing
 
-DeepCanary 0.1.8 supports DSH 0.2.1-rc.5 and 0.2.2-alpha.3 with one package and interface. Test profiles have separate state and share no daily credentials or reminder files.
+[简体中文](dual-host-acceptance.zh-CN.md) · [Development](development.md)
 
-## What to verify
+Use an isolated home for each DSH version and separate Web/Desktop profiles. Keep daily data outside test profiles. Install the same frozen tgz in all four combinations: alpha.3 and RC5, each on WebUI and Windows Desktop.
 
-| Observation | What it establishes |
+## Installation and startup
+
+Confirm that the host accepts the package, the plugin activates after a cold start, and its displayed version matches the package. For Desktop, identify whether the application is official or built from pinned source. Test an upgrade with existing reminder state when persistence or migration changes.
+
+If an official alpha.3 Desktop package is unavailable, build `apps/desktop` from its pinned source and test that application. Describe the result as a local unsigned build.
+
+## Choose checks for the change
+
+| Changed area | Cases to exercise |
 | --- | --- |
-| Installation through the host CLI or manager | The host accepts the package and resolves its dependencies |
-| Comparison with the frozen manifest | Installed files match the candidate |
-| Cold start and loaded plugin version | The running host loaded that candidate |
-| Native question or approval | Authoritative C3 classification and closure |
-| Automation run in a reused session | The new occurrence uses its own trigger and execution boundary |
-| Browser or Desktop interaction | Layout, input, focus, and navigation behavior |
-| Native notification show and click | Delivery and activation of that notification |
+| Human requests | Question, timeout, late answer, approval, and independent closure |
+| Task ownership | Root task, child task, Job, fork, and automation reusing a session |
+| Persistence | Existing state migration, restart, failed write, and recovery |
+| Concurrent actions | Two pages, stale revision, repeated action, and retained draft |
+| Notifications | Foreground, background, minimized/hidden Desktop, click, and stale target |
+| Interface | Light/dark themes, narrow layout, keyboard, drag, resize, and zoom |
+| Authentication | Authenticated requests succeed and unauthenticated requests are refused |
 
-Use one frozen file on alpha.3/RC5 × Web/Desktop. For a package containing only documentation and a version change, confirm installation and loading; reuse unchanged behavior from the preceding candidate and identify that evidence explicitly.
+Resolve defects in the affected behavior and rerun those cases. Reuse successful results when their inputs have not changed. For a documentation or version update, confirm installation and loaded identity without repeating the full interaction matrix.
 
-## Observed 0.1.8 behavior
+## Notification lifecycle
 
-The four host combinations have installed and loaded the frozen rc.2 package. Native questions, late replies, approvals, cancellation, and automation have targeted real-host results. Explicit user cancellation stays in Activity and produces no interruption.
+Keep the host and a renderer running. Test a real system banner and its click separately from internal delivery events. A click must select the current reminder and correct session. Removed targets must leave the user in the inbox with a useful message.
 
-Both Windows Desktop builds have notification observations. The operator confirmed visible system banners and return to the corresponding reminder. The alpha.3 build is unsigned and comes from fixed source; RC5 uses the official application.
+Minimizing or hiding a Desktop window can leave the application running. Fully quitting it stops the plugin. Browser and Windows permissions, Do Not Disturb, quiet hours, and reminder budgets affect delivery.
 
-A real daily Web question produced a native notification while the DSH page was hidden. Native show and click events were recorded, the correct session was selected, and the answered question closed. The operator confirmed notification and return behavior.
+## Keep test data local
 
-Actual Edge browser zoom at 200% reduced the CSS viewport from 1544×661 to 772×330. The panel and visible controls stayed inside it. The browser was restored to 100%. Other layout, theme, keyboard, touch-emulation, migration, and controlled-load results retain their recorded candidate identity.
+Store host identities, package hash, outcomes, screenshots, and diagnostic logs outside Git. Remove private conversation content and authentication data before sharing a bug report.
 
-## Lifecycle boundaries
-
-Keep the host and a renderer running for notifications. Browser permission, Windows notification settings, quiet hours, and delivery policy affect system banners. Closing a Desktop window can hide it while the application continues running. Fully quitting the application stops the plugin.
-
-A notification click opens its current reminder and session when available. A removed or stale target returns to the inbox with an explanatory message. A notification never finishes the native task.
-
-## Record and reuse results
-
-Record the package version, hash, host build, profile, observation time, and actual outcome. Keep controlled samples distinguishable from natural use.
-
-Run a failed or affected case again after fixing its cause. Reuse successful results for unchanged code. Physical touch hardware, other operating systems, and untested future hosts remain outside the observed coverage.
+Controlled fixtures, emulated touch, and checks on one operating system have their own scope. Describe untested platforms and future host releases accurately.

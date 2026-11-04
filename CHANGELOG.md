@@ -1,5 +1,14 @@
 # Changelog
 
+[简体中文](CHANGELOG.zh-CN.md)
+
+## 0.1.8-rc.4 — 2026-11-04
+
+- Publish the 0.1.8 interface and reliability improvements as a GitHub prerelease, with one package for RC5 and alpha.3 on WebUI and Windows Desktop.
+- Rewrite the current English and Chinese user and contributor documentation. Add a security policy, privacy guidance, clear release installation commands, and project acknowledgments.
+- Update `js-yaml` to 4.3.2 to fix denial-of-service vulnerabilities affecting legacy YAML parsing.
+- Keep local acceptance records and evaluation reports outside public documentation and package contents. Preserve regression fixtures in the source repository.
+
 ## 0.1.8-rc.3 — release preparation
 
 - Rewrite the English and Chinese installation guides with profile-specific WebUI and Desktop commands, first-use steps, notification settings, updates, and troubleshooting.

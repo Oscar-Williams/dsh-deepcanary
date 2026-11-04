@@ -1,31 +1,44 @@
 # Architecture
 
-The existing deterministic chain remains: public Host facts → CanarySignal → judgeSignal → delivery policy → Inbox metadata. Providers select facts; the core decides attention; the client renders state and requests local actions.
+[简体中文](architecture.zh-CN.md) · [Documentation](README.md)
 
-## Identity and lifecycle
+Public DSH facts flow through providers, deterministic rules, delivery policy, and the inbox. Providers select facts; the core decides attention; the client displays state and requests reminder actions.
 
-A task has a taskRef and executionGeneration. Native subagent parentage and job ownership form groups; ordinary forks retain separate identity. Human interactions have independent humanActionRef values. A decision for one approval cannot close another.
+## Task identity
 
-Session sequence watermarks fence duplicate and old callbacks. Execution identity uses the source turn boundary rather than observation time. Seeded-fork inherited history cannot create fresh reminders.
+A task has a `taskRef` and an `executionGeneration`. Native subagent parentage and job ownership form task groups. Forks retain separate identity. Each human interaction has its own `humanActionRef`, so handling one approval cannot close another.
 
-An automation receipt identifies a schedule occurrence, target Session and delivered message. A matching admitted user message establishes its trigger watermark and turn. Only that execution can settle the run. Delivered, running, completed, failed, aborted and unknown remain distinct.
+Sequence watermarks separate executions and reject old callbacks. Inherited fork history cannot produce a new reminder.
 
-Timed questions use the Host's userQuestions projection. Open is blocking C3; continued is C1; an accepted answer closes that call. Enqueued input does not count as accepted execution. Host task state, reminder handling and delivery state remain separate.
+Automation runs use the schedule occurrence, target session, delivered message, and admitted turn. A matching execution can settle that occurrence. Delivery, running, completion, failure, cancellation, and unknown state are distinct.
 
-An explicit `turn/end` outcome with `reason.kind = aborted` and nested `reason.kind = user` is quiet C1 Activity. Unknown aborts remain C2. An error code named ABORTED does not establish user cancellation.
+## Attention
+
+| Level | Basis |
+| --- | --- |
+| C3 | A current authoritative question or approval blocks progress |
+| C2 | An observed failure or abnormal state needs inspection |
+| C1 | An informational update is available |
+| C0 | Healthy work needs no attention |
+
+Timed questions use DSH's question projection. A blocking question is C3; after a foreground timeout it becomes a continued C1 item. An accepted answer closes its exact call. Queued input alone does not establish an accepted execution.
+
+The explicit `turn/end` outcome `aborted → user` enters Activity quietly. Unknown aborts retain C2. An `ABORTED` error code alone does not establish user cancellation.
 
 ## Persistence and actions
 
-MetadataStore writes schema 2 atomically and migrates schema 1 without replacing the reminder state machine. It preserves schedules, notification generations, dedupe, budgets and claims. Invalid JSON or unsupported data remains untouched and prevents silent activation with an empty ledger.
+The metadata store writes schema 2 atomically and migrates schema 1. It preserves schedules, notification generations, deduplication, budgets, and claims. Invalid or unsupported data is retained and reported.
 
-State is scoped to profile and plugin instance. A lifetime writer claim prevents concurrent Hosts from writing the same ledger. Save bursts coalesce; callers waiting for a durable notification authorization receive the actual save result. Save failure is visible and withholds authorization.
+State belongs to a profile and plugin instance. One lifetime writer owns the ledger. Save bursts coalesce, and notification authorization waits for the actual durable save result.
 
-Protocol 3 actions carry an idempotency request ID, expected revision and item execution generation. Repeating the same action returns its receipt; stale state returns 409. The client refreshes while preserving drafts. Notification callbacks additionally carry notificationGeneration.
+Protocol 3 actions carry a request ID, expected revision, and execution generation. A repeated action returns its receipt. Stale state returns HTTP 409 and the client refreshes while preserving drafts. Notification callbacks additionally check `notificationGeneration`.
 
-The Inbox retains at most 500 items, favoring human requests and explicit schedules. If protected items fill the limit, it preserves them, records unread source watermarks and reports incomplete coverage. Authoritative reconciliation resumes when capacity is available. Background watches and automation history are each bounded at 256.
+The inbox retains up to 500 items, prioritizing human requests and explicit schedules. When protected items fill that capacity, unread source watermarks are retained and incomplete coverage is reported. Background watches and automation history are each bounded at 256.
 
-## Client
+## Client and delivery
 
-Pending, Snoozed and Activity share the same Host snapshot. A wide panel separates list and detail; narrow layout preserves the selected item and draft. Device-local geometry uses pointer capture, viewport bounds, keyboard editing and cancellation. Host menus and settings contributions are released with their owner.
+Pending, Snoozed, and Activity use the same host snapshot. The panel supports list/detail layouts, pointer capture, viewport bounds, keyboard editing, and cancellation. Layout is stored on the device.
 
-A notification requires a persisted generation-scoped claim and budget before construction. Construction, delivery evidence, visibility and click are separate observations. None changes native task completion.
+A notification needs a persisted generation claim and budget before construction. Construction, delivery, visibility, and click are separate observations. Native task completion remains owned by DSH.
+
+Host menus, settings contributions, subscriptions, and effects are released with their owner. [Public DSH interfaces](dsh-surface-audit.md) describes the integration points.

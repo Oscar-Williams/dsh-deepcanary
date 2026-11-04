@@ -1,39 +1,32 @@
-# Versions and workspace layout
+# Repository layout
 
-## Current identities
+[简体中文](workspace-layout.zh-CN.md) · [Development](development.md)
 
-| Item | Version or identity |
+## Source and distribution
+
+| Directory | Contents |
 | --- | --- |
-| Current local candidate | 0.1.8-rc.3; publication prepared locally |
-| Publication channels | explicit prerelease tag selected before publication; current registry tags recorded in the release handoff |
-| Development Host | DSH 0.2.2-alpha.3, pinned source 05b1cae8db6e674c5685101494d4eec24652424a |
-| Compatibility Host | DSH 0.2.1-rc.5, pinned source b830ec950faba0a46dda564be3e2d854afed94f1 |
-| Desktop artifacts | alpha.3 unsigned local build; RC5 official signed distribution; actual build commits recorded in device acceptance |
-| Development Cordis / Schemastery | 4.0.6-alpha.2 / 3.18.6-alpha.2 |
-| Plugin package manager | npm with `package-lock.json` |
-| Host package manager | released runtime's own package manager; existing source checkouts retain their pins |
-| CI Node lanes | 22.19.0 and 24.19.0 |
+| `src/` | Plugin service, providers, policy, persistence, and client source |
+| `test/` | Regressions and controlled fixtures |
+| `scripts/` | Build, host contract, package, and maintenance commands |
+| `lib/` | Generated distribution committed with source changes |
+| `assets/` | Public interface screenshots |
+| `docs/` | User and contributor documentation |
+| `benchmark/` | Regression inputs and schemas used by development tools |
+| `output/` | Ignored build output, candidate packages, and local reports |
 
-`npm run verify:environment` checks installed direct dependencies against the lockfile before a build. Profiles resolve shared Host services from the Host installation, preserving one Cordis instance; use actual service loading to assess profile integration.
+Keep DSH installations, source checkouts, profiles, and credentials outside this repository. Each test profile has its own state. Use existing project instructions when choosing a local test directory.
 
-## Repository roles
+## Versions
 
-```text
-src/, test/, scripts/       implementation and generic maintenance tools
-lib/                       committed generated distribution
-assets/, docs/             public screenshots and documentation
-benchmark/                 schemas, sanitized regression fixtures, historical receipts
-output/releases/<version>/ immutable local tgz and sidecar
-output/dogfood/, replay/    local sanitized analysis
-output/archive/            retained historical candidates
-```
+The development host is DSH 0.2.2-alpha.3; RC5 is the compatibility host. The source pins and actual Desktop build identities are listed in [Compatibility](compatibility.md).
 
-Runtime checkouts and test homes belong outside the maintained plugin repository. Homes retain separate profiles, state, sessions and credentials. Active and historical evidence-bound homes preserve their identity. Private design notes, local cleanup lists and machine-specific tools remain local and outside Git/npm.
+npm and `package-lock.json` manage this repository. Host profiles use the package manager supplied by that host. Host services resolve from its own installation.
 
-## Artifact rules
+## Packages
 
-Freeze after committing source and `lib`, with a clean tracked snapshot. The freezer hashes tracked source inputs and binds the actual commit. Verification selects an explicit artifact or `output/releases/<version>/`; published versions are never repacked.
+Freeze the reviewed commit with synchronized `lib/`. Output goes to `output/releases/<version>/`. The local manifest binds the source commit, package contents, and checksums.
 
-Installation comparison checks package bytes. Runtime validation additionally checks the active module/server/client after restart. Reports distinguish natural/controlled/replay/unknown data and installation/runtime/OS observation scope.
+A package file comparison establishes installed contents. A cold start establishes which version was loaded. Use the real application to verify changed behavior.
 
-Historical receipts retain their Host pins. Current README commands pin the release candidate explicitly. `DSH_RUNTIME` selects the actual released installation for development contracts.
+Generated receipts, local paths, authentication links, and private samples stay in local output. Release assets contain the distributable package and its checksum.

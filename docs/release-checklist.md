@@ -1,42 +1,41 @@
-# Preparing a release
+# Release guide
 
-A candidate has one source commit and one frozen package. Record its version, checksum, validation, and installation results before publication.
+[简体中文](release-checklist.zh-CN.md) · [Development](development.md)
 
-## Finish local preparation
+Each release has one reviewed source commit and one frozen package.
 
-1. Complete the intended behavior and fix defects that affect it. Preserve valid historical state during migration.
-2. Run `verify:candidate` for the final inputs. Run additional checks only for changed behavior, a failed result, or an uncovered risk.
-3. Update the English and Chinese READMEs, compatibility, changelog, and screenshots. Keep installation commands consistent with the actual host CLI.
-4. Review the intended Git changes and commit source, documentation, and generated `lib/`.
-5. Run `node scripts/freeze-local-candidate.mjs <version>` once. Keep the resulting `.tgz` and `local-candidate.json`.
-6. Install that file in the target profiles and confirm the loaded version after restart. Record behavior covered by earlier candidates with those candidates' identities.
-7. Back up daily configuration and state before upgrading daily profiles. Confirm sessions and workspace registrations remain available.
+## Prepare
 
-The current host matrix is alpha.3 and RC5, each on WebUI and Windows Desktop. Use the official RC5 Desktop and the fixed source alpha.3 build. Record the latter as unsigned.
+1. Complete the intended changes and fix failures that affect them.
+2. Align the English and Chinese instructions, version identifiers, compatibility, and changelog.
+3. Run affected tests and the final candidate checks. Reuse valid results for unchanged inputs.
+4. Check documentation rendering, links, package contents, runtime dependencies, and pending Git changes for private material.
+5. Commit source, documentation, and generated `lib/`.
+6. Run `node scripts/freeze-local-candidate.mjs <version>`. Keep the tgz and manifest unchanged.
+7. Install the package on the supported hosts and confirm the loaded version after restart.
 
-A documentation or version change requires a new RC and package checks. It does not require replaying unchanged UI interactions or generating another load sample.
+Use the same file on alpha.3/RC5 × Web/Desktop. Identify the fixed source alpha.3 Desktop build as unsigned. For documentation changes, confirm package installation and loading while reusing earlier behavior checks with their original identities.
 
-## Choose the publication channel
+## Publish to GitHub
 
-Publish a prerelease with an explicit npm tag such as `next`. Review the current registry tags before changing them. Moving `latest` requires an explicit release decision.
+Push the reviewed commit and wait for its required CI jobs. Correct failures before creating the version tag.
 
-Keep a short release note that explains visible changes, supported hosts, installation, and any coverage limits. Attach the frozen package and its SHA-256 file to the GitHub prerelease.
+Create the tag at that commit. Prepare a GitHub release draft with concise English and Chinese notes, the frozen tgz, and its checksum file. Mark an RC version as a prerelease. Verify the uploaded asset before making the release public.
 
-## Publish after authorization
+Keep process logs, device records, authentication data, and local reports outside Git and release assets. Publish the plugin package, its checksum, and user documentation.
 
-Use the reviewed commit and the existing package. The following is the order for an authorized release.
+## Publish to npm
 
-1. Confirm the intended remote branch and commit, then push it.
-2. Wait for the required remote CI jobs. Fix failures before proceeding.
-3. Create the version tag at the reviewed commit and a GitHub prerelease with the prepared notes and files.
-4. Publish the frozen `.tgz` to npm with the selected tag.
-5. Download the registry tarball once and compare its SHA-256 with the frozen package. Confirm the GitHub asset has the same checksum.
-6. Record the published URLs, tag, source commit, package integrity, and CI result.
+Choose the intended npm tags explicitly. Authenticate with an account that has package publication permission.
 
-`npm publish <frozen-file.tgz> --tag next --access public` publishes the existing file. Running `npm publish` from the source directory would create another archive.
+```sh
+npm publish <frozen-file.tgz> --tag next --access public
+```
 
-Publication credentials remain in the user's normal authentication flow. If npm requests an OTP or another authentication step, complete it through that flow.
+Download the registry tarball into a separate directory and compare its SHA-256 and integrity with the frozen file. Update `latest` only when that channel is part of the release decision.
 
-## Preserve the release
+GitHub and npm can be published separately. Read the actual channel state before resuming an interrupted publication.
 
-Keep earlier candidate bytes and receipts. A published version is immutable. Fixes use a new version, and their records describe the checks they actually passed.
+## Preserve versions
+
+A published version is immutable. Changes to package contents use a new version. Keep earlier package bytes locally and identify the checks that apply to each release.

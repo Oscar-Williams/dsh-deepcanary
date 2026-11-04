@@ -1,6 +1,6 @@
 {
   "name": "dsh-deepcanary",
-  "version": "0.1.8-rc.3",
+  "version": "0.1.8-rc.4",
   "description": "Know when your DeepSeek Harness tasks need you. Local alerts, quiet notifications, and a task inbox.",
   "type": "module",
   "repository": {
@@ -29,27 +29,35 @@
     "README.en.md",
     "README.zh-CN.md",
     "CONTRIBUTING.md",
+    "CONTRIBUTING.zh-CN.md",
+    "SECURITY.md",
+    "SECURITY.zh-CN.md",
     "CHANGELOG.md",
-    "docs",
+    "CHANGELOG.zh-CN.md",
+    "docs/README.md",
+    "docs/README.zh-CN.md",
+    "docs/architecture.md",
+    "docs/architecture.zh-CN.md",
+    "docs/compatibility.md",
+    "docs/compatibility.zh-CN.md",
+    "docs/development.md",
+    "docs/development.zh-CN.md",
+    "docs/dsh-surface-audit.md",
+    "docs/dsh-surface-audit.zh-CN.md",
+    "docs/dual-host-acceptance.md",
+    "docs/dual-host-acceptance.zh-CN.md",
+    "docs/release-checklist.md",
+    "docs/release-checklist.zh-CN.md",
+    "docs/roadmap.md",
+    "docs/roadmap.zh-CN.md",
+    "docs/security.md",
+    "docs/security.zh-CN.md",
+    "docs/ui-captures.md",
+    "docs/ui-captures.zh-CN.md",
+    "docs/workspace-layout.md",
+    "docs/workspace-layout.zh-CN.md",
     "assets",
     "screenshots.json",
-    "benchmark/attention-gold.json",
-    "benchmark/attention-gold-v3.json",
-    "benchmark/attention-gold-v4.json",
-    "benchmark/attention-quality-report.schema.json",
-    "benchmark/outcome-receipt.schema.json",
-    "benchmark/outcome-report.schema.json",
-    "benchmark/dogfood.schema.json",
-    "benchmark/dogfood-aggregate.schema.json",
-    "benchmark/notification-evidence.schema.json",
-    "benchmark/supervisor-smoke-report.schema.json",
-    "benchmark/supervisor-soak-report.schema.json",
-    "benchmark/u7-real-soak-report.schema.json",
-    "benchmark/attention-candidate-promotion.schema.json",
-    "benchmark/policy-replay.schema.json",
-    "benchmark/policy-replay-report.schema.json",
-    "benchmark/stable-gates-report.schema.json",
-    "benchmark/policy-replay.json",
     "LICENSE"
   ],
   "keywords": [
@@ -59,7 +67,8 @@
     "dsh-plugin",
     "attention-management",
     "agent-observability",
-    "human-in-the-loop"
+    "human-in-the-loop",
+    "ai-agent"
   ],
   "dsh": {
     "bundle": {
@@ -92,7 +101,6 @@
     "verify:environment": "node ./scripts/verify-environment.mjs",
     "verify:artifact": "node ./scripts/release-artifact.mjs",
     "verify:distribution": "node ./scripts/verify-distribution.mjs",
-    "verify:release-receipt": "node ./scripts/verify-release-receipt.mjs",
     "quality:report": "npm run build && node ./scripts/generate-attention-quality-report.mjs",
     "benchmark:attention": "npm run build && node ./scripts/benchmark-attention.mjs",
     "outcomes:report": "npm run build && node ./scripts/generate-outcome-report.mjs",
@@ -117,11 +125,12 @@
     "reminders:host": "node ./scripts/reminders-contract.mjs",
     "settings:host": "node ./scripts/settings-contract.mjs",
     "connection:host": "node ./scripts/connection-contract.mjs",
-    "verify:candidate": "node ./scripts/verify-candidate.mjs"
+    "verify:candidate": "node ./scripts/verify-candidate.mjs",
+    "verify:docs": "node ./scripts/verify-docs.mjs"
   },
   "dependencies": {
     "@deepseek-ai/schemastery": "3.18.6-alpha.2",
-    "js-yaml": "4.1.1"
+    "js-yaml": "4.3.2"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "4.0.6-alpha.2",
@@ -155,5 +164,6 @@
   "publishConfig": {
     "access": "public"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "author": "Oscar Williams"
 }

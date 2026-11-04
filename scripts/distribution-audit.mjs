@@ -37,7 +37,7 @@ export function auditPackage(bytes, expected, scanner) {
   for (const [name, content] of entries) {
     if (!['package.json', ...pkg.files].some(allowed => name === allowed || name.startsWith(allowed + '/'))) throw new Error(`Candidate file outside whitelist: ${name}`)
     if (/^(?:src|test|tests|node_modules|output|scripts|\.git|设计思路)/i.test(name) || /(?:\.credentials|\.env(?:\.|$)|workspace-policy|\bprivate\b|设计指南|(?:^|\/)AGENTS\.md)/i.test(name)) throw new Error(`Private or development file entered candidate: ${name}`)
-    if (/^benchmark\/.*-receipt\.json$/.test(name)) throw new Error(`Historical receipt entered candidate: ${name}`)
+    if (name.startsWith('benchmark/')) throw new Error(`Development data entered candidate: ${name}`)
     files.push({ path: name, bytes: content.length, sha256: scanner.scan('npm:' + name, content) })
   }
   const client = entries.get('lib/client.js').toString('utf8')
